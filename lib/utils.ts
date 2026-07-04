@@ -1,0 +1,96 @@
+import { RACE_DATE, type Discipline, type MuscleGroup, type Recommendation, type StrengthSession } from "./types";
+
+// ---- dates -----------------------------------------------------------------
+
+/** Parse a YYYY-MM-DD string as a *local* date (no timezone drift). */
+export function parseDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+export function toISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function daysUntilRace(from = new Date()): number {
+  const race = parseDate(RACE_DATE);
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  return Math.round((race.getTime() - start.getTime()) / 86_400_000);
+}
+
+export function weeksAndDaysUntilRace(from = new Date()): { weeks: number; days: number; total: number } {
+  const total = Math.max(0, daysUntilRace(from));
+  return { weeks: Math.floor(total / 7), days: total % 7, total };
+}
+
+/** Monday-anchored start of the week containing `d`. */
+export function startOfWeek(d: Date): Date {
+  const day = d.getDay(); // 0 = Sun
+  const diff = (day + 6) % 7; // days since Monday
+  const s = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff);
+  return s;
+}
+
+export function addDays(d: Date, n: number): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+}
+
+const WD = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+export function weekdayShort(d: Date): string {
+  return WD[(d.getDay() + 6) % 7];
+}
+
+const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+export function fmtDayMonth(iso: string): string {
+  const d = parseDate(iso);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+export function fmtDuration(min: number | null | undefined): string {
+  if (!min) return "—";
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h ? `${h}h${m ? String(m).padStart(2, "0") : ""}` : `${m}min`;
+}
+
+// ---- discipline metadata ---------------------------------------------------
+
+export const DISCIPLINE_META: Record<Discipline, { label: string; color: string; icon: string }> = {
+  swim: { label: "Natação", color: "var(--swim)", icon: "swim" },
+  bike: { label: "Bike", color: "var(--bike)", icon: "bike" },
+  run: { label: "Corrida", color: "var(--run)", icon: "run" },
+  strength: { label: "Força", color: "var(--strength)", icon: "strength" },
+  rest: { label: "Descanso", color: "var(--rest)", icon: "rest" },
+};
+
+export const READINESS_META: Record<Recommendation, { label: string; color: string; hint: string }> = {
+  green: { label: "Pronto", color: "var(--good)", hint: "Siga o plano" },
+  yellow: { label: "Atenção", color: "var(--warn)", hint: "Ajuste a intensidade" },
+  red: { label: "Recupere", color: "var(--bad)", hint: "Priorize recuperação" },
+};
+
+// ---- aggregations ----------------------------------------------------------
+
+/** Count muscle-group appearances across strength sessions in the last `days`. */
+export function muscleUsage(sessions: StrengthSession[], days = 7, from = new Date()): Record<string, number> {
+  const cutoff = addDays(new Date(from.getFullYear(), from.getMonth(), from.getDate()), -days + 1);
+  const counts: Record<string, number> = {};
+  for (const s of sessions) {
+    if (parseDate(s.date) < cutoff) continue;
+    for (const g of s.muscle_groups) counts[g] = (counts[g] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/** Map a usage count to a 0..1 intensity given the max in the set. */
+export function usageIntensity(count: number, max: number): number {
+  if (max <= 0) return 0;
+  return Math.min(1, count / max);
+}
+
+export type Muscle = MuscleGroup;
+
+export function avg(nums: number[]): number {
+  if (!nums.length) return 0;
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
+}

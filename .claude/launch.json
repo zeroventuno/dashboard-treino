@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ironman-dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "C:\\Users\\malib\\OneDrive\\Documents\\Projetos\\dashboard triathlon\\ironman-dashboard",
+      "port": 3000
+    }
+  ]
+}
