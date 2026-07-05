@@ -209,6 +209,13 @@ function buildCheckins(): Checkin[] {
   return out;
 }
 
+const bodyComposition = [
+  { date: "2026-05-18", weight_kg: 63.9, muscle_mass_kg: 32.6, body_fat_pct: 15.6, lean_mass_kg: 53.9, visceral_fat: 6, metabolic_age: 28, notes: null },
+  { date: "2026-06-01", weight_kg: 63.4, muscle_mass_kg: 32.9, body_fat_pct: 15.0, lean_mass_kg: 53.9, visceral_fat: 6, metabolic_age: 27, notes: null },
+  { date: "2026-06-15", weight_kg: 63.1, muscle_mass_kg: 33.2, body_fat_pct: 14.4, lean_mass_kg: 54.1, visceral_fat: 5, metabolic_age: 27, notes: null },
+  { date: "2026-06-30", weight_kg: 62.9, muscle_mass_kg: 33.5, body_fat_pct: 13.9, lean_mass_kg: 54.2, visceral_fat: 5, metabolic_age: 26, notes: null },
+];
+
 const injuries: InjuryEntry[] = [
   { id: "i1", date: "2026-06-30", area: "left_knee", severity: 2, notes: "Leve desconforto patelar após bike longa. Alongamento + fortalecimento VMO." },
   { id: "i2", date: "2026-06-22", area: "right_calf", severity: 1, notes: "Rigidez na panturrilha, melhorou com liberação miofascial." },
@@ -225,5 +232,6 @@ export function getMockData(): DashboardData {
     strength: buildStrength(),
     checkins: buildCheckins(),
     injuries,
+    bodyComposition,
   };
 }

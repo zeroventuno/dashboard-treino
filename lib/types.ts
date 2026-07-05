@@ -90,6 +90,17 @@ export interface InjuryEntry {
   notes: string | null;
 }
 
+export interface BodyComposition {
+  date: string;
+  weight_kg: number | null;
+  muscle_mass_kg: number | null;
+  body_fat_pct: number | null;
+  lean_mass_kg: number | null;
+  visceral_fat: number | null;
+  metabolic_age: number | null;
+  notes: string | null;
+}
+
 export interface DashboardData {
   trainingLoad: TrainingLoad[];
   workouts: Workout[];
@@ -99,6 +110,7 @@ export interface DashboardData {
   strength: StrengthSession[];
   checkins: Checkin[];
   injuries: InjuryEntry[];
+  bodyComposition: BodyComposition[];
 }
 
 export const RACE_DATE = "2026-10-25";

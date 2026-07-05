@@ -12,6 +12,7 @@ export type BlockId =
   | "calendar"    // monthly training calendar
   | "season"      // season phases + milestones timeline
   | "zones"       // performance zones (bike/run/swim)
+  | "body"        // body composition (bioimpedance) trends
   | "strength"    // body map / muscle use
   | "watchpoints" // injury log
   | "lifestyle";  // sleep / hydration / protein rings
@@ -28,6 +29,7 @@ export const BLOCKS: BlockDef[] = [
   { id: "calendar",    enabled: true, width: "full" },
   { id: "season",      enabled: true, width: "full" },
   { id: "zones",       enabled: true, width: "full" },
+  { id: "body",        enabled: true, width: "full" },
   { id: "strength",    enabled: true, width: "third" },
   { id: "watchpoints", enabled: true, width: "third" },
   { id: "lifestyle",   enabled: true, width: "third" },

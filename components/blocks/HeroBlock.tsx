@@ -44,7 +44,8 @@ export function HeroBlock({ data }: { data: DashboardData }) {
           </p>
           {latest && (
             <p className="tnum mt-0.5 text-[13px] text-[var(--text-muted)]">
-              Score {latest.readiness_score ?? "—"} · HRV {latest.hrv ?? "—"} · {latest.sleep_hours ?? "—"}h sleep
+              Score {latest.readiness_score ?? "—"} · HRV {latest.hrv ?? "—"}
+              {latest.body_battery != null ? ` · BB ${latest.body_battery}` : ""} · {latest.sleep_hours ?? "—"}h sleep
             </p>
           )}
           <p className="mt-1 text-[12px] text-[var(--text-faint)]">

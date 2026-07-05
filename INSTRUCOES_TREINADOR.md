@@ -30,14 +30,20 @@ Valores fixos (use exatamente estes, em inglês):
 ## Rotinas
 
 ### 1) Check-in diário
-Quando eu passar meus dados do dia (HRV, sono, FC repouso, body battery…), você **analisa**,
-define o farol e faz upsert em `checkins`:
+**Eu sempre te passo estes 4 campos** (mapeie exatamente assim):
+- `Body Battery` (número) → coluna `body_battery`
+- `Sono` (ex.: `7h30`) → coluna `sleep_hours` **em horas decimais** (7h30 = `7.5`, 6h45 = `6.75`)
+- `Readiness` (número) → coluna `readiness_score`
+- `HRV` (número) → coluna `hrv`
+
+Você **analisa** os 4 e define o farol `recommendation` (`green` / `yellow` / `red`).
+`resting_hr` é opcional (deixe `null` se eu não passar). Depois faça o upsert:
 ```sql
-insert into checkins (date, hrv, sleep_hours, readiness_score, body_battery, resting_hr, recommendation, notes)
-values (current_date, 74, 7.8, 81, 76, 47, 'green', 'HRV estável, sono bom — pode seguir o plano.')
+insert into checkins (date, body_battery, sleep_hours, readiness_score, hrv, resting_hr, recommendation, notes)
+values (current_date, 76, 7.5, 81, 74, null, 'green', 'HRV e prontidão bons — pode seguir o plano.')
 on conflict (date) do update set
-  hrv=excluded.hrv, sleep_hours=excluded.sleep_hours, readiness_score=excluded.readiness_score,
-  body_battery=excluded.body_battery, resting_hr=excluded.resting_hr,
+  body_battery=excluded.body_battery, sleep_hours=excluded.sleep_hours,
+  readiness_score=excluded.readiness_score, hrv=excluded.hrv, resting_hr=excluded.resting_hr,
   recommendation=excluded.recommendation, notes=excluded.notes;
 ```
 
@@ -81,6 +87,20 @@ where date = '2026-07-06' and discipline = 'swim';
 ### 5) (Opcional) Carga/PMC e marcos
 Se você tiver os dados do Strava/Garmin, pode atualizar `training_load` (tss/ctl/atl/tsb por dia,
 `source='garmin'`) e registrar testes em `performance_milestones` (ex.: novo FTP).
+
+### 6) Bioimpedância (composição corporal)
+Quando eu te mandar uma **foto/print da bioimpedância**, extraia os números e faça upsert em
+`body_composition` (uma linha por data de medição). Campos:
+`weight_kg`, `muscle_mass_kg`, `body_fat_pct`, `lean_mass_kg`, `visceral_fat`, `metabolic_age`.
+Use a data da medição (não `current_date`, a não ser que seja de hoje). O dashboard monta o
+gráfico temporal automaticamente.
+```sql
+insert into body_composition (date, weight_kg, muscle_mass_kg, body_fat_pct, lean_mass_kg, visceral_fat, metabolic_age)
+values ('2026-07-05', 62.8, 33.6, 13.7, 54.3, 5, 26)
+on conflict (date) do update set
+  weight_kg=excluded.weight_kg, muscle_mass_kg=excluded.muscle_mass_kg, body_fat_pct=excluded.body_fat_pct,
+  lean_mass_kg=excluded.lean_mass_kg, visceral_fat=excluded.visceral_fat, metabolic_age=excluded.metabolic_age;
+```
 
 ## Regras de ouro
 1. O dashboard é o **espelho**: toda decisão que tomarmos aqui deve ir para o banco.

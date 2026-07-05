@@ -8,6 +8,7 @@ import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
 import { SeasonBlock } from "@/components/blocks/SeasonBlock";
 import { ZonesBlock } from "@/components/blocks/ZonesBlock";
+import { BodyBlock } from "@/components/blocks/BodyBlock";
 import { StrengthBlock } from "@/components/blocks/StrengthBlock";
 import { WatchPointsBlock } from "@/components/blocks/WatchPointsBlock";
 import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
@@ -23,6 +24,7 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
   calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} />,
   season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} />,
   zones: (p) => <ZonesBlock data={p.data} />,
+  body: (p) => <BodyBlock data={p.data} />,
   strength: (p) => <StrengthBlock data={p.data} />,
   watchpoints: (p) => <WatchPointsBlock data={p.data} />,
   lifestyle: (p) => <LifestyleBlock data={p.data} />,

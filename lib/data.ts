@@ -13,7 +13,7 @@ export async function getDashboardData(): Promise<{ data: DashboardData; live: b
   if (!supabase) return { data: getMockData(), live: false };
 
   try {
-    const [tl, wk, ph, ms, ind, st, ck, inj] = await Promise.all([
+    const [tl, wk, ph, ms, ind, st, ck, inj, bc] = await Promise.all([
       supabase.from("training_load").select("*").order("date", { ascending: true }),
       supabase.from("workouts").select("*").order("date", { ascending: true }),
       supabase.from("phases").select("*").order("start_date", { ascending: true }),
@@ -22,9 +22,10 @@ export async function getDashboardData(): Promise<{ data: DashboardData; live: b
       supabase.from("strength_sessions").select("*").order("date", { ascending: false }),
       supabase.from("checkins").select("*").order("date", { ascending: true }),
       supabase.from("injury_log").select("*").order("date", { ascending: false }),
+      supabase.from("body_composition").select("*").order("date", { ascending: true }),
     ]);
 
-    const anyError = [tl, wk, ph, ms, ind, st, ck, inj].find((r) => r.error);
+    const anyError = [tl, wk, ph, ms, ind, st, ck, inj, bc].find((r) => r.error);
     if (anyError?.error) throw anyError.error;
 
     return {
@@ -38,6 +39,7 @@ export async function getDashboardData(): Promise<{ data: DashboardData; live: b
         strength: st.data ?? [],
         checkins: ck.data ?? [],
         injuries: inj.data ?? [],
+        bodyComposition: bc.data ?? [],
       },
     };
   } catch (err) {
