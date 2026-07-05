@@ -49,7 +49,7 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
       {/* sticky top bar */}
-      <nav className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] bg-[rgba(26,30,36,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+      <nav className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] bg-[rgba(38,43,52,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo-trak.png" alt="TRAK" className="h-[26px] w-auto" />
         <div className="flex items-center gap-2">

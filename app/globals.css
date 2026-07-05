@@ -7,13 +7,13 @@
    (Var names kept stable so shared components keep working.)
 --------------------------------------------------------------------------- */
 :root {
-  --bg: #1a1e24;           /* graphite / gunmetal canvas */
+  --bg: #262b34;           /* lighter graphite canvas — black dots read clearly */
   --bg-soft: #14171d;      /* dark inset wells inside cards */
-  --surface: #20242c;      /* main cards (float above the canvas) */
-  --surface-2: #262b33;    /* nested panels */
-  --surface-3: #2d323c;
-  --border: #343a44;
-  --border-soft: #2d323b;
+  --surface: #1b1f26;      /* dark cards float above the lighter canvas (shadow + tone) */
+  --surface-2: #232830;    /* nested panels */
+  --surface-3: #2b313b;
+  --border: #343a45;
+  --border-soft: #2d333d;
 
   --text: #f0f2f4;
   --text-2: #c9ced4;
