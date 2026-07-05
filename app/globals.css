@@ -80,9 +80,9 @@ body {
   background-color: var(--bg);
   background-image:
     radial-gradient(1100px 520px at 50% -8%, rgba(255, 255, 255, 0.035) 0%, transparent 60%),
-    url("/pattern-bars.svg");
+    url("/pattern-dots.svg");
   background-repeat: no-repeat, repeat;
-  background-size: auto, 54px 54px;
+  background-size: auto, 20px 20px;
   color: var(--text);
   font-family: var(--font-archivo), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
