@@ -13,9 +13,8 @@ const SERIES = [
 type Key = (typeof SERIES)[number]["key"];
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-function monthTick(iso: string) {
-  const [, m, d] = iso.split("-").map(Number);
-  return d <= 6 ? MON[m - 1].toUpperCase() : "";
+function monthLabel(iso: string) {
+  return MON[Number(iso.split("-")[1]) - 1].toUpperCase();
 }
 function fullTick(iso: string) {
   const [, m, d] = iso.split("-").map(Number);
@@ -26,6 +25,16 @@ export function PmcChart({ data }: { data: TrainingLoad[] }) {
   const [shown, setShown] = useState<Record<Key, boolean>>({ ctl: true, atl: true, tsb: true });
   const last = data[data.length - 1];
   const view = useMemo(() => data.slice(-168), [data]); // up to 24 weeks
+  // one tick per month: the first data point of each month present in the view
+  const monthTicks = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const d of view) {
+      const key = d.date.slice(0, 7);
+      if (!seen.has(key)) { seen.add(key); out.push(d.date); }
+    }
+    return out;
+  }, [view]);
 
   return (
     <div>
@@ -58,7 +67,7 @@ export function PmcChart({ data }: { data: TrainingLoad[] }) {
               </linearGradient>
             </defs>
             <CartesianGrid stroke="var(--border-soft)" vertical={false} />
-            <XAxis dataKey="date" tickFormatter={monthTick} interval={0} tickLine={false} axisLine={false} minTickGap={0} />
+            <XAxis dataKey="date" ticks={monthTicks} tickFormatter={monthLabel} tickLine={false} axisLine={false} />
             <YAxis tickLine={false} axisLine={false} width={44} />
             <Tooltip
               contentStyle={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12, color: "var(--text)" }}
