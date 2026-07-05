@@ -7,13 +7,13 @@
    (Var names kept stable so shared components keep working.)
 --------------------------------------------------------------------------- */
 :root {
-  --bg: #0a0b0d;
-  --bg-soft: #0e1013;
-  --surface: #121419;      /* main cards */
-  --surface-2: #171a20;    /* nested panels */
-  --surface-3: #1c1f25;
-  --border: #23262c;
-  --border-soft: #1f2229;
+  --bg: #1a1e24;           /* graphite / gunmetal canvas */
+  --bg-soft: #14171d;      /* dark inset wells inside cards */
+  --surface: #20242c;      /* main cards (float above the canvas) */
+  --surface-2: #262b33;    /* nested panels */
+  --surface-3: #2d323c;
+  --border: #343a44;
+  --border-soft: #2d323b;
 
   --text: #f0f2f4;
   --text-2: #c9ced4;
@@ -77,9 +77,12 @@
 html { color-scheme: dark; }
 
 body {
-  background:
-    radial-gradient(1100px 520px at 50% -8%, #12151d 0%, transparent 62%),
-    var(--bg);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(1100px 520px at 50% -8%, rgba(255, 255, 255, 0.035) 0%, transparent 60%),
+    url("/pattern-bars.svg");
+  background-repeat: no-repeat, repeat;
+  background-size: auto, 54px 54px;
   color: var(--text);
   font-family: var(--font-archivo), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
