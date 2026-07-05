@@ -35,15 +35,18 @@ export function addDays(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 }
 
-const WD = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export function weekdayShort(d: Date): string {
   return WD[(d.getDay() + 6) % 7];
 }
 
-const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export function fmtDayMonth(iso: string): string {
   const d = parseDate(iso);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+export function monthName(m: number): string {
+  return MONTHS[m];
 }
 
 export function fmtDuration(min: number | null | undefined): string {
@@ -56,17 +59,17 @@ export function fmtDuration(min: number | null | undefined): string {
 // ---- discipline metadata ---------------------------------------------------
 
 export const DISCIPLINE_META: Record<Discipline, { label: string; color: string; icon: string }> = {
-  swim: { label: "Natação", color: "var(--swim)", icon: "swim" },
+  swim: { label: "Swim", color: "var(--swim)", icon: "swim" },
   bike: { label: "Bike", color: "var(--bike)", icon: "bike" },
-  run: { label: "Corrida", color: "var(--run)", icon: "run" },
-  strength: { label: "Força", color: "var(--strength)", icon: "strength" },
-  rest: { label: "Descanso", color: "var(--rest)", icon: "rest" },
+  run: { label: "Run", color: "var(--run)", icon: "run" },
+  strength: { label: "Strength", color: "var(--strength)", icon: "strength" },
+  rest: { label: "Rest", color: "var(--rest)", icon: "rest" },
 };
 
 export const READINESS_META: Record<Recommendation, { label: string; color: string; hint: string }> = {
-  green: { label: "Pronto", color: "var(--good)", hint: "Siga o plano" },
-  yellow: { label: "Atenção", color: "var(--warn)", hint: "Ajuste a intensidade" },
-  red: { label: "Recupere", color: "var(--bad)", hint: "Priorize recuperação" },
+  green: { label: "Ready", color: "var(--good)", hint: "Follow the plan" },
+  yellow: { label: "Caution", color: "var(--warn)", hint: "Ease the intensity" },
+  red: { label: "Recover", color: "var(--bad)", hint: "Prioritise recovery" },
 };
 
 // ---- aggregations ----------------------------------------------------------

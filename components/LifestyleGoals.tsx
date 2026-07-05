@@ -29,7 +29,7 @@ function Ring({ value, goal, unit, label, precision = 0 }: {
         </div>
       </div>
       <p className="mt-2 text-[12px] font-semibold text-[var(--text)]">{label}</p>
-      <p className="tnum text-[10px] text-[var(--text-faint)]">meta {goal}{unit}</p>
+      <p className="tnum text-[10px] text-[var(--text-faint)]">goal {goal}{unit}</p>
     </div>
   );
 }
@@ -42,10 +42,15 @@ export function LifestyleGoals({ checkins }: { checkins: Checkin[] }) {
   // Hidratação e proteína ainda não têm campo no schema — registrados via chat.
   // Mostramos as metas com estado neutro até haver fonte de dados.
   return (
-    <div className="grid grid-cols-3 gap-2.5">
-      <Ring value={sleepAvg} goal={7.5} unit="h" label="Sono" precision={1} />
-      <Ring value={null} goal={3} unit="L" label="Hidratação" />
-      <Ring value={null} goal={140} unit="g" label="Proteína" />
+    <div>
+      <div className="grid grid-cols-3 gap-2.5">
+        <Ring value={sleepAvg} goal={7.5} unit="h" label="Sleep" precision={1} />
+        <Ring value={null} goal={3} unit="L" label="Hydration" />
+        <Ring value={null} goal={140} unit="g" label="Protein" />
+      </div>
+      <p className="mt-3 text-[11px] text-[var(--text-faint)]">
+        Hydration & protein have no data source yet — log them in chat to activate the rings.
+      </p>
     </div>
   );
 }

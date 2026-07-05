@@ -38,12 +38,12 @@ function LoginForm() {
   return (
     <form onSubmit={submit} className="pop w-full max-w-sm rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-7 shadow-[var(--shadow)]">
       <div className="mb-6">
-        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--surge)]">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--surge)]" />
-          Costa Navarino 70.3
+        <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--lime)]">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--lime)]" />
+          TRAK · Costa Navarino 70.3
         </p>
-        <h1 className="mt-2 text-2xl font-bold text-[var(--text)]">Painel de treino</h1>
-        <p className="mt-1 text-[13px] text-[var(--text-muted)]">Digite a senha para acessar.</p>
+        <h1 className="mt-2 text-2xl font-extrabold text-[var(--text)]">Training dashboard</h1>
+        <p className="mt-1 text-[13px] text-[var(--text-muted)]">Enter the password to continue.</p>
       </div>
 
       <input
@@ -51,17 +51,17 @@ function LoginForm() {
         autoFocus
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        placeholder="Senha"
-        className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-soft)] px-4 py-3 text-[var(--text)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--surge)]"
+        placeholder="Password"
+        className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-soft)] px-4 py-3 text-[var(--text)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--lime)]"
       />
       {error && <p className="mt-2 text-[13px] text-[var(--bad)]">{error}</p>}
 
       <button
         type="submit"
         disabled={busy}
-        className="mt-4 w-full rounded-xl bg-[var(--surge)] px-4 py-3 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="mt-4 w-full rounded-xl bg-[var(--lime)] px-4 py-3 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
       >
-        {busy ? "Entrando…" : "Entrar"}
+        {busy ? "Signing in…" : "Enter"}
       </button>
     </form>
   );

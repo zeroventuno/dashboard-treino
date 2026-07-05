@@ -1,46 +1,59 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Design tokens — athletic / technical dark theme
-   Base: near-black neutral. Accents: one vibrant "surge" cyan-lime for data
-   & actions, plus semantic green/amber/red for readiness. Discipline hues are
-   deliberately muted so the UI never turns into a rainbow.
+   TRAK — athletic training dashboard design system
+   Base near-black, lime primary (#b2e63a), teal secondary (#4fd6c5).
+   Typography: Saira. Cards: 20px radius, soft double shadow.
+   (Var names kept stable so shared components keep working.)
 --------------------------------------------------------------------------- */
 :root {
-  --bg: #090b0f;
-  --bg-soft: #0d1015;
-  --surface: #14181f;
-  --surface-2: #191e26;
-  --border: #232a34;
-  --border-soft: #1b212a;
+  --bg: #0a0b0d;
+  --bg-soft: #0e1013;
+  --surface: #121419;      /* main cards */
+  --surface-2: #171a20;    /* nested panels */
+  --surface-3: #1c1f25;
+  --border: #23262c;
+  --border-soft: #1f2229;
 
-  --text: #eef1f6;
-  --text-muted: #949cab;
-  --text-faint: #626b78;
+  --text: #f0f2f4;
+  --text-2: #c9ced4;
+  --text-muted: #9aa0a8;
+  --text-faint: #62676e;
 
-  --surge: #c6f24e;        /* primary accent — data + actions */
-  --surge-dim: #9dc72f;
-  --azure: #4fb8ff;        /* secondary accent — TSB / cool data */
+  --surge: #b2e63a;        /* primary accent — lime */
+  --lime: #b2e63a;
+  --surge-dim: #8fbf2c;
+  --teal: #4fd6c5;         /* secondary accent */
+  --azure: #4fd6c5;        /* alias → teal (TSB / cool data) */
 
-  --good: #46d17f;         /* readiness green  */
-  --warn: #f4c04e;         /* readiness yellow */
-  --bad: #ff5f57;          /* readiness red    */
+  --good: #4ade80;         /* readiness green  */
+  --warn: #f4c04e;         /* readiness amber  */
+  --bad: #ff8a80;          /* readiness / alert coral */
+  --bad-bg: #2a1215;
+  --bad-border: #5c2b2e;
 
-  /* muted discipline hues (used sparingly, mostly on icons) */
-  --swim: #4fb8ff;
-  --bike: #f4a24e;
-  --run: #ff6f61;
+  /* discipline hues (per TRAK spec) */
+  --swim: #55b7ff;
+  --bike: #f5a44c;
+  --run: #ff6b5e;
   --strength: #b98bff;
-  --rest: #6b7480;
+  --rest: #62676e;
+
+  /* season phase colors */
+  --phase-base: #2dd4bf;
+  --phase-build: #b2e63a;
+  --phase-peak: #f4a24e;
+  --phase-taper: #4fb8ff;
+  --phase-race: #ff5f57;
 
   --radius: 20px;
   --radius-sm: 14px;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+  --maxw: 1180px;
 }
 
 @theme inline {
   --color-bg: var(--bg);
-  --color-bg-soft: var(--bg-soft);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-border: var(--border);
@@ -48,56 +61,47 @@
   --color-muted: var(--text-muted);
   --color-faint: var(--text-faint);
   --color-surge: var(--surge);
-  --color-azure: var(--azure);
+  --color-lime: var(--lime);
+  --color-teal: var(--teal);
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-archivo);
+  --font-display: var(--font-saira);
 }
 
-* {
-  border-color: var(--border);
-}
+/* Saira italic display type — headings, big numbers, brand */
+.dsp { font-family: var(--font-saira), sans-serif; font-style: italic; }
 
-html {
-  color-scheme: dark;
-}
+* { border-color: var(--border); }
+html { color-scheme: dark; }
 
 body {
   background:
-    radial-gradient(1200px 600px at 50% -10%, #10151d 0%, transparent 60%),
+    radial-gradient(1100px 520px at 50% -8%, #12151d 0%, transparent 62%),
     var(--bg);
   color: var(--text);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-archivo), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* number-heavy displays */
 .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 
-/* subtle card entrance */
-@keyframes rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .rise { animation: rise .5s cubic-bezier(.22,.61,.36,1) both; }
 
-/* modal */
-@keyframes pop {
-  from { opacity: 0; transform: translateY(12px) scale(.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
+@keyframes pop { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 .pop { animation: pop .28s cubic-bezier(.22,.61,.36,1) both; }
 .fade { animation: fade .2s ease both; }
 
-/* thin scrollbars */
+@keyframes growBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.growbar { transform-origin: bottom; animation: growBar .5s cubic-bezier(.22,.61,.36,1) both; }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 3px solid var(--bg); }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* recharts polish */
 .recharts-cartesian-axis-tick text { fill: var(--text-faint); font-size: 11px; }
 .recharts-default-tooltip { border-radius: 12px !important; }

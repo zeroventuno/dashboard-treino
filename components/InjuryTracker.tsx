@@ -2,11 +2,11 @@ import type { InjuryEntry } from "@/lib/types";
 import { fmtDayMonth } from "@/lib/utils";
 
 const AREA_LABEL: Record<string, string> = {
-  left_knee: "Joelho esq.", right_knee: "Joelho dir.",
-  left_shoulder: "Ombro esq.", right_shoulder: "Ombro dir.",
-  left_hip_sciatic: "Quadril/ciático esq.", right_hip_sciatic: "Quadril/ciático dir.",
-  IT_band: "Banda IT", left_calf: "Panturrilha esq.", right_calf: "Panturrilha dir.",
-  lower_back: "Lombar",
+  left_knee: "Left knee", right_knee: "Right knee",
+  left_shoulder: "Left shoulder", right_shoulder: "Right shoulder",
+  left_hip_sciatic: "Left hip / sciatic", right_hip_sciatic: "Right hip / sciatic",
+  IT_band: "IT band", left_calf: "Left calf", right_calf: "Right calf",
+  lower_back: "Lower back",
 };
 
 function sevColor(s: number) {
@@ -17,7 +17,7 @@ function sevColor(s: number) {
 
 export function InjuryTracker({ injuries }: { injuries: InjuryEntry[] }) {
   if (injuries.length === 0) {
-    return <p className="text-[13px] text-[var(--text-faint)]">Nenhum ponto de atenção. 💪</p>;
+    return <p className="text-[13px] text-[var(--text-faint)]">No watch points. All clear. 💪</p>;
   }
   return (
     <ul className="space-y-2.5">

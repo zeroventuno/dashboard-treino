@@ -1,70 +1,86 @@
+import { Fragment } from "react";
 import { getDashboardData } from "@/lib/data";
-import { toISO } from "@/lib/utils";
-import { Card } from "@/components/Card";
-import { HeaderHero } from "@/components/HeaderHero";
-import { PmcChart } from "@/components/PmcChart";
-import { WeekBoard } from "@/components/WeekBoard";
-import { SeasonTimeline } from "@/components/SeasonTimeline";
-import { PerformanceIndicatorsPanel } from "@/components/PerformanceIndicators";
-import { BodyMap } from "@/components/BodyMap";
-import { InjuryTracker } from "@/components/InjuryTracker";
-import { LifestyleGoals } from "@/components/LifestyleGoals";
+import { toISO, daysUntilRace } from "@/lib/utils";
+import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
+import type { DashboardData } from "@/lib/types";
+import { HeroBlock } from "@/components/blocks/HeroBlock";
+import { FitnessBlock } from "@/components/blocks/FitnessBlock";
+import { CalendarBlock } from "@/components/blocks/CalendarBlock";
+import { SeasonBlock } from "@/components/blocks/SeasonBlock";
+import { ZonesBlock } from "@/components/blocks/ZonesBlock";
+import { StrengthBlock } from "@/components/blocks/StrengthBlock";
+import { WatchPointsBlock } from "@/components/blocks/WatchPointsBlock";
+import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
 
 export const revalidate = 60;
 
+type BlockProps = { data: DashboardData; todayISO: string };
+
+// id → renderer. Adding/removing a block here + in lib/blocks.ts is all it takes.
+const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
+  hero: (p) => <HeroBlock data={p.data} />,
+  fitness: (p) => <FitnessBlock data={p.data} />,
+  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} />,
+  season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} />,
+  zones: (p) => <ZonesBlock data={p.data} />,
+  strength: (p) => <StrengthBlock data={p.data} />,
+  watchpoints: (p) => <WatchPointsBlock data={p.data} />,
+  lifestyle: (p) => <LifestyleBlock data={p.data} />,
+};
+
 export default async function DashboardPage() {
   const { data, live } = await getDashboardData();
-  const todayISO = toISO(new Date());
-  const latestCheckin = data.checkins.length ? data.checkins[data.checkins.length - 1] : null;
+  const props: BlockProps = { data, todayISO: toISO(new Date()) };
+
+  // Group consecutive "third" blocks into a single responsive row.
+  const enabled = BLOCKS.filter((b) => b.enabled);
+  const groups: (BlockDef | BlockDef[])[] = [];
+  for (const b of enabled) {
+    const last = groups[groups.length - 1];
+    if (b.width === "third" && Array.isArray(last)) last.push(b);
+    else if (b.width === "third") groups.push([b]);
+    else groups.push(b);
+  }
+
+  const days = Math.max(0, daysUntilRace());
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-5 sm:px-6">
-      {/* top bar */}
-      <nav className="mb-5 flex items-center justify-between">
+    <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
+      {/* sticky top bar */}
+      <nav className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-[#16181d] bg-[rgba(10,11,13,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-trak.png" alt="TRAK" className="h-[26px] w-auto" />
         <div className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-[var(--surge)] text-[13px] font-black text-black">70.3</span>
-          <span className="text-[13px] font-semibold tracking-tight text-[var(--text)]">Costa Navarino</span>
+          <span className="hidden rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-[5px] text-[11.5px] font-semibold text-[var(--text-muted)] sm:inline">
+            IRONMAN 70.3 Costa Navarino
+          </span>
+          <span className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--text-muted)]">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
+            {live ? "Live" : "Sample data"}
+          </span>
+          <span className="dsp rounded-full bg-[var(--lime)] px-3 py-[5px] text-[11.5px] font-bold text-[#0a0b0d]">
+            {days} DAYS
+          </span>
         </div>
-        <span className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-muted)]">
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
-          {live ? "Ao vivo" : "Dados de exemplo"}
-        </span>
       </nav>
 
-      <div className="flex flex-col gap-4">
-        <HeaderHero latest={latestCheckin} />
-
-        <Card title="Carga de treino · PMC">
-          <PmcChart data={data.trainingLoad} />
-        </Card>
-
-        <Card title="Sua semana" action={<span className="text-[11px] text-[var(--text-faint)]">toque para detalhes</span>}>
-          <WeekBoard workouts={data.workouts} todayISO={todayISO} />
-        </Card>
-
-        <Card title="Temporada">
-          <SeasonTimeline phases={data.phases} milestones={data.milestones} todayISO={todayISO} />
-        </Card>
-
-        <Card title="Indicadores de performance">
-          <PerformanceIndicatorsPanel ind={data.indicators} />
-        </Card>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Card title="Força · uso muscular">
-            <BodyMap sessions={data.strength} />
-          </Card>
-          <Card title="Pontos de atenção">
-            <InjuryTracker injuries={data.injuries} />
-          </Card>
-          <Card title="Estilo de vida · média 7d">
-            <LifestyleGoals checkins={data.checkins} />
-          </Card>
-        </div>
+      <div className="flex flex-col gap-[22px]">
+        {groups.map((g, i) =>
+          Array.isArray(g) ? (
+            <div key={i} className="grid grid-cols-1 gap-[22px] md:grid-cols-2 lg:grid-cols-3">
+              {g.map((b) => <Fragment key={b.id}>{REGISTRY[b.id](props)}</Fragment>)}
+            </div>
+          ) : (
+            <Fragment key={g.id}>{REGISTRY[g.id](props)}</Fragment>
+          ),
+        )}
       </div>
 
-      <footer className="mt-8 text-center text-[11px] text-[var(--text-faint)]">
-        Atualizado automaticamente via check-ins no chat · IRONMAN 70.3 Costa Navarino
+      <footer className="mt-9 text-center">
+        <p className="dsp text-[15px] font-extrabold uppercase tracking-[0.3em] text-[var(--text-muted)]">
+          Train. Track. <span className="text-[var(--lime)]">Evolve.</span>
+        </p>
+        <p className="mt-1.5 text-[11px] text-[var(--text-faint)]">Synced automatically via daily check-ins · TRAK personal training dashboard</p>
       </footer>
     </div>
   );

@@ -5,9 +5,9 @@ import type { MuscleGroup, StrengthSession } from "@/lib/types";
 import { muscleUsage } from "@/lib/utils";
 
 const LABELS: Record<MuscleGroup, string> = {
-  quadriceps: "Quadríceps", glutes: "Glúteos", hamstrings: "Posterior",
-  core: "Core", shoulders: "Ombros", back: "Costas", calves: "Panturrilhas",
-  chest: "Peito", biceps: "Bíceps", triceps: "Tríceps",
+  quadriceps: "Quads", glutes: "Glutes", hamstrings: "Hamstrings",
+  core: "Core", shoulders: "Shoulders", back: "Back", calves: "Calves",
+  chest: "Chest", biceps: "Biceps", triceps: "Triceps",
 };
 
 function fill(count: number, max: number) {
@@ -60,7 +60,7 @@ export function BodyMap({ sessions }: { sessions: StrengthSession[] }) {
             <ellipse cx="51" cy="192" rx="4" ry="12" {...props("calves")} />
             <ellipse cx="69" cy="192" rx="4" ry="12" {...props("calves")} />
           </svg>
-          <figcaption className="mt-1 text-center text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Frente</figcaption>
+          <figcaption className="mt-1 text-center text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Front</figcaption>
         </figure>
 
         {/* BACK */}
@@ -85,21 +85,21 @@ export function BodyMap({ sessions }: { sessions: StrengthSession[] }) {
             <ellipse cx="51" cy="192" rx="4.5" ry="13" {...props("calves")} />
             <ellipse cx="69" cy="192" rx="4.5" ry="13" {...props("calves")} />
           </svg>
-          <figcaption className="mt-1 text-center text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Costas</figcaption>
+          <figcaption className="mt-1 text-center text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Back</figcaption>
         </figure>
       </div>
 
       {/* legend / summary */}
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-faint)]">
-          <span>Menos</span>
+          <span>Less</span>
           <span className="h-2 w-5 rounded" style={{ background: fill(0, max) }} />
           <span className="h-2 w-5 rounded" style={{ background: fill(1, 2) }} />
           <span className="h-2 w-5 rounded" style={{ background: fill(2, 2) }} />
-          <span>Mais · 7 dias</span>
+          <span>More · 7 days</span>
         </div>
         <span className="tnum text-[11px] text-[var(--text-muted)]">
-          {hover ? `${LABELS[hover]}: ${usage[hover] ?? 0}×` : `${worked.length} grupos`}
+          {hover ? `${LABELS[hover]}: ${usage[hover] ?? 0}×` : `${worked.length} groups`}
         </span>
       </div>
 
