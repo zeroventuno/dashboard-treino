@@ -46,7 +46,7 @@ export function CalendarBoard({ workouts, todayISO }: { workouts: Workout[]; tod
       out.push({
         days,
         wk: isoWeek(cur),
-        min: items.reduce((s, w) => s + (w.planned_duration_min ?? 0), 0),
+        min: items.reduce((s, w) => s + (w.actual_duration_min ?? w.planned_duration_min ?? 0), 0),
         tss: items.reduce((s, w) => s + Number(w.actual_tss ?? w.planned_tss ?? 0), 0),
         done: items.filter((w) => w.status === "done").length,
         total: items.length,

@@ -12,6 +12,8 @@ export async function POST(req: Request) {
 
   const result = await setWorkoutStatus(body.id, body.status, {
     actual_tss: body.actual_tss ?? undefined,
+    actual_duration_min: body.actual_duration_min ?? undefined,
+    actual_distance_km: body.actual_distance_km ?? undefined,
     notes: body.notes ?? undefined,
   });
 

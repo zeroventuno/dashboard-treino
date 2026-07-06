@@ -31,6 +31,29 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
+function fmtKm(km: number): string {
+  return `${km % 1 === 0 ? km : km.toFixed(1)} km`;
+}
+
+/** Shows the actual value as primary (falling back to planned if not done yet),
+ * with the planned value as a small secondary line only when both exist —
+ * so a planned-vs-actual comparison appears on a single merged workout card. */
+function StatCell({ label, planned, actual, fmt }: {
+  label: string; planned: number | null; actual: number | null; fmt: (n: number) => string;
+}) {
+  if (planned == null && actual == null) return null;
+  const primary = actual ?? planned!;
+  return (
+    <div className="min-w-[72px]">
+      <p className="text-[9px] font-bold uppercase tracking-wide text-[var(--text-faint)]">{label}</p>
+      <p className="tnum text-[13px] font-semibold text-[var(--text)]">{fmt(primary)}</p>
+      {planned != null && actual != null && (
+        <p className="tnum text-[10px] text-[var(--text-faint)]">plan {fmt(planned)}</p>
+      )}
+    </div>
+  );
+}
+
 export function WorkoutModal({
   w, busy, onClose, onStatus,
 }: {
@@ -56,15 +79,17 @@ export function WorkoutModal({
                 {meta.label} · {STATUS_META[w.status].label}
               </p>
               <h3 className="text-lg font-bold leading-tight text-[var(--text)]">{w.title}</h3>
-              <p className="tnum mt-0.5 text-[12px] text-[var(--text-faint)]">
-                {fmtDuration(w.planned_duration_min)}{w.planned_tss ? ` · ${w.planned_tss} TSS planned` : ""}
-                {w.actual_tss ? ` · ${w.actual_tss} TSS actual` : ""}
-              </p>
             </div>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-[var(--text-faint)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text)]">
             <CloseIcon />
           </button>
+        </div>
+
+        <div className="flex gap-4 border-b border-[var(--border)] px-5 py-3">
+          <StatCell label="Duration" planned={w.planned_duration_min} actual={w.actual_duration_min} fmt={(n) => fmtDuration(n)} />
+          <StatCell label="Distance" planned={w.planned_distance_km} actual={w.actual_distance_km} fmt={fmtKm} />
+          <StatCell label="TSS" planned={w.planned_tss} actual={w.actual_tss} fmt={(n) => `${Math.round(n)}`} />
         </div>
 
         <div className="space-y-5 p-5">

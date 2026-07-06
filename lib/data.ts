@@ -52,11 +52,16 @@ export async function getDashboardData(): Promise<{ data: DashboardData; live: b
   }
 }
 
-/** Update a workout's status (+ optional actual TSS / notes). */
+/** Update a workout's status (+ optional actual duration/distance/TSS/notes). */
 export async function setWorkoutStatus(
   id: string,
   status: WorkoutStatus,
-  extra?: { actual_tss?: number | null; notes?: string | null },
+  extra?: {
+    actual_tss?: number | null;
+    actual_duration_min?: number | null;
+    actual_distance_km?: number | null;
+    notes?: string | null;
+  },
 ): Promise<{ ok: boolean; error?: string }> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Backend não configurado (dados mock)." };

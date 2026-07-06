@@ -23,6 +23,9 @@ export interface Workout {
   zwo_content: string | null;
   status: WorkoutStatus;
   planned_duration_min: number | null;
+  actual_duration_min: number | null;
+  planned_distance_km: number | null;
+  actual_distance_km: number | null;
   planned_tss: number | null;
   actual_tss: number | null;
   notes: string | null;
