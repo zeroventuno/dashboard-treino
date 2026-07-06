@@ -49,6 +49,12 @@ export function monthName(m: number): string {
   return MONTHS[m];
 }
 
+/** "05 Jul 2026" — used in chart tooltips where the year matters. */
+export function fmtFullDate(iso: string): string {
+  const d = parseDate(iso);
+  return `${String(d.getDate()).padStart(2, "0")} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export function fmtDuration(min: number | null | undefined): string {
   if (!min) return "—";
   const h = Math.floor(min / 60);
