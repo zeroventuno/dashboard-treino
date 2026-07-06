@@ -87,6 +87,11 @@ não `"Tempo Z3"`). Para natação, use a coluna dedicada **`swim_pace_zones`** 
 `run_pace_zones`, uma zona por chave) — **não** junte várias faixas num texto só dentro de
 `swim_pace_per_100m` (esse campo é só o valor único de referência do CSS, ex. `'1:43'`).
 
+**`performance_milestones` não tem trava contra duplicata** — antes de registrar um novo marco
+(ex.: resultado de teste de FTP), **confira se já não existe uma linha pra mesma data+metric**
+(`select * from performance_milestones where date = '...' and metric = '...'`) e faça `update`
+em vez de `insert` se já existir. Isso evita marcos repetidos na timeline da Season.
+
 ### 3) Remarcar treino (cansaço / ajuste)
 Se eu disser que estou cansado e você sugerir mover um treino, **mude a data** e marque `modified`:
 ```sql
