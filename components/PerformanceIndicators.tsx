@@ -1,10 +1,18 @@
 import type { PerformanceIndicators } from "@/lib/types";
 import { BikeIcon, RunIcon, SwimIcon } from "./Icons";
 
+/** Zone labels look like "Z3 Tempo" or "Z1" — extract the leading number so we can
+ * sort Z1→Z7 regardless of how Postgres returns jsonb key order (it doesn't
+ * preserve insertion order, so relying on object order jumbles the list). */
+function zoneNumber(label: string): number {
+  const m = label.trim().match(/^Z(\d+)/i);
+  return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
+}
+
 function ZoneRows({ zones }: { zones: Record<string, string | [number, number]> | null }) {
   if (!zones || Object.keys(zones).length === 0)
     return <p className="text-[13px] text-[var(--text-faint)]">No zones set</p>;
-  const entries = Object.entries(zones);
+  const entries = Object.entries(zones).sort(([a], [b]) => zoneNumber(a) - zoneNumber(b));
   const n = entries.length;
   return (
     <div className="space-y-2">
@@ -75,10 +83,9 @@ export function PerformanceZones({ ind }: { ind: PerformanceIndicators | null })
           )}
         </Block>
 
-        <Block icon={<SwimIcon size={16} style={{ color: "var(--swim)" }} />} title="Swim · HR"
+        <Block icon={<SwimIcon size={16} style={{ color: "var(--swim)" }} />} title="Swim"
           headline={ind.swim_pace_per_100m ? `${ind.swim_pace_per_100m}` : "—"} sub="/100m CSS">
-          <ZoneRows zones={ind.hr_zones} />
-          <p className="mt-2 border-t border-[var(--border)] pt-2 text-[11px] text-[var(--text-faint)]">Heart-rate zones (bpm)</p>
+          <ZoneRows zones={ind.swim_pace_zones} />
         </Block>
       </div>
       <p className="mt-3 text-[11px] text-[var(--text-faint)]">Updated {updated} · zones synced from Strava</p>

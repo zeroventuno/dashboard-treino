@@ -52,12 +52,13 @@ export interface PerformanceIndicators {
   id: string;
   updated_at: string;
   ftp_watts: number | null;
-  bike_zones: Record<string, [number, number]> | null;
+  bike_zones: Record<string, [number, number] | string> | null;
   run_pace_zones: Record<string, string> | null;
   swim_pace_per_100m: string | null;
+  swim_pace_zones: Record<string, string> | null;
   run_threshold_pace: string | null;
   cadence_run_target: number | null;
-  hr_zones: Record<string, [number, number]> | null;
+  hr_zones: Record<string, [number, number] | string> | null;
 }
 
 export type MuscleGroup =

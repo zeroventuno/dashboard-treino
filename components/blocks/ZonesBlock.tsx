@@ -4,7 +4,7 @@ import { PerformanceZones } from "../PerformanceIndicators";
 
 export function ZonesBlock({ data }: { data: DashboardData }) {
   return (
-    <SectionCard title="Performance Zones" subtitle="Bike power · run pace · swim & heart-rate zones">
+    <SectionCard title="Performance Zones" subtitle="Bike power · run pace · swim pace zones">
       <PerformanceZones ind={data.indicators} />
     </SectionCard>
   );

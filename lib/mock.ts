@@ -165,6 +165,13 @@ const indicators: PerformanceIndicators = {
     "Z5 VO2": "4:15–3:55",
   },
   swim_pace_per_100m: "1:42",
+  swim_pace_zones: {
+    "Z1 Recuperação": "> 2:05",
+    "Z2 Endurance": "1:55-2:05",
+    "Z3 Tempo": "1:46-1:55",
+    "Z4 Limiar": "1:40-1:46",
+    "Z5 VO2": "< 1:40",
+  },
   run_threshold_pace: "4:20",
   cadence_run_target: 182,
   hr_zones: {

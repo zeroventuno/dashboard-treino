@@ -80,6 +80,13 @@ values
 Baseie os watts/paces nos meus indicadores reais que já estão em `performance_indicators`
 (FTP 170W, zonas de FC e de pace) — leia essa tabela se precisar.
 
+**Zonas (`bike_zones`, `run_pace_zones`, `swim_pace_zones`, `hr_zones`):** são `jsonb` — o
+dashboard **ordena Z1→Z7 automaticamente** pelo número no início da chave, então a ordem que
+você insere não importa, mas a **chave precisa começar com `Z<número>`** (ex.: `"Z3 Tempo"`,
+não `"Tempo Z3"`). Para natação, use a coluna dedicada **`swim_pace_zones`** (mesmo formato de
+`run_pace_zones`, uma zona por chave) — **não** junte várias faixas num texto só dentro de
+`swim_pace_per_100m` (esse campo é só o valor único de referência do CSS, ex. `'1:43'`).
+
 ### 3) Remarcar treino (cansaço / ajuste)
 Se eu disser que estou cansado e você sugerir mover um treino, **mude a data** e marque `modified`:
 ```sql
