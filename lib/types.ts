@@ -26,6 +26,7 @@ export interface Workout {
   planned_tss: number | null;
   actual_tss: number | null;
   notes: string | null;
+  nutrition_notes: string | null;
   created_at?: string;
 }
 
@@ -80,6 +81,9 @@ export interface Checkin {
   resting_hr: number | null;
   recommendation: Recommendation | null;
   notes: string | null;
+  hydration_liters: number | null;
+  whey_shakes: number | null;
+  protein_grams_estimate: number | null;
 }
 
 export interface InjuryEntry {
@@ -101,6 +105,31 @@ export interface BodyComposition {
   notes: string | null;
 }
 
+export interface DailyMeal {
+  id: string;
+  meal_order: number;
+  meal_name: string;
+  time_suggestion: string | null;
+  foods: string | null; // newline-separated
+  protein_g: number | null;
+  carbs_g: number | null;
+  notes: string | null;
+}
+
+export type DurationCategory = "curto" | "medio" | "longo" | "muito_longo";
+
+export interface NutritionRule {
+  id: string;
+  duration_category: DurationCategory | string;
+  duration_range: string | null;
+  discipline_context: string | null;
+  before_training: string | null;
+  during_training: string | null;
+  after_training: string | null;
+  supplements_used: string[] | null;
+  notes: string | null;
+}
+
 export interface DashboardData {
   trainingLoad: TrainingLoad[];
   workouts: Workout[];
@@ -111,6 +140,8 @@ export interface DashboardData {
   checkins: Checkin[];
   injuries: InjuryEntry[];
   bodyComposition: BodyComposition[];
+  mealPlan: DailyMeal[];
+  nutritionRules: NutritionRule[];
 }
 
 export const RACE_DATE = "2026-10-25";

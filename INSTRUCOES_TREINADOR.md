@@ -47,11 +47,21 @@ on conflict (date) do update set
   recommendation=excluded.recommendation, notes=excluded.notes;
 ```
 
+**Se eu também mencionar água/whey/proteína no check-in**, inclua no mesmo upsert:
+`hydration_liters` (litros de água, ex. `2.5`), `whey_shakes` (nº de doses, inteiro),
+`protein_grams_estimate` (sua estimativa de gramas de proteína do dia). Os anéis de
+Hydration/Protein do dashboard usam a média dos últimos 7 dias, ignorando dias sem registro
+— então só preencha esses 3 campos nos dias em que eu de fato reportar isso.
+
 ### 2) Planilha semanal (com as fichas)
 Ao montar a semana, grave **um `workouts` por sessão**, com a ficha completa (é o que abre no modal):
 - `description` = estrutura do treino;
 - `garmin_instructions` = passo a passo pra montar no relógio;
 - `zwo_content` = XML `.zwo` **só** em treinos de bike estruturados (senão `null`);
+- `nutrition_notes` = recomendação de nutrição pré/intra/pós específica da sessão (baseada na
+  duração — veja a rotina 7, tabela `nutrition_plan`), ex.: `'MÉDIO: Água 500ml + banana 30-45min
+  antes. Durante: água pura. Depois: whey 25-30g + fruta dentro de 30min.'`. Aparece no modal do
+  treino como "🥤 Nutrition".
 - `status` = `planned`; preencha `planned_duration_min` e `planned_tss`.
 
 **Sempre limpe os planejados da semana antes de inserir** (evita duplicar; preserva os já feitos):
@@ -101,6 +111,19 @@ on conflict (date) do update set
   weight_kg=excluded.weight_kg, muscle_mass_kg=excluded.muscle_mass_kg, body_fat_pct=excluded.body_fat_pct,
   lean_mass_kg=excluded.lean_mass_kg, visceral_fat=excluded.visceral_fat, metabolic_age=excluded.metabolic_age;
 ```
+
+### 7) Plano alimentar (referência fixa)
+Duas tabelas de referência, populadas uma vez e ajustadas raramente (não são rotina diária):
+
+- **`daily_meal_plan`** — as 5 refeições-tipo do dia (`meal_order` 1-5, `meal_name`,
+  `time_suggestion`, `foods` com quebras de linha `E'...\n...'`, `protein_g`, `carbs_g`, `notes`).
+  Aparecem no card "Plano Alimentar Diário" do dashboard, em ordem.
+- **`nutrition_plan`** — matriz de regras por duração de treino (`duration_category`:
+  `curto`/`medio`/`longo`/`muito_longo`; `duration_range`, `discipline_context`,
+  `before_training`, `during_training`, `after_training`, `supplements_used` como array de texto,
+  `notes`). É a referência que você usa pra escrever o `nutrition_notes` de cada treino (rotina 2).
+
+Se eu pedir pra ajustar a dieta, atualize a linha correspondente com `update` (não recrie a tabela).
 
 ## Regras de ouro
 1. O dashboard é o **espelho**: toda decisão que tomarmos aqui deve ir para o banco.

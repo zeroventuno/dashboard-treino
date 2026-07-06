@@ -34,23 +34,33 @@ function Ring({ value, goal, unit, label, precision = 0 }: {
   );
 }
 
+function avgOf(last7: Checkin[], key: keyof Checkin, decimals: number): number | null {
+  const vals = last7.map((c) => c[key]).filter((x): x is number => typeof x === "number");
+  return vals.length ? +avg(vals).toFixed(decimals) : null;
+}
+
 export function LifestyleGoals({ checkins }: { checkins: Checkin[] }) {
   const last7 = checkins.slice(-7);
-  const sleeps = last7.map((c) => c.sleep_hours).filter((x): x is number => x != null);
-  const sleepAvg = sleeps.length ? +avg(sleeps).toFixed(1) : null;
+  const sleepAvg = avgOf(last7, "sleep_hours", 1);
+  const hydrationAvg = avgOf(last7, "hydration_liters", 1);
+  const proteinAvg = avgOf(last7, "protein_grams_estimate", 0);
 
-  // Hidratação e proteína ainda não têm campo no schema — registrados via chat.
-  // Mostramos as metas com estado neutro até haver fonte de dados.
   return (
     <div>
       <div className="grid grid-cols-3 gap-2.5">
         <Ring value={sleepAvg} goal={7.5} unit="h" label="Sleep" precision={1} />
-        <Ring value={null} goal={3} unit="L" label="Hydration" />
-        <Ring value={null} goal={140} unit="g" label="Protein" />
+        <Ring value={hydrationAvg} goal={3} unit="L" label="Hydration" precision={1} />
+        <Ring value={proteinAvg} goal={140} unit="g" label="Protein" />
       </div>
-      <p className="mt-3 text-[11px] text-[var(--text-faint)]">
-        Hydration & protein have no data source yet — log them in chat to activate the rings.
-      </p>
+      {(hydrationAvg == null || proteinAvg == null) && (
+        <p className="mt-3 text-[11px] text-[var(--text-faint)]">
+          {hydrationAvg == null && proteinAvg == null
+            ? "Hydration & protein have no data yet — log them in chat to activate the rings."
+            : hydrationAvg == null
+              ? "Hydration has no data yet — log it in chat to activate the ring."
+              : "Protein has no data yet — log it in chat to activate the ring."}
+        </p>
+      )}
     </div>
   );
 }

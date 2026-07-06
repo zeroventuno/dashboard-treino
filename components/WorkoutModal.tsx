@@ -78,6 +78,11 @@ export function WorkoutModal({
               <pre className="whitespace-pre-wrap rounded-xl border border-[var(--border)] bg-[var(--bg-soft)] p-3.5 font-mono text-[12.5px] leading-relaxed text-[var(--text-muted)]">{w.garmin_instructions}</pre>
             </Section>
           )}
+          {w.nutrition_notes && (
+            <Section label="🥤 Nutrition">
+              <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[var(--text-muted)]">{w.nutrition_notes}</p>
+            </Section>
+          )}
           {w.notes && (
             <Section label="Notes">
               <p className="text-[13.5px] italic text-[var(--text-muted)]">{w.notes}</p>
