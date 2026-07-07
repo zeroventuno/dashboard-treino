@@ -1,115 +1,123 @@
-// PMC (Performance Management Chart) — calculations & scales.
+// PMC (Performance Management Chart) — calculations & scales, Strava-style.
+// One shared axis for all three series (never dual-axis); Form is plotted at
+// its real values, the domain simply extends below zero when needed.
 // Pure functions only; rendering lives in components/PmcChart.tsx.
 import type { TrainingLoad } from "./types";
-
-export type PmcMode = "real" | "classic";
+import { addDays, parseDate, toISO } from "./utils";
 
 export interface TsbZone {
   key: string;
   label: string;
   min: number; // inclusive
   max: number; // exclusive
-  color: string; // CSS var, used for both the background band and its legend dot
 }
 
-// ---------------------------------------------------------------------------
-// Configuration — thresholds/colors/margins. Tune here without touching the
-// calculation or rendering code.
-// ---------------------------------------------------------------------------
-
-/** TSB interpretation bands, most-fatigued to most-fresh. */
+/** TSB interpretation bands — used for the tooltip label only (no background
+ * bands on the chart; they read as clutter at this size). */
 export const TSB_ZONES: TsbZone[] = [
-  { key: "very-fatigued", label: "Very fatigued",   min: -Infinity, max: -25, color: "var(--bad)" },
-  { key: "productive",    label: "Productive load", min: -25, max: -10, color: "var(--teal)" },
-  { key: "neutral",       label: "Neutral",         min: -10, max: 10, color: "var(--text-faint)" },
-  { key: "race-ready",    label: "Race ready",      min: 10, max: 25, color: "var(--lime)" },
-  { key: "very-fresh",    label: "Very fresh",      min: 25, max: Infinity, color: "var(--good)" },
+  { key: "very-fatigued", label: "Very fatigued",   min: -Infinity, max: -25 },
+  { key: "productive",    label: "Productive load", min: -25, max: -10 },
+  { key: "neutral",       label: "Neutral",         min: -10, max: 10 },
+  { key: "race-ready",    label: "Race ready",      min: 10, max: 25 },
+  { key: "very-fresh",    label: "Very fresh",      min: 25, max: Infinity },
 ];
-
-/** The right (TSB) axis never collapses tighter than ±this, so a quiet week
- * doesn't make the line look artificially dramatic — and every zone band
- * (thresholds go up to ±25) always has room to render, even when actual TSB
- * never swings that far. */
-const RIGHT_AXIS_MIN_HALF_SPAN = Math.max(...TSB_ZONES.filter((z) => Number.isFinite(z.max)).map((z) => z.max)) + 5;
-const RIGHT_AXIS_MARGIN_FACTOR = 1.15;
-const LEFT_AXIS_MARGIN_FACTOR = 1.1;
-
-// ---------------------------------------------------------------------------
-// Scales
-// ---------------------------------------------------------------------------
-
-/** Left axis (Fitness/Fatigue): 0 → just above the largest observed value. */
-export function computeLeftDomain(values: number[]): [number, number] {
-  const max = Math.max(10, ...values);
-  const rounded = Math.ceil((max * LEFT_AXIS_MARGIN_FACTOR) / 10) * 10;
-  return [0, rounded];
-}
-
-/** Right axis (Form): symmetric around zero, adaptive to the data. */
-export function computeRightDomain(tsbValues: number[]): [number, number] {
-  const absMax = Math.max(1, ...tsbValues.map((v) => Math.abs(v)));
-  const rounded = Math.ceil((absMax * RIGHT_AXIS_MARGIN_FACTOR) / 5) * 5;
-  const bound = Math.max(RIGHT_AXIS_MIN_HALF_SPAN, rounded);
-  return [-bound, bound];
-}
 
 export function zoneFor(tsb: number): TsbZone {
   return TSB_ZONES.find((z) => tsb >= z.min && tsb < z.max) ?? TSB_ZONES[2];
 }
 
-/**
- * "Classic" PMC overlay (TrainingPeaks-style): compress TSB into the same
- * vertical band as CTL/ATL so all three share one axis. TSB=0 sits at the
- * midpoint of the CTL/ATL band; the right-axis domain sets how far a TSB
- * swing travels within that band.
- */
-export function mapToClassicScale(
-  tsb: number,
-  rightDomain: [number, number],
-  leftDomain: [number, number],
-): number {
-  const [, rMax] = rightDomain;
-  const [, lMax] = leftDomain;
-  const mid = lMax / 2;
-  const amplitude = lMax / 2;
-  const clamped = Math.min(rMax, Math.max(-rMax, tsb));
-  return mid + (clamped / rMax) * amplitude;
-}
+export const RANGE_OPTIONS = [
+  { key: "1m", label: "1M", days: 30 },
+  { key: "3m", label: "3M", days: 91 },
+  { key: "6m", label: "6M", days: 182 },
+] as const;
+export type RangeKey = (typeof RANGE_OPTIONS)[number]["key"];
 
-// ---------------------------------------------------------------------------
-// Series prep
-// ---------------------------------------------------------------------------
+/** How far past today the dashed no-training decay projection extends. */
+const PROJECTION_DAYS = 14;
 
-export interface PmcPoint extends TrainingLoad {
-  /** Real-mode split-fill: TSB clamped to >=0 (else 0), for the green area. */
-  tsbPositive: number | null;
-  /** Real-mode split-fill: TSB clamped to <=0 (else 0), for the blue-gray area. */
-  tsbNegative: number | null;
-  /** Classic-mode single-line value, plotted on the left axis. */
-  tsbClassic: number | null;
+export interface PmcPoint {
+  date: string;
+  tss: number | null;
+  ctl: number | null;
+  atl: number | null;
+  tsb: number | null;
+  /** Dashed continuation past today, assuming zero training load (decay). */
+  ctlProj: number | null;
+  atlProj: number | null;
+  tsbProj: number | null;
+  isToday: boolean;
 }
 
 export interface PmcSeries {
   points: PmcPoint[];
-  leftDomain: [number, number];
-  rightDomain: [number, number];
+  /** One shared y domain for all series: dips below 0 only if Form does. */
+  yDomain: [number, number];
+  maxTss: number;
+  lastReal: { date: string; ctl: number; atl: number; tsb: number } | null;
 }
 
-export function preparePmcSeries(data: TrainingLoad[]): PmcSeries {
-  const ctlAtl = data.flatMap((d) => [d.ctl, d.atl]).filter((v): v is number => v != null);
-  const tsbValues = data.map((d) => d.tsb).filter((v): v is number => v != null);
-  const leftDomain = computeLeftDomain(ctlAtl);
-  const rightDomain = computeRightDomain(tsbValues);
+/**
+ * Windows the history to `rangeDays`, then appends a PROJECTION_DAYS decay
+ * tail (CTL/ATL relax toward zero with their 42d/7d time constants — what
+ * happens if no more training is logged; Form rebounds as fatigue fades).
+ * The last real point carries both real and projected values so the dashed
+ * lines connect seamlessly to the solid ones.
+ */
+export function preparePmcSeries(data: TrainingLoad[], rangeDays: number): PmcSeries {
+  const windowed = data.slice(-rangeDays);
 
-  const points = data.map((d) => {
-    const tsb = d.tsb;
-    return {
-      ...d,
-      tsbPositive: tsb != null ? Math.max(0, tsb) : null,
-      tsbNegative: tsb != null ? Math.min(0, tsb) : null,
-      tsbClassic: tsb != null ? mapToClassicScale(tsb, rightDomain, leftDomain) : null,
-    };
-  });
+  const points: PmcPoint[] = windowed.map((d, i) => ({
+    date: d.date,
+    tss: d.tss,
+    ctl: d.ctl,
+    atl: d.atl,
+    tsb: d.tsb,
+    ctlProj: null,
+    atlProj: null,
+    tsbProj: null,
+    isToday: i === windowed.length - 1,
+  }));
 
-  return { points, leftDomain, rightDomain };
+  const last = points[points.length - 1];
+  let lastReal: PmcSeries["lastReal"] = null;
+
+  if (last && last.ctl != null && last.atl != null) {
+    lastReal = { date: last.date, ctl: last.ctl, atl: last.atl, tsb: last.tsb ?? last.ctl - last.atl };
+    // bridge point: projection starts exactly where the solid lines end
+    last.ctlProj = last.ctl;
+    last.atlProj = last.atl;
+    last.tsbProj = last.tsb;
+
+    let ctl = last.ctl;
+    let atl = last.atl;
+    let cursor = parseDate(last.date);
+    for (let i = 1; i <= PROJECTION_DAYS; i++) {
+      const tsb = ctl - atl; // TSB[t] = CTL[t-1] - ATL[t-1]
+      ctl = ctl + (0 - ctl) / 42;
+      atl = atl + (0 - atl) / 7;
+      cursor = addDays(cursor, 1);
+      points.push({
+        date: toISO(cursor),
+        tss: null, ctl: null, atl: null, tsb: null,
+        ctlProj: +ctl.toFixed(1),
+        atlProj: +atl.toFixed(1),
+        tsbProj: +tsb.toFixed(1),
+        isToday: false,
+      });
+    }
+  }
+
+  const highs = points.flatMap((p) => [p.ctl, p.atl, p.ctlProj, p.atlProj]).filter((v): v is number => v != null);
+  const lows = points.flatMap((p) => [p.tsb, p.tsbProj]).filter((v): v is number => v != null);
+  const rawMax = Math.max(10, ...highs);
+  const rawMin = Math.min(0, ...lows);
+  const yDomain: [number, number] = [
+    Math.floor((rawMin * 1.1) / 10) * 10,
+    Math.ceil((rawMax * 1.1) / 10) * 10,
+  ];
+
+  const maxTss = Math.max(1, ...points.map((p) => p.tss ?? 0));
+
+  return { points, yDomain, maxTss, lastReal };
 }
