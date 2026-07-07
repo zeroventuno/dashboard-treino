@@ -62,7 +62,7 @@ export default async function DashboardPage() {
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
             {live ? "Live" : "Sample data"}
           </span>
-          <span className="dsp rounded-full bg-[var(--lime)] px-3 py-[5px] text-[11.5px] font-bold text-[#0a0b0d]">
+          <span className="dsp glow-lime rounded-full bg-[var(--lime)] px-3 py-[5px] text-[11.5px] font-bold text-[#0a0b0d]">
             {days} DAYS
           </span>
         </div>

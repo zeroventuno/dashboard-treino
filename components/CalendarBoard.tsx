@@ -148,7 +148,7 @@ function WeekRow({ week, todayISO, onOpen }: {
                   <button
                     key={w.id}
                     onClick={() => onOpen(w)}
-                    className="group flex w-full items-center gap-1 rounded-md border-l-2 bg-[var(--surface-3)] px-1.5 py-1 text-left transition-colors hover:bg-[var(--border)]"
+                    className="group flex w-full items-center gap-1 rounded-md border-l-2 bg-[var(--surface-3)] px-1.5 py-1 text-left transition-[background-color,transform] duration-150 hover:scale-[1.03] hover:bg-[var(--border)]"
                     style={{ borderColor: meta.color }}
                   >
                     <DisciplineIcon discipline={w.discipline} size={11} style={{ color: meta.color, flexShrink: 0 }} />

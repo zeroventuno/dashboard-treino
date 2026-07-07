@@ -102,6 +102,48 @@ body {
 @keyframes growBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 .growbar { transform-origin: bottom; animation: growBar .5s cubic-bezier(.22,.61,.36,1) both; }
 
+/* card hover — subtle lift + lime-tinted edge light */
+.tcard {
+  transition:
+    transform .28s cubic-bezier(.22,.61,.36,1),
+    border-color .28s ease,
+    box-shadow .28s ease;
+}
+@media (hover: hover) {
+  .tcard:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklab, var(--lime) 16%, var(--border-soft));
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, .4),
+      0 14px 34px rgba(0, 0, 0, .38),
+      0 0 28px rgba(178, 230, 58, .05);
+  }
+}
+
+/* breathing glow for the live readiness dot */
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 8px currentColor; }
+  50% { box-shadow: 0 0 18px currentColor; }
+}
+.breathe { animation: breathe 2.8s ease-in-out infinite; }
+
+/* soft glow for the lime countdown pill */
+.glow-lime { box-shadow: 0 0 16px rgba(178, 230, 58, .35); }
+
+/* accordion open/close via grid rows — smooth height without JS measuring */
+.collapse-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .32s cubic-bezier(.22,.61,.36,1);
+}
+.collapse-grid.open { grid-template-rows: 1fr; }
+.collapse-grid > div { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rise, .pop, .fade, .growbar, .breathe { animation: none !important; }
+  .tcard, .collapse-grid { transition: none !important; }
+}
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 3px solid var(--bg); }
 ::-webkit-scrollbar-track { background: transparent; }

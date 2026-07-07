@@ -13,7 +13,7 @@ export function SectionCard({
 }) {
   return (
     <section
-      className={`rise rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-[var(--shadow)] sm:p-6 ${className}`}
+      className={`rise tcard rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-[var(--shadow)] sm:p-6 ${className}`}
     >
       {(title || action) && (
         <header className="mb-4 flex items-start justify-between gap-3">

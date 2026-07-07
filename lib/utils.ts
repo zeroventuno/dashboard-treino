@@ -62,6 +62,15 @@ export function fmtDuration(min: number | null | undefined): string {
   return h ? `${h}h${m ? String(m).padStart(2, "0") : ""}` : `${m}min`;
 }
 
+/** Decimal hours → "5h38" (5.63 would otherwise render as the unreadable "5.63h"). */
+export function fmtSleepHours(hours: number | null | undefined): string {
+  if (hours == null) return "—";
+  let h = Math.floor(hours);
+  let m = Math.round((hours - h) * 60);
+  if (m === 60) { h += 1; m = 0; }
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+}
+
 // ---- discipline metadata ---------------------------------------------------
 
 export const DISCIPLINE_META: Record<Discipline, { label: string; color: string; icon: string }> = {
