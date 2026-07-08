@@ -77,6 +77,11 @@ function ComparisonTable({ w }: { w: Workout }) {
       actual: w.actual_pace ?? fmtPace(w.discipline, w.actual_duration_min, w.actual_distance_km),
     },
     {
+      label: "Power",
+      planned: w.planned_power_watts ?? null,
+      actual: w.actual_power_watts ?? null,
+    },
+    {
       label: "Load",
       planned: w.planned_tss != null ? `${Math.round(Number(w.planned_tss))}` : null,
       actual: w.actual_tss != null ? `${Math.round(Number(w.actual_tss))}` : null,

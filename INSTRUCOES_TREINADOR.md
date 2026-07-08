@@ -139,6 +139,11 @@ não aparece nela. Campos (planejado vs. real): `planned_duration_min`/`actual_d
 `'1:53/100m'`, `'28.4 km/h'`) — **não** deixe o dashboard derivar de tempo÷distância, porque
 em natação com séries o tempo total inclui descansos e o pace derivado sai errado.
 `planned_pace` é o alvo da sessão (ex.: `'5:50-6:10/km'`) — preencha já ao planejar a semana.
+
+**Potência (bike):** use `planned_power_watts` (alvo, ex.: `'150-158W'`) e `actual_power_watts`
+(realizado, ex.: `'254W avg / 290W max'`) — texto livre. A linha "Power" aparece na tabela do
+modal só quando há dado, então só preencha em treinos de bike.
+
 Use `notes` só pro que não tem coluna (FC, cadência, sensações, clima).
 
 ### 5) (Opcional) Carga/PMC e marcos

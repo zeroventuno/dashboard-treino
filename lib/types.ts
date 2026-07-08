@@ -32,6 +32,9 @@ export interface Workout {
    * duration÷distance, which overstates swim pace (elapsed time includes rests). */
   planned_pace?: string | null;
   actual_pace?: string | null;
+  /** Bike power as free text (e.g. "150-158W", "254W avg / 290W max"). */
+  planned_power_watts?: string | null;
+  actual_power_watts?: string | null;
   notes: string | null;
   nutrition_notes: string | null;
   created_at?: string;
