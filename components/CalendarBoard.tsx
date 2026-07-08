@@ -1,14 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import type { Workout, WorkoutStatus, Discipline } from "@/lib/types";
+import type { Workout, Discipline } from "@/lib/types";
 import { DISCIPLINE_META, fmtDuration, parseDate, startOfWeek, addDays, toISO, monthName } from "@/lib/utils";
 import { DisciplineIcon } from "./Icons";
-import { WorkoutModal, STATUS_META } from "./WorkoutModal";
+import { WorkoutModal } from "./WorkoutModal";
 
 const LEGEND: Discipline[] = ["swim", "bike", "run", "strength"];
 const WD = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+// disciplines that get a weekly km total (strength has no distance)
+const KM_DISCIPLINES: Discipline[] = ["swim", "bike", "run"];
 
 function isoWeek(d: Date): number {
   const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -18,12 +19,25 @@ function isoWeek(d: Date): number {
   return 1 + Math.round(((t.getTime() - first.getTime()) / 86_400_000 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
 }
 
+function fmtKm(km: number): string {
+  return `${km % 1 === 0 ? km : km.toFixed(1)} km`;
+}
+
+interface WeekData {
+  days: { iso: string; date: Date; inMonth: boolean; items: Workout[] }[];
+  wk: number;
+  min: number;
+  tss: number;
+  km: Record<Discipline, number>;
+  done: number;
+  total: number;
+  isThis: boolean;
+}
+
 export function CalendarBoard({ workouts, todayISO }: { workouts: Workout[]; todayISO: string }) {
   const today = parseDate(todayISO);
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() });
   const [open, setOpen] = useState<Workout | null>(null);
-  const [busy, setBusy] = useState(false);
-  const router = useRouter();
 
   const byDate = useMemo(() => {
     const map: Record<string, Workout[]> = {};
@@ -31,11 +45,11 @@ export function CalendarBoard({ workouts, todayISO }: { workouts: Workout[]; tod
     return map;
   }, [workouts]);
 
-  const weeks = useMemo(() => {
+  const weeks = useMemo<WeekData[]>(() => {
     const firstOfMonth = new Date(ym.y, ym.m, 1);
     const lastOfMonth = new Date(ym.y, ym.m + 1, 0);
     let cur = startOfWeek(firstOfMonth);
-    const out: { days: { iso: string; date: Date; inMonth: boolean; items: Workout[] }[]; wk: number; min: number; tss: number; done: number; total: number; isThis: boolean }[] = [];
+    const out: WeekData[] = [];
     while (cur <= lastOfMonth) {
       const days = Array.from({ length: 7 }, (_, i) => {
         const date = addDays(cur, i);
@@ -43,11 +57,17 @@ export function CalendarBoard({ workouts, todayISO }: { workouts: Workout[]; tod
         return { iso, date, inMonth: date.getMonth() === ym.m, items: byDate[iso] ?? [] };
       });
       const items = days.flatMap((d) => d.items);
+      const km = { swim: 0, bike: 0, run: 0, strength: 0, rest: 0 } as Record<Discipline, number>;
+      for (const w of items) {
+        const d = Number(w.actual_distance_km ?? w.planned_distance_km ?? 0);
+        if (d > 0) km[w.discipline] += d;
+      }
       out.push({
         days,
         wk: isoWeek(cur),
-        min: items.reduce((s, w) => s + (w.actual_duration_min ?? w.planned_duration_min ?? 0), 0),
+        min: items.reduce((s, w) => s + Number(w.actual_duration_min ?? w.planned_duration_min ?? 0), 0),
         tss: items.reduce((s, w) => s + Number(w.actual_tss ?? w.planned_tss ?? 0), 0),
+        km,
         done: items.filter((w) => w.status === "done").length,
         total: items.length,
         isThis: days.some((d) => d.iso === todayISO),
@@ -56,18 +76,6 @@ export function CalendarBoard({ workouts, todayISO }: { workouts: Workout[]; tod
     }
     return out;
   }, [ym, byDate, todayISO]);
-
-  async function update(id: string, status: WorkoutStatus) {
-    setBusy(true);
-    try {
-      const res = await fetch("/api/workouts", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status }),
-      }).then((r) => r.json()).catch(() => ({ ok: false }));
-      if (res.ok) router.refresh();
-      setOpen((w) => (w ? { ...w, status } : w));
-    } finally { setBusy(false); }
-  }
 
   const shift = (delta: number) => setYm(({ y, m }) => {
     const d = new Date(y, m + delta, 1);
@@ -109,13 +117,13 @@ export function CalendarBoard({ workouts, todayISO }: { workouts: Workout[]; tod
         </div>
       </div>
 
-      {open && <WorkoutModal w={open} busy={busy} onClose={() => setOpen(null)} onStatus={update} />}
+      {open && <WorkoutModal w={open} onClose={() => setOpen(null)} />}
     </>
   );
 }
 
 function WeekRow({ week, todayISO, onOpen }: {
-  week: { days: { iso: string; date: Date; inMonth: boolean; items: Workout[] }[]; wk: number; min: number; tss: number; done: number; total: number; isThis: boolean };
+  week: WeekData;
   todayISO: string;
   onOpen: (w: Workout) => void;
 }) {
@@ -143,7 +151,6 @@ function WeekRow({ week, todayISO, onOpen }: {
             <div className="space-y-1">
               {day.items.map((w) => {
                 const meta = DISCIPLINE_META[w.discipline];
-                const st = STATUS_META[w.status];
                 return (
                   <button
                     key={w.id}
@@ -180,6 +187,21 @@ function WeekRow({ week, todayISO, onOpen }: {
         <p className="dsp tnum mt-0.5 text-[22px] font-extrabold leading-none text-[var(--text)]">
           {fmtDuration(week.min) === "—" ? "0h" : fmtDuration(week.min)}
         </p>
+
+        {/* per-discipline km totals — colored to match the legend */}
+        {KM_DISCIPLINES.some((d) => week.km[d] > 0) && (
+          <div className="mt-2 space-y-0.5">
+            {KM_DISCIPLINES.filter((d) => week.km[d] > 0).map((d) => (
+              <div key={d} className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: DISCIPLINE_META[d].color }} />
+                <span className="tnum text-[11px] text-[var(--text-muted)]">
+                  {fmtKm(week.km[d])} {DISCIPLINE_META[d].label.toLowerCase()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="mt-2 h-[4px] w-full overflow-hidden rounded-full bg-[#1a1d23]">
           <div className="h-full rounded-full bg-[var(--lime)]" style={{ width: `${week.total ? (week.done / week.total) * 100 : 0}%` }} />
         </div>

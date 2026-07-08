@@ -4,7 +4,7 @@ import { Fragment, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
 import { DISCIPLINE_META, fmtDuration } from "@/lib/utils";
-import { DisciplineIcon, CheckIcon, DownloadIcon, CloseIcon } from "./Icons";
+import { DisciplineIcon, DownloadIcon, CloseIcon } from "./Icons";
 
 export const STATUS_META: Record<WorkoutStatus, { label: string; dot: string; ring: string }> = {
   planned:  { label: "Planned",   dot: "var(--text-faint)", ring: "var(--border)" },
@@ -12,6 +12,14 @@ export const STATUS_META: Record<WorkoutStatus, { label: string; dot: string; ri
   skipped:  { label: "Skipped",   dot: "var(--bad)",        ring: "var(--border)" },
   modified: { label: "Modified",  dot: "var(--warn)",       ring: "color-mix(in oklab, var(--warn) 40%, var(--border))" },
 };
+
+// Status lights — mirror the workout's status set from the training log
+// (coach chat), not clickable actions. Planned = all off.
+const STATUS_LIGHTS: { status: WorkoutStatus; label: string; color: string }[] = [
+  { status: "done", label: "Done", color: "var(--good)" },
+  { status: "modified", label: "Modified", color: "var(--warn)" },
+  { status: "skipped", label: "Skipped", color: "var(--bad)" },
+];
 
 function downloadZwo(w: Workout) {
   if (!w.zwo_content) return;
@@ -109,12 +117,10 @@ function ComparisonTable({ w }: { w: Workout }) {
 }
 
 export function WorkoutModal({
-  w, busy, onClose, onStatus,
+  w, onClose,
 }: {
   w: Workout;
-  busy: boolean;
   onClose: () => void;
-  onStatus: (id: string, s: WorkoutStatus) => void;
 }) {
   const meta = DISCIPLINE_META[w.discipline];
 
@@ -186,19 +192,34 @@ export function WorkoutModal({
           )}
         </div>
 
-        <div className="sticky bottom-0 flex gap-2 border-t border-[var(--border)] bg-[var(--surface)]/95 p-4 backdrop-blur">
-          <button disabled={busy} onClick={() => onStatus(w.id, "done")}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--lime)] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-50">
-            <CheckIcon /> Mark done
-          </button>
-          <button disabled={busy} onClick={() => onStatus(w.id, "modified")}
-            className="flex-1 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--text-muted)] transition-colors hover:border-[var(--warn)] hover:text-[var(--warn)] disabled:opacity-50">
-            Modified
-          </button>
-          <button disabled={busy} onClick={() => onStatus(w.id, "skipped")}
-            className="flex-1 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--text-muted)] transition-colors hover:border-[var(--bad)] hover:text-[var(--bad)] disabled:opacity-50">
-            Skip
-          </button>
+        {/* status lights — reflect the status set in the training log, not actions */}
+        <div className="sticky bottom-0 border-t border-[var(--border)] bg-[var(--surface)]/95 p-4 backdrop-blur">
+          <div className="flex items-center justify-center gap-7">
+            {STATUS_LIGHTS.map((l) => {
+              const on = w.status === l.status;
+              return (
+                <div key={l.status} className="flex items-center gap-2" style={{ opacity: on ? 1 : 0.4 }}>
+                  <span
+                    className="h-2.5 w-2.5 rounded-full transition-all"
+                    style={{
+                      background: on ? l.color : "var(--surface-3)",
+                      color: l.color,
+                      boxShadow: on ? "0 0 12px currentColor" : "none",
+                    }}
+                  />
+                  <span
+                    className="text-[12px] font-bold uppercase tracking-[0.08em]"
+                    style={{ color: on ? l.color : "var(--text-faint)" }}
+                  >
+                    {l.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-center text-[10px] text-[var(--text-faint)]">
+            Status atualizado automaticamente pelo seu registro de treino
+          </p>
         </div>
       </div>
     </div>,
