@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { getDashboardData } from "@/lib/data";
-import { toISO, daysUntilRace } from "@/lib/utils";
+import { toISO } from "@/lib/utils";
+import { DaysPill } from "@/components/Countdown";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import type { DashboardData } from "@/lib/types";
 import { HeroBlock } from "@/components/blocks/HeroBlock";
@@ -46,8 +47,6 @@ export default async function DashboardPage() {
     else groups.push(b);
   }
 
-  const days = Math.max(0, daysUntilRace());
-
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
       {/* sticky top bar */}
@@ -62,9 +61,7 @@ export default async function DashboardPage() {
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
             {live ? "Live" : "Sample data"}
           </span>
-          <span className="dsp glow-lime rounded-full bg-[var(--lime)] px-3 py-[5px] text-[11.5px] font-bold text-[#0a0b0d]">
-            {days} DAYS
-          </span>
+          <DaysPill />
         </div>
       </nav>
 

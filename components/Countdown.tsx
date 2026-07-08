@@ -17,6 +17,22 @@ function diff() {
   };
 }
 
+/** Nav pill — same clock as the hero countdown so the two never disagree
+ * (the old server-rendered value could lag a day behind via ISR cache). */
+export function DaysPill() {
+  const [t, setT] = useState<ReturnType<typeof diff> | null>(null);
+  useEffect(() => {
+    setT(diff());
+    const id = setInterval(() => setT(diff()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span className="dsp glow-lime rounded-full bg-[var(--lime)] px-3 py-[5px] text-[11.5px] font-bold text-[#0a0b0d]">
+      {t ? t.totalDays : "—"} DAYS
+    </span>
+  );
+}
+
 export function Countdown() {
   const [t, setT] = useState<ReturnType<typeof diff> | null>(null);
 

@@ -69,6 +69,10 @@ export function PmcChart({ data }: { data: TrainingLoad[] }) {
     [data, rangeDays],
   );
 
+  // strip shows real history only — including the projection tail would leave
+  // a dead 14-day gap after the last recorded workout
+  const realPoints = useMemo(() => points.filter((p) => p.ctl != null), [points]);
+
   // one tick per month: the first data point of each month present in the view
   const monthTicks = useMemo(() => {
     const seen = new Set<string>();
@@ -133,7 +137,7 @@ export function PmcChart({ data }: { data: TrainingLoad[] }) {
             <CartesianGrid stroke="var(--border-soft)" vertical={false} />
             <XAxis dataKey="date" ticks={monthTicks} tickFormatter={monthLabel} tickLine={false} axisLine={false} />
             <YAxis domain={yDomain} tickLine={false} axisLine={false} width={44} />
-            <Tooltip content={PmcTooltip} />
+            <Tooltip content={PmcTooltip} isAnimationActive={false} />
 
             {/* zero baseline — only meaningful when Form dips below it */}
             {hasNegative && (
@@ -180,11 +184,11 @@ export function PmcChart({ data }: { data: TrainingLoad[] }) {
       {/* daily training-load strip (Strava-style context row) */}
       <div className="mt-1 h-[44px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={points} margin={{ top: 2, right: 8, left: -18, bottom: 0 }}>
+          <ComposedChart data={realPoints} margin={{ top: 2, right: 8, left: -18, bottom: 0 }}>
             <XAxis dataKey="date" tick={false} tickLine={false} axisLine={false} height={1} />
             <YAxis domain={[0, maxTss]} hide width={44} />
             <Bar dataKey="tss" isAnimationActive={false} maxBarSize={4}>
-              {points.map((p) => (
+              {realPoints.map((p) => (
                 <Cell key={p.date} fill={p.isToday ? "var(--lime)" : "var(--text-faint)"} fillOpacity={p.isToday ? 1 : 0.45} />
               ))}
             </Bar>

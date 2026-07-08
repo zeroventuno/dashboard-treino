@@ -1,6 +1,8 @@
 "use client";
 
-import type { Workout, WorkoutStatus } from "@/lib/types";
+import { Fragment, useEffect } from "react";
+import { createPortal } from "react-dom";
+import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
 import { DISCIPLINE_META, fmtDuration } from "@/lib/utils";
 import { DisciplineIcon, CheckIcon, DownloadIcon, CloseIcon } from "./Icons";
 
@@ -35,21 +37,64 @@ function fmtKm(km: number): string {
   return `${km % 1 === 0 ? km : km.toFixed(1)} km`;
 }
 
-/** Shows the actual value as primary (falling back to planned if not done yet),
- * with the planned value as a small secondary line only when both exist —
- * so a planned-vs-actual comparison appears on a single merged workout card. */
-function StatCell({ label, planned, actual, fmt }: {
-  label: string; planned: number | null; actual: number | null; fmt: (n: number) => string;
-}) {
-  if (planned == null && actual == null) return null;
-  const primary = actual ?? planned!;
+function fmtMinSec(minutes: number): string {
+  let m = Math.floor(minutes);
+  let s = Math.round((minutes - m) * 60);
+  if (s === 60) { m += 1; s = 0; }
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** Discipline-appropriate average pace from duration + distance:
+ * run → min/km · swim → min/100m · bike → km/h. */
+function fmtPace(discipline: Discipline, durationMin: number | null, distanceKm: number | null): string | null {
+  if (!durationMin || !distanceKm || distanceKm <= 0 || durationMin <= 0) return null;
+  if (discipline === "run") return `${fmtMinSec(durationMin / distanceKm)}/km`;
+  if (discipline === "swim") return `${fmtMinSec(durationMin / (distanceKm * 10))}/100m`;
+  if (discipline === "bike") return `${(distanceKm / (durationMin / 60)).toFixed(1)} km/h`;
+  return null;
+}
+
+/** Planned-vs-actual comparison: rows appear only when either side has data. */
+function ComparisonTable({ w }: { w: Workout }) {
+  const rows = [
+    {
+      label: "Time",
+      planned: w.planned_duration_min != null ? fmtDuration(w.planned_duration_min) : null,
+      actual: w.actual_duration_min != null ? fmtDuration(w.actual_duration_min) : null,
+    },
+    {
+      label: "Distance",
+      planned: w.planned_distance_km != null ? fmtKm(Number(w.planned_distance_km)) : null,
+      actual: w.actual_distance_km != null ? fmtKm(Number(w.actual_distance_km)) : null,
+    },
+    {
+      label: "Avg pace",
+      planned: fmtPace(w.discipline, w.planned_duration_min, w.planned_distance_km),
+      actual: fmtPace(w.discipline, w.actual_duration_min, w.actual_distance_km),
+    },
+    {
+      label: "Load",
+      planned: w.planned_tss != null ? `${Math.round(Number(w.planned_tss))}` : null,
+      actual: w.actual_tss != null ? `${Math.round(Number(w.actual_tss))}` : null,
+    },
+  ].filter((r) => r.planned != null || r.actual != null);
+
+  if (rows.length === 0) return null;
+
   return (
-    <div className="min-w-[72px]">
-      <p className="text-[9px] font-bold uppercase tracking-wide text-[var(--text-faint)]">{label}</p>
-      <p className="tnum text-[13px] font-semibold text-[var(--text)]">{fmt(primary)}</p>
-      {planned != null && actual != null && (
-        <p className="tnum text-[10px] text-[var(--text-faint)]">plan {fmt(planned)}</p>
-      )}
+    <div className="border-b border-[var(--border)] px-5 py-3.5">
+      <div className="grid grid-cols-[minmax(72px,auto)_1fr_1fr] items-baseline gap-x-4 gap-y-1.5">
+        <span />
+        <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">Planned</span>
+        <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">Actual</span>
+        {rows.map((r) => (
+          <Fragment key={r.label}>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{r.label}</span>
+            <span className="tnum text-[13px] text-[var(--text-muted)]">{r.planned ?? "—"}</span>
+            <span className="tnum text-[13px] font-bold text-[var(--text)]">{r.actual ?? "—"}</span>
+          </Fragment>
+        ))}
+      </div>
     </div>
   );
 }
@@ -63,8 +108,21 @@ export function WorkoutModal({
   onStatus: (id: string, s: WorkoutStatus) => void;
 }) {
   const meta = DISCIPLINE_META[w.discipline];
-  return (
-    <div className="fade fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
+
+  // lock background scroll while open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  if (typeof document === "undefined") return null;
+
+  // Portal to <body>: ancestor cards use hover transforms, which turn
+  // position:fixed into card-relative positioning — rendering here keeps the
+  // overlay (and its blur) covering the whole page, above everything.
+  return createPortal(
+    <div className="fade fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
       <div
         className="pop max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:rounded-[var(--radius)]"
         onClick={(e) => e.stopPropagation()}
@@ -86,11 +144,7 @@ export function WorkoutModal({
           </button>
         </div>
 
-        <div className="flex gap-4 border-b border-[var(--border)] px-5 py-3">
-          <StatCell label="Duration" planned={w.planned_duration_min} actual={w.actual_duration_min} fmt={(n) => fmtDuration(n)} />
-          <StatCell label="Distance" planned={w.planned_distance_km} actual={w.actual_distance_km} fmt={fmtKm} />
-          <StatCell label="TSS" planned={w.planned_tss} actual={w.actual_tss} fmt={(n) => `${Math.round(n)}`} />
-        </div>
+        <ComparisonTable w={w} />
 
         <div className="space-y-5 p-5">
           {w.description && (
@@ -138,6 +192,7 @@ export function WorkoutModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

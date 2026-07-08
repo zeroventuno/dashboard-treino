@@ -91,11 +91,6 @@ export function SeasonBars({
             );
           })}
         </div>
-        {/* today marker */}
-        <div className="pointer-events-none absolute -top-2 bottom-0" style={{ left: `${Math.min(100, Math.max(0, pct(todayT)))}%` }}>
-          <div className="mx-auto h-2 w-2 -translate-x-1/2 rounded-full border-2 border-[var(--bg)] bg-white" />
-          <div className="h-[86px] w-px -translate-x-1/2 bg-white/40" />
-        </div>
       </div>
 
       {/* phase legend */}
