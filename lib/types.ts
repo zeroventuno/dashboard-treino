@@ -28,6 +28,10 @@ export interface Workout {
   actual_distance_km: number | null;
   planned_tss: number | null;
   actual_tss: number | null;
+  /** Authoritative pace strings (e.g. "6:04/km", "1:53/100m") — preferred over
+   * duration÷distance, which overstates swim pace (elapsed time includes rests). */
+  planned_pace?: string | null;
+  actual_pace?: string | null;
   notes: string | null;
   nutrition_notes: string | null;
   created_at?: string;

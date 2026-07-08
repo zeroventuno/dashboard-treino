@@ -44,23 +44,27 @@ function fmtMinSec(minutes: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-/** Discipline-appropriate average pace from duration + distance:
- * run → min/km · swim → min/100m · bike → km/h. */
+/** Derived average pace fallback (run min/km, bike km/h) when no stored pace
+ * exists. Swim is intentionally excluded: session duration includes interval
+ * rests, so the derived number misrepresents swim pace — swims only show the
+ * stored Garmin value. */
 function fmtPace(discipline: Discipline, durationMin: number | null, distanceKm: number | null): string | null {
   if (!durationMin || !distanceKm || distanceKm <= 0 || durationMin <= 0) return null;
   if (discipline === "run") return `${fmtMinSec(durationMin / distanceKm)}/km`;
-  if (discipline === "swim") return `${fmtMinSec(durationMin / (distanceKm * 10))}/100m`;
   if (discipline === "bike") return `${(distanceKm / (durationMin / 60)).toFixed(1)} km/h`;
   return null;
 }
 
-/** Planned-vs-actual comparison: rows appear only when either side has data. */
+/** Planned-vs-actual comparison: rows appear only when either side has data.
+ * Pace prefers the stored Garmin value (actual_pace/planned_pace) and only
+ * falls back to duration÷distance — the derived number overstates swim pace
+ * because elapsed duration includes interval rests. */
 function ComparisonTable({ w }: { w: Workout }) {
   const rows = [
     {
       label: "Time",
-      planned: w.planned_duration_min != null ? fmtDuration(w.planned_duration_min) : null,
-      actual: w.actual_duration_min != null ? fmtDuration(w.actual_duration_min) : null,
+      planned: w.planned_duration_min != null ? fmtDuration(Math.round(Number(w.planned_duration_min))) : null,
+      actual: w.actual_duration_min != null ? fmtDuration(Math.round(Number(w.actual_duration_min))) : null,
     },
     {
       label: "Distance",
@@ -69,8 +73,8 @@ function ComparisonTable({ w }: { w: Workout }) {
     },
     {
       label: "Avg pace",
-      planned: fmtPace(w.discipline, w.planned_duration_min, w.planned_distance_km),
-      actual: fmtPace(w.discipline, w.actual_duration_min, w.actual_distance_km),
+      planned: w.planned_pace ?? fmtPace(w.discipline, w.planned_duration_min, w.planned_distance_km),
+      actual: w.actual_pace ?? fmtPace(w.discipline, w.actual_duration_min, w.actual_distance_km),
     },
     {
       label: "Load",

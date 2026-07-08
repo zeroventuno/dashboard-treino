@@ -113,19 +113,33 @@ acontecer de novo.
 Passo a passo:
 1. Antes de inserir qualquer coisa, **confira se já existe um `planned` para essa data+discipline**:
    `select id from workouts where date = '2026-07-06' and discipline = 'swim';`
-2. Se existir, **`update` essa linha** (não `insert`):
+2. Se existir, **`update` essa linha** (não `insert`) — e **sempre preencha as colunas
+   estruturadas** com os números do treino, além do resumo em `notes`:
 ```sql
 update workouts
-set status = 'done', actual_duration_min = 48, actual_distance_km = 2.0, actual_tss = 47
-where date = '2026-07-06' and discipline = 'swim';
+set status = 'done',
+    actual_duration_min = 25.6,        -- minutos (decimais ok: 25:37 = 25.6)
+    actual_distance_km  = 4.22,
+    actual_pace         = '6:04/km',   -- pace OFICIAL do Garmin, como texto
+    actual_tss          = 38,
+    notes               = 'FC média 154bpm, cadência 159spm, calor forte...'
+where date = '2026-07-07' and discipline = 'run';
 ```
 3. Só use `insert` para um treino "feito" quando **não havia nada planejado** pra aquele dia
    (sessão espontânea/fora do plano) — nesse caso, preencha os campos `actual_*` e deixe os
    `planned_*` como `null`.
 
-Campos disponíveis (planejado vs. real, mesma lógica pros três): `planned_duration_min` /
-`actual_duration_min`, `planned_distance_km` / `actual_distance_km`, `planned_tss` / `actual_tss`.
-O modal do treino no dashboard mostra os dois lado a lado automaticamente quando ambos existem.
+**IMPORTANTE — não deixe os números só em `notes`.** O dashboard tem uma tabela
+Planejado × Realizado no modal do treino que lê as colunas estruturadas; texto em `notes`
+não aparece nela. Campos (planejado vs. real): `planned_duration_min`/`actual_duration_min`,
+`planned_distance_km`/`actual_distance_km`, `planned_pace`/`actual_pace`,
+`planned_tss`/`actual_tss`.
+
+**Pace:** grave `actual_pace` com o pace oficial do Garmin como texto (`'6:04/km'`,
+`'1:53/100m'`, `'28.4 km/h'`) — **não** deixe o dashboard derivar de tempo÷distância, porque
+em natação com séries o tempo total inclui descansos e o pace derivado sai errado.
+`planned_pace` é o alvo da sessão (ex.: `'5:50-6:10/km'`) — preencha já ao planejar a semana.
+Use `notes` só pro que não tem coluna (FC, cadência, sensações, clima).
 
 ### 5) (Opcional) Carga/PMC e marcos
 Se você tiver os dados do Strava/Garmin, pode atualizar `training_load` (tss/ctl/atl/tsb por dia,
