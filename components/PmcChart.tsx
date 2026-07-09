@@ -27,7 +27,7 @@ function fmtSigned(n: number): string {
   return `${n > 0 ? "+" : ""}${Math.round(n)}`;
 }
 
-function PmcTooltip({ active, payload, label }: TooltipContentProps) {
+function PmcTooltip({ active, payload }: TooltipContentProps) {
   if (!active || !payload?.length) return null;
   const p = payload[0].payload as PmcPoint;
   const projected = p.ctl == null && p.ctlProj != null;
@@ -38,7 +38,7 @@ function PmcTooltip({ active, payload, label }: TooltipContentProps) {
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-[12px] shadow-lg">
       <p className="mb-1.5 font-bold text-[var(--text-faint)]">
-        {fmtFullDate(String(label))}{projected ? " · projected" : ""}
+        {fmtFullDate(p.date)}{projected ? " · projected" : ""}
       </p>
       <p className="tnum" style={{ color: "var(--lime)" }}>
         Fitness: <span className="font-bold">{ctl != null ? Math.round(ctl) : "—"}</span>
@@ -69,22 +69,51 @@ export function PmcChart({ data }: { data: TrainingLoad[] }) {
     [data, rangeDays],
   );
 
-  // strip shows real history only — including the projection tail would leave
-  // a dead 14-day gap after the last recorded workout
-  const realPoints = useMemo(() => points.filter((p) => p.ctl != null), [points]);
+  // Both charts render in separate <ComposedChart> instances (one for the
+  // Line/Area, one for the Bar strip below). Recharts auto-picks a "point"
+  // scale for a category axis with no Bar, but a "band" scale when a Bar is
+  // present — two different padding formulas, so a shared string dataKey
+  // drifts out of alignment over a long range. An explicit numeric index
+  // axis (same domain, same length, in both charts) sidesteps that entirely:
+  // linear scale math is identical regardless of which series use it.
+  const idxPoints = useMemo(() => points.map((p, i) => ({ ...p, idx: i })), [points]);
 
-  // one tick per month: the first data point of each month present in the view
+  // rest days have real tss=0, which Recharts draws as an invisible 0px bar —
+  // leaving gaps that read as missing days. `tssBar` gives every real day a
+  // small visible floor while `tss` (used by the tooltip) stays untouched, so
+  // the "Load" number shown on hover is never faked.
+  const barPoints = useMemo(() => {
+    const floor = maxTss * 0.035;
+    return idxPoints.map((p) => ({ ...p, tssBar: p.tss != null ? Math.max(p.tss, floor) : null }));
+  }, [idxPoints, maxTss]);
+
+  // one tick per month: the index of the first data point of each month
   const monthTicks = useMemo(() => {
     const seen = new Set<string>();
-    const out: string[] = [];
-    for (const d of points) {
+    const out: number[] = [];
+    for (const d of idxPoints) {
       const key = d.date.slice(0, 7);
-      if (!seen.has(key)) { seen.add(key); out.push(d.date); }
+      if (!seen.has(key)) { seen.add(key); out.push(d.idx); }
     }
     return out;
-  }, [points]);
+  }, [idxPoints]);
+
+  // last real (non-projected) point's index — for the "today" ReferenceDot
+  const lastRealIdx = useMemo(() => {
+    for (let i = idxPoints.length - 1; i >= 0; i--) if (idxPoints[i].ctl != null) return i;
+    return null;
+  }, [idxPoints]);
 
   const hasNegative = yDomain[0] < 0;
+
+  // The daily-load bars share this same chart (not a separate synced
+  // instance — two independently-scaled Recharts containers drift apart
+  // over a long range, no matter how carefully the axes are matched). A
+  // hidden secondary y-axis maps maxTss to ~18% of the plot height, so bars
+  // read as a short strip hugging the bottom — same visual as before, but
+  // pixel-perfect under the dates above by construction, since it's one
+  // shared x-axis. The axis is never shown; exact values stay in the tooltip.
+  const loadAxisMax = maxTss / 0.18;
 
   return (
     <div>
@@ -123,10 +152,13 @@ export function PmcChart({ data }: { data: TrainingLoad[] }) {
         </div>
       </div>
 
-      {/* main chart — one shared axis, real values for all three series */}
-      <div className="h-56 w-full sm:h-64">
+      {/* one chart: Fitness/Fatigue/Form on the primary axis, daily load bars
+          on a hidden secondary axis mapped to the bottom ~18% of the plot.
+          Single shared x-axis means the bars are pixel-perfect under their
+          date by construction — no cross-chart scale drift to fight. */}
+      <div className="h-64 w-full sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={points} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
+          <ComposedChart data={barPoints} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
             <defs>
               <linearGradient id="ctlFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--lime)" stopOpacity={0.16} />
@@ -135,9 +167,19 @@ export function PmcChart({ data }: { data: TrainingLoad[] }) {
             </defs>
 
             <CartesianGrid stroke="var(--border-soft)" vertical={false} />
-            <XAxis dataKey="date" ticks={monthTicks} tickFormatter={monthLabel} tickLine={false} axisLine={false} />
+            <XAxis dataKey="idx" type="number" domain={[0, idxPoints.length - 1]}
+              ticks={monthTicks} tickFormatter={(v) => monthLabel(idxPoints[v]?.date ?? "")}
+              tickLine={false} axisLine={false} />
             <YAxis domain={yDomain} tickLine={false} axisLine={false} width={44} />
-            <Tooltip content={PmcTooltip} isAnimationActive={false} />
+            <YAxis yAxisId="load" domain={[0, loadAxisMax]} hide />
+            <Tooltip content={PmcTooltip} cursor={{ fill: "var(--surface-3)", opacity: 0.15 }} isAnimationActive={false} />
+
+            {/* daily load bars — bottom strip via the hidden secondary axis */}
+            <Bar yAxisId="load" dataKey="tssBar" isAnimationActive={false} maxBarSize={4}>
+              {barPoints.map((p) => (
+                <Cell key={p.date} fill={p.isToday ? "var(--lime)" : "var(--text-faint)"} fillOpacity={p.isToday ? 1 : 0.4} />
+              ))}
+            </Bar>
 
             {/* zero baseline — only meaningful when Form dips below it */}
             {hasNegative && (
@@ -173,25 +215,10 @@ export function PmcChart({ data }: { data: TrainingLoad[] }) {
             )}
 
             {/* today: dot on the end of the solid Fitness line (Strava-style) */}
-            {lastReal && shown.ctl && (
-              <ReferenceDot x={lastReal.date} y={lastReal.ctl} r={4.5}
+            {lastReal && lastRealIdx != null && shown.ctl && (
+              <ReferenceDot x={lastRealIdx} y={lastReal.ctl} r={4.5}
                 fill="var(--lime)" stroke="var(--surface)" strokeWidth={2} />
             )}
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* daily training-load strip (Strava-style context row) */}
-      <div className="mt-1 h-[44px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={realPoints} margin={{ top: 2, right: 8, left: -18, bottom: 0 }}>
-            <XAxis dataKey="date" tick={false} tickLine={false} axisLine={false} height={1} />
-            <YAxis domain={[0, maxTss]} hide width={44} />
-            <Bar dataKey="tss" isAnimationActive={false} maxBarSize={4}>
-              {realPoints.map((p) => (
-                <Cell key={p.date} fill={p.isToday ? "var(--lime)" : "var(--text-faint)"} fillOpacity={p.isToday ? 1 : 0.45} />
-              ))}
-            </Bar>
           </ComposedChart>
         </ResponsiveContainer>
       </div>

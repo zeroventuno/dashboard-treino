@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { getDashboardData } from "@/lib/data";
 import { toISO } from "@/lib/utils";
 import { DaysPill } from "@/components/Countdown";
+import { Tagline } from "@/components/Tagline";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import type { DashboardData } from "@/lib/types";
 import { HeroBlock } from "@/components/blocks/HeroBlock";
@@ -78,9 +79,7 @@ export default async function DashboardPage() {
       </div>
 
       <footer className="mt-9 text-center">
-        <p className="dsp text-[15px] font-extrabold uppercase tracking-[0.3em] text-[var(--text-muted)]">
-          Train. Track. <span className="text-[var(--lime)]">Evolve.</span>
-        </p>
+        <Tagline />
         <p className="mt-1.5 text-[11px] text-[var(--text-faint)]">Synced automatically via daily check-ins · TRAK personal training dashboard</p>
       </footer>
     </div>
