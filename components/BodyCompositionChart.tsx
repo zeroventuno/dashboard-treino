@@ -8,7 +8,7 @@ import { fmtDayMonth } from "@/lib/utils";
 type Key = "weight_kg" | "body_fat_pct" | "muscle_mass_kg" | "lean_mass_kg" | "visceral_fat" | "metabolic_age";
 
 const METRICS: { key: Key; label: string; unit: string; color: string; decimals: number; lowerIsBetter: boolean }[] = [
-  { key: "weight_kg",      label: "Weight",        unit: "kg", color: "var(--lime)",     decimals: 1, lowerIsBetter: true },
+  { key: "weight_kg",      label: "Weight",        unit: "kg", color: "var(--brand-lime)", decimals: 1, lowerIsBetter: true },
   { key: "body_fat_pct",   label: "Body fat",      unit: "%",  color: "var(--run)",      decimals: 1, lowerIsBetter: true },
   { key: "muscle_mass_kg", label: "Muscle",        unit: "kg", color: "var(--teal)",     decimals: 1, lowerIsBetter: false },
   { key: "lean_mass_kg",   label: "Lean mass",     unit: "kg", color: "var(--swim)",     decimals: 1, lowerIsBetter: false },

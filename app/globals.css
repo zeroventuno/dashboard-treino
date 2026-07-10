@@ -22,6 +22,7 @@
 
   --surge: #b2e63a;        /* primary accent — lime */
   --lime: #b2e63a;
+  --brand-lime: #b2e63a;   /* fixed brand lime — never remapped by readiness */
   --surge-dim: #8fbf2c;
   --teal: #4fd6c5;         /* secondary accent */
   --azure: #4fd6c5;        /* alias → teal (TSB / cool data) */
@@ -58,14 +59,8 @@
    Green keeps the lime brand look; caution shifts to orange, recover to red.
    Semantic colors (--good/--warn/--bad status dots, discipline hues) are left
    untouched, so the actual data stays legible. */
-[data-readiness="yellow"] {
-  --lime: #f5a44c; --surge: #f5a44c; --surge-dim: #d98a34;
-  background: linear-gradient(180deg, color-mix(in oklab, var(--lime) 6%, transparent), transparent 340px);
-}
-[data-readiness="red"] {
-  --lime: #ff6b5e; --surge: #ff6b5e; --surge-dim: #e5564a;
-  background: linear-gradient(180deg, color-mix(in oklab, var(--lime) 7%, transparent), transparent 340px);
-}
+[data-readiness="yellow"] { --lime: #f5a44c; --surge: #f5a44c; --surge-dim: #d98a34; }
+[data-readiness="red"]    { --lime: #ff6b5e; --surge: #ff6b5e; --surge-dim: #e5564a; }
 
 @theme inline {
   --color-bg: var(--bg);
