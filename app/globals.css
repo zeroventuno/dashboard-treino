@@ -52,6 +52,21 @@
   --maxw: 1180px;
 }
 
+/* Readiness "mood": the day's traffic light tints the whole dashboard by
+   remapping the single lime accent — everything brand-colored (countdown pill,
+   card glow, fitness line, calendar highlights, active chips) follows for free.
+   Green keeps the lime brand look; caution shifts to orange, recover to red.
+   Semantic colors (--good/--warn/--bad status dots, discipline hues) are left
+   untouched, so the actual data stays legible. */
+[data-readiness="yellow"] {
+  --lime: #f5a44c; --surge: #f5a44c; --surge-dim: #d98a34;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--lime) 6%, transparent), transparent 340px);
+}
+[data-readiness="red"] {
+  --lime: #ff6b5e; --surge: #ff6b5e; --surge-dim: #e5564a;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--lime) 7%, transparent), transparent 340px);
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -116,7 +131,7 @@ body {
     box-shadow:
       0 1px 2px rgba(0, 0, 0, .4),
       0 14px 34px rgba(0, 0, 0, .38),
-      0 0 28px rgba(178, 230, 58, .05);
+      0 0 28px color-mix(in oklab, var(--lime) 5%, transparent);
   }
 }
 
@@ -127,8 +142,8 @@ body {
 }
 .breathe { animation: breathe 2.8s ease-in-out infinite; }
 
-/* soft glow for the lime countdown pill */
-.glow-lime { box-shadow: 0 0 16px rgba(178, 230, 58, .35); }
+/* soft glow for the countdown pill — follows the readiness accent */
+.glow-lime { box-shadow: 0 0 16px color-mix(in oklab, var(--lime) 35%, transparent); }
 
 /* accordion open/close via grid rows — smooth height without JS measuring */
 .collapse-grid {

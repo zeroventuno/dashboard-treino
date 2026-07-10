@@ -40,7 +40,7 @@ export function HeroBlock({ data }: { data: DashboardData }) {
       className="rise tcard grid grid-cols-1 gap-5 rounded-[var(--radius)] border border-[var(--border-soft)] p-6 shadow-[var(--shadow)] sm:grid-cols-[1fr_auto] sm:items-center sm:p-8"
       style={{
         background:
-          "radial-gradient(560px 220px at 88% -10%, rgba(178,230,58,.06), transparent 70%), linear-gradient(180deg, var(--surface-2), var(--surface))",
+          "radial-gradient(560px 220px at 88% -10%, color-mix(in oklab, var(--lime) 6%, transparent), transparent 70%), linear-gradient(180deg, var(--surface-2), var(--surface))",
       }}
     >
       <div>

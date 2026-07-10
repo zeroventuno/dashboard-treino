@@ -38,6 +38,9 @@ export default async function DashboardPage() {
   const { data, live } = await getDashboardData();
   const props: BlockProps = { data, todayISO: toISO(new Date()) };
 
+  // Day's readiness ("farol") tints the whole dashboard accent via CSS.
+  const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
+
   // Group consecutive "third" blocks into a single responsive row.
   const enabled = BLOCKS.filter((b) => b.enabled);
   const groups: (BlockDef | BlockDef[])[] = [];
@@ -49,7 +52,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
+    <div data-readiness={readiness} className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
       {/* sticky top bar */}
       <nav className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] bg-[rgba(38,43,52,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
