@@ -22,9 +22,11 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
-  // Auth: Bearer <account API key> → tenant_id.
+  // Auth: account API key from Authorization header (Bearer) OR ?key= query.
   const auth = req.headers["authorization"];
-  const key = typeof auth === "string" && auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  const headerKey = typeof auth === "string" && auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  const queryKey = new URL(req.url ?? "", "http://localhost").searchParams.get("key");
+  const key = headerKey ?? queryKey;
   const tenantId = key ? await resolveTenant(key) : null;
   if (!tenantId) {
     res.writeHead(401, { "content-type": "application/json" });

@@ -14,9 +14,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  // Auth: Bearer <account API key> → tenant_id.
+  // Auth: account API key from the Authorization header (Bearer) OR the ?key=
+  // query param — the latter lets URL-only clients (e.g. Claude Desktop custom
+  // connectors, which don't send a static Bearer header) authenticate.
   const auth = req.headers["authorization"];
-  const key = typeof auth === "string" && auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  const headerKey = typeof auth === "string" && auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  const queryKey = typeof req.query?.key === "string" ? req.query.key : null;
+  const key = headerKey ?? queryKey;
   const tenantId = key ? await resolveTenant(key) : null;
   if (!tenantId) {
     res.status(401).json({ error: "invalid or missing account key" });
