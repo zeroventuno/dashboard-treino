@@ -18,10 +18,16 @@ export type BlockId =
   | "watchpoints" // injury log
   | "lifestyle";  // sleep / hydration / protein rings
 
+import type { Metric } from "./tenant-config";
+
 export interface BlockDef {
   id: BlockId;
   enabled: boolean;
   width: "full" | "third";
+  /** Metrics the athlete must have for this block to render (adaptive mode).
+   * Empty/undefined = always shown. Used by the config-driven /demo route;
+   * the production dashboard ignores it and shows everything. */
+  requires?: Metric[];
 }
 
 export const BLOCKS: BlockDef[] = [
@@ -29,10 +35,10 @@ export const BLOCKS: BlockDef[] = [
   { id: "fitness",     enabled: true, width: "full" },
   { id: "calendar",    enabled: true, width: "full" },
   { id: "season",      enabled: true, width: "full" },
-  { id: "zones",       enabled: true, width: "full" },
-  { id: "mealplan",    enabled: true, width: "full" },
-  { id: "body",        enabled: true, width: "full" },
-  { id: "strength",    enabled: true, width: "third" },
+  { id: "zones",       enabled: true, width: "full",  requires: ["zones"] },
+  { id: "mealplan",    enabled: true, width: "full",  requires: ["nutrition"] },
+  { id: "body",        enabled: true, width: "full",  requires: ["bioimpedance"] },
+  { id: "strength",    enabled: true, width: "third", requires: ["strength"] },
   { id: "watchpoints", enabled: true, width: "third" },
-  { id: "lifestyle",   enabled: true, width: "third" },
+  { id: "lifestyle",   enabled: true, width: "third", requires: ["sleep"] },
 ];
