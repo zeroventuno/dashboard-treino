@@ -1,0 +1,98 @@
+// ────────────────────────────────────────────────────────────────────────────
+//  /app — the multi-tenant PRODUCT dashboard (reads the NEW project per tenant).
+//
+//  Additive and isolated from the live personal dashboard at `/` (which still
+//  reads the old project via lib/data.ts). Identify the tenant with ?key=<account
+//  key> for now — a proper login/cookie comes later. Falls back to mock data
+//  when the product backend isn't configured, so it always renders.
+// ────────────────────────────────────────────────────────────────────────────
+
+import { Fragment } from "react";
+import { getProductDashboardData, resolveTenantId } from "@/lib/data-product";
+import { toISO } from "@/lib/utils";
+import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
+import type { DashboardData } from "@/lib/types";
+import { HeroBlock } from "@/components/blocks/HeroBlock";
+import { FitnessBlock } from "@/components/blocks/FitnessBlock";
+import { CalendarBlock } from "@/components/blocks/CalendarBlock";
+import { SeasonBlock } from "@/components/blocks/SeasonBlock";
+import { ZonesBlock } from "@/components/blocks/ZonesBlock";
+import { MealPlanBlock } from "@/components/blocks/MealPlanBlock";
+import { BodyBlock } from "@/components/blocks/BodyBlock";
+import { StrengthBlock } from "@/components/blocks/StrengthBlock";
+import { WatchPointsBlock } from "@/components/blocks/WatchPointsBlock";
+import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
+
+export const revalidate = 60;
+
+type BlockProps = { data: DashboardData; todayISO: string };
+
+const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
+  hero: (p) => <HeroBlock data={p.data} />,
+  fitness: (p) => <FitnessBlock data={p.data} />,
+  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} />,
+  season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} />,
+  zones: (p) => <ZonesBlock data={p.data} />,
+  mealplan: (p) => <MealPlanBlock data={p.data} />,
+  body: (p) => <BodyBlock data={p.data} />,
+  strength: (p) => <StrengthBlock data={p.data} />,
+  watchpoints: (p) => <WatchPointsBlock data={p.data} />,
+  lifestyle: (p) => <LifestyleBlock data={p.data} />,
+};
+
+export default async function ProductDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ key?: string }>;
+}) {
+  const { key } = await searchParams;
+  const tenantId = key ? await resolveTenantId(key) : null;
+  const { data, live } = await getProductDashboardData(tenantId ?? "");
+  const props: BlockProps = { data, todayISO: toISO(new Date()) };
+
+  const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
+
+  const enabled = BLOCKS.filter((b) => b.enabled);
+  const groups: (BlockDef | BlockDef[])[] = [];
+  for (const b of enabled) {
+    const last = groups[groups.length - 1];
+    if (b.width === "third" && Array.isArray(last)) last.push(b);
+    else if (b.width === "third") groups.push([b]);
+    else groups.push(b);
+  }
+
+  return (
+    <div data-readiness={readiness} className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
+      <nav className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] bg-[rgba(38,43,52,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-trak.png" alt="TRAK" className="h-[26px] w-auto" />
+        <span className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--text-muted)]">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
+          {live ? "Live · banco novo" : tenantId ? "Sem dados" : "Sample data"}
+        </span>
+      </nav>
+
+      {!live && (
+        <div className="mb-4 rounded-[14px] border border-[var(--warn)]/40 bg-[var(--surface-2)] px-4 py-3 text-[12.5px] text-[var(--text-muted)]">
+          {key
+            ? tenantId
+              ? "Conectado, mas sem dados para este tenant ainda."
+              : "Chave inválida ou backend do produto não configurado — mostrando dados de exemplo."
+            : "Adicione ?key=SUA_API_KEY na URL para ver seus dados reais do banco novo."}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-[22px]">
+        {groups.map((g, i) =>
+          Array.isArray(g) ? (
+            <div key={i} className="grid grid-cols-1 gap-[22px] md:grid-cols-2 lg:grid-cols-3">
+              {g.map((b) => <Fragment key={b.id}>{REGISTRY[b.id](props)}</Fragment>)}
+            </div>
+          ) : (
+            <Fragment key={g.id}>{REGISTRY[g.id](props)}</Fragment>
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
