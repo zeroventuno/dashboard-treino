@@ -2,14 +2,18 @@
 //  /app — the multi-tenant PRODUCT dashboard (reads the NEW project per tenant).
 //
 //  Additive and isolated from the live personal dashboard at `/` (which still
-//  reads the old project via lib/data.ts). Identify the tenant with ?key=<account
-//  key> for now — a proper login/cookie comes later. Falls back to mock data
-//  when the product backend isn't configured, so it always renders.
+//  reads the old project via lib/data.ts). Auth is per-tenant: the account key
+//  lives in an httpOnly cookie (see /api/app-login) — not the shared dashboard
+//  password, and not the URL. A ?key= link still works as a magic link: it logs
+//  you in and bounces to a clean /app.
 // ────────────────────────────────────────────────────────────────────────────
 
 import { Fragment } from "react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { getProductDashboardData, resolveTenantId } from "@/lib/data-product";
 import { hasProductDb } from "@/lib/product-db";
+import { APP_COOKIE } from "@/app/api/app-login/route";
 import { toISO } from "@/lib/utils";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import type { DashboardData } from "@/lib/types";
@@ -47,8 +51,22 @@ export default async function ProductDashboardPage({
   searchParams: Promise<{ key?: string }>;
 }) {
   const { key } = await searchParams;
+
+  // Magic link from the onboarding message: log in, then land on a clean /app
+  // so the key never sticks around in the address bar or browser history.
+  if (key) redirect(`/api/app-login?key=${encodeURIComponent(key)}`);
+
   const dbConfigured = hasProductDb();
-  const tenantId = key ? await resolveTenantId(key) : null;
+  const cookieKey = (await cookies()).get(APP_COOKIE)?.value ?? null;
+
+  // No session → the athlete's own login (not the shared dashboard password).
+  if (!cookieKey) redirect("/app/login");
+
+  const tenantId = await resolveTenantId(cookieKey);
+
+  // Stale/revoked key: send them back to log in rather than showing sample data.
+  if (dbConfigured && !tenantId) redirect("/app/login?erro=1");
+
   const { data, live } = await getProductDashboardData(tenantId ?? "");
 
   // Say exactly WHY we fell back to mock — silent sample data is impossible to debug.
@@ -56,11 +74,7 @@ export default async function ProductDashboardPage({
     ? null
     : !dbConfigured
       ? "PRODUCT_DATABASE_URL não está configurada neste deploy (variável ausente ou faltou redeploy)."
-      : !key
-        ? "Adicione ?key=SUA_API_KEY na URL para ver seus dados."
-        : !tenantId
-          ? "Chave não encontrada em app.tenants (chave errada, truncada, ou o app_writer não consegue lê-la)."
-          : "Conectado, mas este tenant ainda não tem dados.";
+      : "Conectado, mas este tenant ainda não tem dados.";
   const props: BlockProps = { data, todayISO: toISO(new Date()) };
 
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
