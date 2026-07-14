@@ -1,24 +1,22 @@
 // Server-only: reads the NEW multi-tenant product project, scoped to one tenant.
 // Additive — the live dashboard (lib/data.ts, app/page.tsx) is untouched.
-import { createHash } from "node:crypto";
+//
+// Isolation is enforced TWICE: the connection runs as app_writer with
+// app.tenant_id set (so RLS refuses other tenants' rows at the database level),
+// AND every query still carries an explicit tenant_id filter. Either alone would
+// do; together, a mistake in one can't leak data.
 import { getMockData } from "./mock";
-import { getProductSupabase } from "./supabase-product";
+import { hasProductDb, withTenant } from "./product-db";
 import { addDays, parseDate, toISO } from "./utils";
-import type { DashboardData, TrainingLoad, Workout } from "./types";
+import type {
+  BodyComposition, Checkin, DailyMeal, DashboardData, InjuryEntry, NutritionRule,
+  PerformanceIndicators, PerformanceMilestone, Phase, StrengthSession, TrainingLoad, Workout,
+} from "./types";
 
-/** account API key → tenant_id, via a security-definer RPC (app.tenants lives in
- * a private schema PostgREST can't read directly). Returns null if unknown. */
-export async function resolveTenantId(accountKey: string): Promise<string | null> {
-  const supabase = getProductSupabase();
-  if (!supabase) return null;
-  const keyHash = createHash("sha256").update(accountKey).digest("hex");
-  const { data, error } = await supabase.rpc("resolve_tenant", { key_hash: keyHash });
-  if (error || !data) return null;
-  return typeof data === "string" ? data : null;
-}
+export { resolveTenantId } from "./product-db";
 
 /** Continue the PMC from the last training_load row to today using workout TSS
- * (same logic as the personal dashboard; duplicated so lib/data.ts stays as-is). */
+ * (same logic as the personal dashboard; kept here so lib/data.ts stays as-is). */
 function extendTrainingLoad(load: TrainingLoad[], workouts: Workout[], todayISO: string): TrainingLoad[] {
   if (load.length === 0) return load;
   const sorted = [...load].sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -49,55 +47,67 @@ function extendTrainingLoad(load: TrainingLoad[], workouts: Workout[], todayISO:
 }
 
 /**
- * Loads one tenant's dashboard data from the product project. Every query is
- * scoped by tenant_id. Falls back to mock when the product backend isn't
- * configured yet, so /app always renders during development.
+ * Loads one tenant's dashboard data from the product project. Falls back to mock
+ * when PRODUCT_DATABASE_URL isn't set, so /app always renders.
  */
 export async function getProductDashboardData(
   tenantId: string,
 ): Promise<{ data: DashboardData; live: boolean }> {
-  const supabase = getProductSupabase();
-  if (!supabase) return { data: getMockData(), live: false };
+  if (!hasProductDb() || !tenantId) return { data: getMockData(), live: false };
 
   try {
-    const t = (table: string, order: string, asc = true) =>
-      supabase.from(table).select("*").eq("tenant_id", tenantId).order(order, { ascending: asc });
+    const data = await withTenant(tenantId, async (c) => {
+      const q = async <T>(sql: string): Promise<T[]> => {
+        const { rows } = await c.query(sql, [tenantId]);
+        return rows as T[];
+      };
 
-    const [tl, wk, ph, ms, ind, st, ck, inj, bc, mp, nr] = await Promise.all([
-      t("training_load", "date"),
-      t("workouts", "date"),
-      t("phases", "start_date"),
-      t("performance_milestones", "date"),
-      t("performance_indicators", "updated_at", false).limit(1),
-      t("strength_sessions", "date", false),
-      t("checkins", "date"),
-      t("injury_log", "date", false),
-      t("body_composition", "date"),
-      t("daily_meal_plan", "meal_order"),
-      t("nutrition_plan", "duration_category"),
-    ]);
+      const trainingLoad = await q<TrainingLoad>(
+        "select date, tss, ctl, atl, tsb, source from training_load where tenant_id=$1 order by date",
+      );
+      const workouts = await q<Workout>("select * from workouts where tenant_id=$1 order by date");
+      const phases = await q<Phase>("select * from phases where tenant_id=$1 order by start_date");
+      const milestones = await q<PerformanceMilestone>(
+        "select * from performance_milestones where tenant_id=$1 order by date",
+      );
+      const indicators = await q<PerformanceIndicators>(
+        "select * from performance_indicators where tenant_id=$1 limit 1",
+      );
+      const strength = await q<StrengthSession>(
+        "select * from strength_sessions where tenant_id=$1 order by date desc",
+      );
+      const checkins = await q<Checkin>("select * from checkins where tenant_id=$1 order by date");
+      const injuries = await q<InjuryEntry>(
+        "select * from injury_log where tenant_id=$1 order by date desc",
+      );
+      const bodyComposition = await q<BodyComposition>(
+        "select * from body_composition where tenant_id=$1 order by date",
+      );
+      const mealPlan = await q<DailyMeal>(
+        "select * from daily_meal_plan where tenant_id=$1 order by meal_order",
+      );
+      const nutritionRules = await q<NutritionRule>(
+        "select * from nutrition_plan where tenant_id=$1 order by duration_category",
+      );
 
-    const anyError = [tl, wk, ph, ms, ind, st, ck, inj, bc, mp, nr].find((r) => r.error);
-    if (anyError?.error) throw anyError.error;
+      return {
+        trainingLoad: extendTrainingLoad(trainingLoad, workouts, toISO(new Date())),
+        workouts,
+        phases,
+        milestones,
+        indicators: indicators[0] ?? null,
+        strength,
+        checkins,
+        injuries,
+        bodyComposition,
+        mealPlan,
+        nutritionRules,
+      } satisfies DashboardData;
+    });
 
-    return {
-      live: true,
-      data: {
-        trainingLoad: extendTrainingLoad(tl.data ?? [], wk.data ?? [], toISO(new Date())),
-        workouts: wk.data ?? [],
-        phases: ph.data ?? [],
-        milestones: ms.data ?? [],
-        indicators: ind.data?.[0] ?? null,
-        strength: st.data ?? [],
-        checkins: ck.data ?? [],
-        injuries: inj.data ?? [],
-        bodyComposition: bc.data ?? [],
-        mealPlan: mp.data ?? [],
-        nutritionRules: nr.data ?? [],
-      },
-    };
+    return { live: true, data };
   } catch (err) {
-    console.error("[product] Supabase read failed, using mock:", err);
+    console.error("[product] read failed, using mock:", err);
     return { data: getMockData(), live: false };
   }
 }
