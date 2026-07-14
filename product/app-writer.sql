@@ -23,5 +23,8 @@ alter default privileges in schema public
 --   select rolname, rolsuper, rolbypassrls from pg_roles where rolname = 'app_writer';
 --   → rolsuper = false, rolbypassrls = false
 --
--- The MCP server then connects as:
---   postgresql://app_writer:<password>@db.<project-ref>.supabase.co:5432/postgres
+-- The MCP server then connects via the TRANSACTION POOLER (never the direct
+-- db.<ref>.supabase.co host — it's IPv6-only and unreachable from Vercel).
+-- NEVER put the real password in this file (public repo) — it lives only in the
+-- Vercel env var. Special chars must be URL-encoded (@ → %40, ! → %21):
+--   postgresql://app_writer.<project-ref>:<SENHA-URL-ENCODED>@aws-0-<região>.pooler.supabase.com:6543/postgres
