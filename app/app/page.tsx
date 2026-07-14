@@ -9,6 +9,7 @@
 
 import { Fragment } from "react";
 import { getProductDashboardData, resolveTenantId } from "@/lib/data-product";
+import { hasProductDb } from "@/lib/product-db";
 import { toISO } from "@/lib/utils";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import type { DashboardData } from "@/lib/types";
@@ -46,8 +47,20 @@ export default async function ProductDashboardPage({
   searchParams: Promise<{ key?: string }>;
 }) {
   const { key } = await searchParams;
+  const dbConfigured = hasProductDb();
   const tenantId = key ? await resolveTenantId(key) : null;
   const { data, live } = await getProductDashboardData(tenantId ?? "");
+
+  // Say exactly WHY we fell back to mock — silent sample data is impossible to debug.
+  const reason = live
+    ? null
+    : !dbConfigured
+      ? "PRODUCT_DATABASE_URL não está configurada neste deploy (variável ausente ou faltou redeploy)."
+      : !key
+        ? "Adicione ?key=SUA_API_KEY na URL para ver seus dados."
+        : !tenantId
+          ? "Chave não encontrada em app.tenants (chave errada, truncada, ou o app_writer não consegue lê-la)."
+          : "Conectado, mas este tenant ainda não tem dados.";
   const props: BlockProps = { data, todayISO: toISO(new Date()) };
 
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
@@ -72,13 +85,10 @@ export default async function ProductDashboardPage({
         </span>
       </nav>
 
-      {!live && (
+      {!live && reason && (
         <div className="mb-4 rounded-[14px] border border-[var(--warn)]/40 bg-[var(--surface-2)] px-4 py-3 text-[12.5px] text-[var(--text-muted)]">
-          {key
-            ? tenantId
-              ? "Conectado, mas sem dados para este tenant ainda."
-              : "Chave inválida ou backend do produto não configurado — mostrando dados de exemplo."
-            : "Adicione ?key=SUA_API_KEY na URL para ver seus dados reais do banco novo."}
+          <span className="font-semibold text-[var(--warn)]">Mostrando dados de exemplo · </span>
+          {reason}
         </div>
       )}
 
