@@ -37,7 +37,25 @@ export interface Workout {
   actual_power_watts?: string | null;
   notes: string | null;
   nutrition_notes: string | null;
+  /** Structured interval blocks — drives the block list + chart in the modal. */
+  structure?: WorkoutBlock[] | null;
+  /** Pre-workout: activation/warm-up routine and fueling. */
+  activation?: string | null;
+  nutrition_pre?: string | null;
+  /** Post-workout: cool-down/mobility and refuelling. */
+  mobility?: string | null;
+  nutrition_post?: string | null;
   created_at?: string;
+}
+
+/** One interval of a workout. `intensity` is % of threshold (FTP/CSS/pace) and
+ * only scales the chart; `target` is the human-readable prescription. */
+export interface WorkoutBlock {
+  label: string;
+  duration_min: number;
+  intensity?: number | null;
+  target?: string | null;
+  note?: string | null;
 }
 
 export interface Phase {

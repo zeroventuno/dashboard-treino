@@ -4,7 +4,9 @@ import { Fragment, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
 import { DISCIPLINE_META, fmtDuration } from "@/lib/utils";
+import { getWorkoutBlocks } from "@/lib/workout-structure";
 import { DisciplineIcon, DownloadIcon, CloseIcon } from "./Icons";
+import { WorkoutBlocks } from "./WorkoutBlocks";
 
 export const STATUS_META: Record<WorkoutStatus, { label: string; dot: string; ring: string }> = {
   planned:  { label: "Planned",   dot: "var(--text-faint)", ring: "var(--border)" },
@@ -37,6 +39,27 @@ function Section({ label, children }: { label: string; children: React.ReactNode
     <div>
       <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-faint)]">{label}</p>
       {children}
+    </div>
+  );
+}
+
+/** Pre/post-workout grouping — a tinted rail makes the three phases of the
+ * session (before → workout → after) scannable at a glance. */
+function Phase({ label, tint, children }: { label: string; tint: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)]/40 p-3.5"
+      style={{ borderLeft: `2.5px solid ${tint}` }}>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: tint }}>{label}</p>
+      <div className="space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+function SubSection({ label, text }: { label: string; text: string }) {
+  return (
+    <div>
+      <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{label}</p>
+      <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--text-muted)]">{text}</p>
     </div>
   );
 }
@@ -123,6 +146,8 @@ export function WorkoutModal({
   onClose: () => void;
 }) {
   const meta = DISCIPLINE_META[w.discipline];
+  // coach-authored blocks, else derived from the .zwo (free for bike workouts)
+  const blocks = getWorkoutBlocks(w);
 
   // lock background scroll while open
   useEffect(() => {
@@ -167,11 +192,39 @@ export function WorkoutModal({
               <pre className="whitespace-pre-wrap font-sans text-[13.5px] leading-relaxed text-[var(--text-muted)]">{w.description}</pre>
             </Section>
           )}
-          {w.garmin_instructions && (
-            <Section label="Build on Garmin">
-              <pre className="whitespace-pre-wrap rounded-xl border border-[var(--border)] bg-[var(--bg-soft)] p-3.5 font-mono text-[12.5px] leading-relaxed text-[var(--text-muted)]">{w.garmin_instructions}</pre>
+
+          {/* ── Pre-workout ───────────────────────────────────────────── */}
+          {(w.activation || w.nutrition_pre) && (
+            <Phase label="Antes do treino" tint="var(--teal)">
+              {w.activation && <SubSection label="Ativação / aquecimento" text={w.activation} />}
+              {w.nutrition_pre && <SubSection label="🥤 Nutrição pré" text={w.nutrition_pre} />}
+            </Phase>
+          )}
+
+          {/* ── The workout itself ────────────────────────────────────── */}
+          {(blocks.length > 0 || w.garmin_instructions) && (
+            <Section label="Build your workout">
+              {blocks.length > 0 && (
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-soft)] p-3.5">
+                  <WorkoutBlocks blocks={blocks} discipline={w.discipline} />
+                </div>
+              )}
+              {w.garmin_instructions && (
+                <pre className={`whitespace-pre-wrap rounded-xl border border-[var(--border)] bg-[var(--bg-soft)] p-3.5 font-mono text-[12.5px] leading-relaxed text-[var(--text-muted)] ${blocks.length > 0 ? "mt-2.5" : ""}`}>
+                  {w.garmin_instructions}
+                </pre>
+              )}
             </Section>
           )}
+
+          {/* ── Post-workout ──────────────────────────────────────────── */}
+          {(w.mobility || w.nutrition_post) && (
+            <Phase label="Depois do treino" tint="var(--strength)">
+              {w.mobility && <SubSection label="Alongamento / mobilidade" text={w.mobility} />}
+              {w.nutrition_post && <SubSection label="🥤 Nutrição pós" text={w.nutrition_post} />}
+            </Phase>
+          )}
+
           {w.nutrition_notes && (
             <Section label="🥤 Nutrition">
               <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[var(--text-muted)]">{w.nutrition_notes}</p>
