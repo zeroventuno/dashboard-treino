@@ -34,7 +34,16 @@ interface WeekData {
   isThis: boolean;
 }
 
-export function CalendarBoard({ workouts, todayISO }: { workouts: Workout[]; todayISO: string }) {
+export function CalendarBoard({
+  workouts,
+  todayISO,
+  ftpWatts = null,
+}: {
+  workouts: Workout[];
+  todayISO: string;
+  /** Athlete's threshold power — converts .zwo power fractions into watts. */
+  ftpWatts?: number | null;
+}) {
   const today = parseDate(todayISO);
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() });
   const [open, setOpen] = useState<Workout | null>(null);
@@ -117,7 +126,7 @@ export function CalendarBoard({ workouts, todayISO }: { workouts: Workout[]; tod
         </div>
       </div>
 
-      {open && <WorkoutModal w={open} onClose={() => setOpen(null)} />}
+      {open && <WorkoutModal w={open} ftpWatts={ftpWatts} onClose={() => setOpen(null)} />}
     </>
   );
 }

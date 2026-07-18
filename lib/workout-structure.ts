@@ -8,9 +8,9 @@ import type { Workout, WorkoutBlock } from "./types";
  * Intervals/Cooldown with durations and power as a fraction of FTP), so bike
  * workouts that ship a Zwift file get the block list and chart for free.
  */
-export function getWorkoutBlocks(w: Workout): WorkoutBlock[] {
+export function getWorkoutBlocks(w: Workout, ftpWatts?: number | null): WorkoutBlock[] {
   if (Array.isArray(w.structure) && w.structure.length > 0) return w.structure;
-  if (w.zwo_content) return parseZwo(w.zwo_content, w.planned_power_watts ?? null);
+  if (w.zwo_content) return parseZwo(w.zwo_content, ftpWatts ?? null);
   return [];
 }
 
@@ -22,24 +22,22 @@ const PT: Record<string, string> = {
   Ramp: "Progressivo",
 };
 
-/** Reads FTP out of a free-text power target like "220-230W" or "245W". */
-function ftpFrom(plannedPower: string | null): number | null {
-  if (!plannedPower) return null;
-  const nums = plannedPower.match(/\d+/g);
-  if (!nums?.length) return null;
-  return Number(nums[nums.length - 1]);
-}
-
 /**
  * Minimal .zwo reader — regex over the workout elements rather than a full XML
  * parse, since we only need duration + power and the format is flat.
  * IntervalsT expands into its On/Off repeats so the chart shows the real shape.
+ *
+ * `ftpWatts` MUST be the athlete's threshold power (performance_indicators.
+ * ftp_watts) — .zwo stores power as a fraction of FTP. Never pass a workout's
+ * target range here: scaling 0.70 by a 136W *target* yields 95W instead of the
+ * real 119W, i.e. numbers the athlete would train by, silently wrong. When FTP
+ * is unknown we show "% FTP" rather than inventing watts.
  */
-export function parseZwo(xml: string, plannedPower: string | null = null): WorkoutBlock[] {
+export function parseZwo(xml: string, ftpWatts: number | null = null): WorkoutBlock[] {
   const body = xml.match(/<workout>([\s\S]*?)<\/workout>/)?.[1];
   if (!body) return [];
 
-  const ftp = ftpFrom(plannedPower);
+  const ftp = ftpWatts && ftpWatts > 0 ? ftpWatts : null;
   const blocks: WorkoutBlock[] = [];
   const attr = (tag: string, name: string) => {
     const m = tag.match(new RegExp(`${name}="([^"]*)"`));

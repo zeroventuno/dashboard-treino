@@ -140,14 +140,16 @@ function ComparisonTable({ w }: { w: Workout }) {
 }
 
 export function WorkoutModal({
-  w, onClose,
+  w, ftpWatts = null, onClose,
 }: {
   w: Workout;
+  /** Athlete's threshold power — .zwo stores power as a fraction of it. */
+  ftpWatts?: number | null;
   onClose: () => void;
 }) {
   const meta = DISCIPLINE_META[w.discipline];
   // coach-authored blocks, else derived from the .zwo (free for bike workouts)
-  const blocks = getWorkoutBlocks(w);
+  const blocks = getWorkoutBlocks(w, ftpWatts);
 
   // lock background scroll while open
   useEffect(() => {
