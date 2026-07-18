@@ -160,15 +160,37 @@ function WeekRow({ week, todayISO, onOpen }: {
             <div className="space-y-1">
               {day.items.map((w) => {
                 const meta = DISCIPLINE_META[w.discipline];
+                const key = Boolean(w.key_workout);
                 return (
                   <button
                     key={w.id}
                     onClick={() => onOpen(w)}
-                    className="group flex w-full items-center gap-1 rounded-md border-l-2 bg-[var(--surface-3)] px-1.5 py-1 text-left transition-[background-color,transform] duration-150 hover:scale-[1.03] hover:bg-[var(--border)]"
-                    style={{ borderColor: meta.color }}
+                    title={key ? `Treino-chave · ${w.title}` : w.title}
+                    className="group flex w-full items-center gap-1 rounded-md border-l-2 px-1.5 py-1 text-left transition-[background-color,transform] duration-150 hover:scale-[1.03] hover:bg-[var(--border)]"
+                    style={{
+                      borderColor: meta.color,
+                      // Key sessions read at a glance in a dense grid: a tinted
+                      // ground carries further than a 9px glyph alone.
+                      background: key
+                        ? "color-mix(in oklab, var(--lime) 14%, var(--surface-3))"
+                        : "var(--surface-3)",
+                    }}
                   >
                     <DisciplineIcon discipline={w.discipline} size={11} style={{ color: meta.color, flexShrink: 0 }} />
-                    <span className={`flex-1 truncate text-[10.5px] leading-tight ${w.status === "skipped" ? "text-[var(--text-faint)] line-through" : "text-[var(--text-2)]"}`}>{w.title}</span>
+                    {key && (
+                      <span className="shrink-0 text-[9px] leading-none text-[var(--lime)]" aria-label="Treino-chave">★</span>
+                    )}
+                    <span
+                      className={`flex-1 truncate text-[10.5px] leading-tight ${
+                        w.status === "skipped"
+                          ? "text-[var(--text-faint)] line-through"
+                          : key
+                            ? "font-semibold text-[var(--text)]"
+                            : "text-[var(--text-2)]"
+                      }`}
+                    >
+                      {w.title}
+                    </span>
                     {w.status === "done" && <span className="text-[10px] text-[var(--good)]">✓</span>}
                   </button>
                 );

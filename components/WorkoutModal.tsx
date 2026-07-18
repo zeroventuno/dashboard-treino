@@ -175,8 +175,14 @@ export function WorkoutModal({
               <DisciplineIcon discipline={w.discipline} size={22} />
             </span>
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: meta.color }}>
-                {meta.label} · {STATUS_META[w.status].label}
+              <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: meta.color }}>
+                <span>{meta.label} · {STATUS_META[w.status].label}</span>
+                {w.key_workout && (
+                  <span className="rounded-full px-2 py-[2px] text-[9.5px] tracking-[0.1em] text-[var(--lime)]"
+                    style={{ background: "color-mix(in oklab, var(--lime) 16%, transparent)" }}>
+                    ★ Treino-chave
+                  </span>
+                )}
               </p>
               <h3 className="text-lg font-bold leading-tight text-[var(--text)]">{w.title}</h3>
             </div>

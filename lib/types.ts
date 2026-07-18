@@ -39,6 +39,8 @@ export interface Workout {
   nutrition_notes: string | null;
   /** Structured interval blocks — drives the block list + chart in the modal. */
   structure?: WorkoutBlock[] | null;
+  /** One of the week's priority sessions — highlighted in the calendar. */
+  key_workout?: boolean | null;
   /** Pre-workout: activation/warm-up routine and fueling. */
   activation?: string | null;
   nutrition_pre?: string | null;
