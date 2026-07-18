@@ -115,9 +115,15 @@ export function registerTools(server: McpServer, tenantId: string): void {
           `insert into checkins (tenant_id,date,hrv,sleep_hours,readiness_score,body_battery,resting_hr,recommendation,hydration_liters,protein_grams_estimate,notes)
            values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
            on conflict (tenant_id,date) do update set
-             hrv=excluded.hrv, sleep_hours=excluded.sleep_hours, readiness_score=excluded.readiness_score,
-             body_battery=excluded.body_battery, resting_hr=excluded.resting_hr, recommendation=excluded.recommendation,
-             hydration_liters=excluded.hydration_liters, protein_grams_estimate=excluded.protein_grams_estimate, notes=excluded.notes`,
+             hrv=coalesce(excluded.hrv, checkins.hrv),
+             sleep_hours=coalesce(excluded.sleep_hours, checkins.sleep_hours),
+             readiness_score=coalesce(excluded.readiness_score, checkins.readiness_score),
+             body_battery=coalesce(excluded.body_battery, checkins.body_battery),
+             resting_hr=coalesce(excluded.resting_hr, checkins.resting_hr),
+             recommendation=coalesce(excluded.recommendation, checkins.recommendation),
+             hydration_liters=coalesce(excluded.hydration_liters, checkins.hydration_liters),
+             protein_grams_estimate=coalesce(excluded.protein_grams_estimate, checkins.protein_grams_estimate),
+             notes=coalesce(excluded.notes, checkins.notes)`,
           [
             tenantId, a.date, a.hrv ?? null, a.sleep_hours ?? null, a.readiness_score ?? null,
             a.body_battery ?? null, a.resting_hr ?? null, a.recommendation ?? null,
@@ -214,8 +220,13 @@ export function registerTools(server: McpServer, tenantId: string): void {
           `insert into body_composition (tenant_id,date,weight_kg,body_fat_pct,muscle_mass_kg,lean_mass_kg,visceral_fat,metabolic_age,notes)
            values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
            on conflict (tenant_id,date) do update set
-             weight_kg=excluded.weight_kg, body_fat_pct=excluded.body_fat_pct, muscle_mass_kg=excluded.muscle_mass_kg,
-             lean_mass_kg=excluded.lean_mass_kg, visceral_fat=excluded.visceral_fat, metabolic_age=excluded.metabolic_age, notes=excluded.notes`,
+             weight_kg=coalesce(excluded.weight_kg, body_composition.weight_kg),
+             body_fat_pct=coalesce(excluded.body_fat_pct, body_composition.body_fat_pct),
+             muscle_mass_kg=coalesce(excluded.muscle_mass_kg, body_composition.muscle_mass_kg),
+             lean_mass_kg=coalesce(excluded.lean_mass_kg, body_composition.lean_mass_kg),
+             visceral_fat=coalesce(excluded.visceral_fat, body_composition.visceral_fat),
+             metabolic_age=coalesce(excluded.metabolic_age, body_composition.metabolic_age),
+             notes=coalesce(excluded.notes, body_composition.notes)`,
           [
             tenantId, a.date, a.weight_kg ?? null, a.body_fat_pct ?? null, a.muscle_mass_kg ?? null,
             a.lean_mass_kg ?? null, a.visceral_fat ?? null, a.metabolic_age ?? null, a.notes ?? null,
@@ -247,9 +258,15 @@ export function registerTools(server: McpServer, tenantId: string): void {
           `insert into performance_indicators (tenant_id,updated_at,ftp_watts,bike_zones,run_pace_zones,swim_pace_zones,swim_pace_per_100m,run_threshold_pace,cadence_run_target,hr_zones)
            values ($1,now(),$2,$3::jsonb,$4::jsonb,$5::jsonb,$6,$7,$8,$9::jsonb)
            on conflict (tenant_id) do update set
-             updated_at=now(), ftp_watts=excluded.ftp_watts, bike_zones=excluded.bike_zones, run_pace_zones=excluded.run_pace_zones,
-             swim_pace_zones=excluded.swim_pace_zones, swim_pace_per_100m=excluded.swim_pace_per_100m,
-             run_threshold_pace=excluded.run_threshold_pace, cadence_run_target=excluded.cadence_run_target, hr_zones=excluded.hr_zones`,
+             updated_at=now(),
+             ftp_watts=coalesce(excluded.ftp_watts, performance_indicators.ftp_watts),
+             bike_zones=coalesce(excluded.bike_zones, performance_indicators.bike_zones),
+             run_pace_zones=coalesce(excluded.run_pace_zones, performance_indicators.run_pace_zones),
+             swim_pace_zones=coalesce(excluded.swim_pace_zones, performance_indicators.swim_pace_zones),
+             swim_pace_per_100m=coalesce(excluded.swim_pace_per_100m, performance_indicators.swim_pace_per_100m),
+             run_threshold_pace=coalesce(excluded.run_threshold_pace, performance_indicators.run_threshold_pace),
+             cadence_run_target=coalesce(excluded.cadence_run_target, performance_indicators.cadence_run_target),
+             hr_zones=coalesce(excluded.hr_zones, performance_indicators.hr_zones)`,
           [
             tenantId, a.ftp_watts ?? null, j(a.bike_zones), j(a.run_pace_zones), j(a.swim_pace_zones),
             a.swim_pace_per_100m ?? null, a.run_threshold_pace ?? null, a.cadence_run_target ?? null, j(a.hr_zones),
