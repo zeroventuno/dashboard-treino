@@ -160,6 +160,29 @@ export function registerTools(server: McpServer, tenantId: string): void {
         actual_power_watts: z.string().optional(),
         notes: z.string().optional(),
         nutrition_notes: z.string().optional(),
+
+        /** One of the week's priority sessions — starred in the calendar. */
+        key_workout: z.boolean().optional(),
+        /** Interval blocks — rendered as a profile chart + list in the app.
+         *  duration_min accepts decimals; intensity is % of threshold (it only
+         *  scales the chart); target is the text the athlete reads. */
+        structure: z
+          .array(
+            z.object({
+              label: z.string(),
+              duration_min: z.number(),
+              intensity: z.number().optional(),
+              target: z.string().optional(),
+              note: z.string().optional(),
+            }),
+          )
+          .optional(),
+        /** Pre-workout */
+        activation: z.string().optional(),
+        nutrition_pre: z.string().optional(),
+        /** Post-workout */
+        mobility: z.string().optional(),
+        nutrition_post: z.string().optional(),
       },
     },
     async (a) => {
@@ -167,8 +190,10 @@ export function registerTools(server: McpServer, tenantId: string): void {
         c.query(
           `insert into workouts (tenant_id,date,discipline,title,status,description,garmin_instructions,zwo_content,
              planned_duration_min,actual_duration_min,planned_distance_km,actual_distance_km,planned_tss,actual_tss,
-             planned_pace,actual_pace,planned_power_watts,actual_power_watts,notes,nutrition_notes)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+             planned_pace,actual_pace,planned_power_watts,actual_power_watts,notes,nutrition_notes,
+             key_workout,structure,activation,nutrition_pre,mobility,nutrition_post)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+             coalesce($21,false),$22::jsonb,$23,$24,$25,$26)
            on conflict (tenant_id,date,discipline,title) do update set
              status=excluded.status,
              description=coalesce(excluded.description,workouts.description),
@@ -185,17 +210,25 @@ export function registerTools(server: McpServer, tenantId: string): void {
              planned_power_watts=coalesce(excluded.planned_power_watts,workouts.planned_power_watts),
              actual_power_watts=coalesce(excluded.actual_power_watts,workouts.actual_power_watts),
              notes=coalesce(excluded.notes,workouts.notes),
-             nutrition_notes=coalesce(excluded.nutrition_notes,workouts.nutrition_notes)`,
+             nutrition_notes=coalesce(excluded.nutrition_notes,workouts.nutrition_notes),
+             key_workout=coalesce($21,workouts.key_workout),
+             structure=coalesce(excluded.structure,workouts.structure),
+             activation=coalesce(excluded.activation,workouts.activation),
+             nutrition_pre=coalesce(excluded.nutrition_pre,workouts.nutrition_pre),
+             mobility=coalesce(excluded.mobility,workouts.mobility),
+             nutrition_post=coalesce(excluded.nutrition_post,workouts.nutrition_post)`,
           [
             tenantId, a.date, a.discipline, a.title, a.status, a.description ?? null, a.garmin_instructions ?? null,
             a.zwo_content ?? null, a.planned_duration_min ?? null, a.actual_duration_min ?? null,
             a.planned_distance_km ?? null, a.actual_distance_km ?? null, a.planned_tss ?? null, a.actual_tss ?? null,
             a.planned_pace ?? null, a.actual_pace ?? null, a.planned_power_watts ?? null, a.actual_power_watts ?? null,
             a.notes ?? null, a.nutrition_notes ?? null,
+            a.key_workout ?? null, a.structure ? JSON.stringify(a.structure) : null,
+            a.activation ?? null, a.nutrition_pre ?? null, a.mobility ?? null, a.nutrition_post ?? null,
           ],
         ),
       );
-      return ok(`Workout "${a.title}" (${a.date}) → ${a.status}.`);
+      return ok(`Workout "${a.title}" (${a.date}) → ${a.status}${a.key_workout ? " ★" : ""}.`);
     },
   );
 
