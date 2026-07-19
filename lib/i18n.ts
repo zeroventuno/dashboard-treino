@@ -104,12 +104,22 @@ const pt = {
 
   // login
   "login.title": "Entrar no seu painel",
-  "login.hint": "Cole a chave da sua conta (começa com trak_) — a mesma que você usou no conector do seu coach.",
+  // {prefix} is the account-key prefix, styled inline — each language puts it
+  // in a different position, so the sentence owns the slot.
+  "login.hint": "Cole a chave da sua conta (começa com {prefix}) — a mesma que você usou no conector do seu coach.",
   "login.submit": "Entrar",
   "login.submitting": "Entrando…",
   "login.error": "Chave não encontrada.",
   "login.networkError": "Falha de rede. Tente de novo.",
   "login.lost": "Perdeu a chave? Ela é mostrada uma única vez no onboarding — peça uma nova ao administrador.",
+
+  // common
+  // app shell
+  "app.noData": "Sem dados",
+  "app.sampleBanner": "Mostrando dados de exemplo",
+  "app.reason.noDb": "PRODUCT_DATABASE_URL não está configurada neste deploy (variável ausente ou faltou redeploy).",
+  "app.reason.empty": "Conectado, mas este tenant ainda não tem dados.",
+  "app.footer": "Sincronizado automaticamente pelos check-ins diários · painel de treino TRAK",
 
   // common
   "common.live": "Ao vivo",
@@ -194,12 +204,17 @@ const en: Dict = {
   "hero.daysTo": "days to",
   "hero.raceDay": "race day",
   "login.title": "Sign in to your dashboard",
-  "login.hint": "Paste your account key (starts with trak_) — the same one you used in your coach's connector.",
+  "login.hint": "Paste your account key (starts with {prefix}) — the same one you used in your coach's connector.",
   "login.submit": "Sign in",
   "login.submitting": "Signing in…",
   "login.error": "Key not found.",
   "login.networkError": "Network error. Please try again.",
   "login.lost": "Lost your key? It's shown only once during onboarding — ask your administrator for a new one.",
+  "app.noData": "No data",
+  "app.sampleBanner": "Showing sample data",
+  "app.reason.noDb": "PRODUCT_DATABASE_URL isn't set on this deployment (missing variable, or it needs a redeploy).",
+  "app.reason.empty": "Connected, but this tenant has no data yet.",
+  "app.footer": "Synced automatically from daily check-ins · TRAK training dashboard",
   "common.live": "Live",
   "common.sampleData": "Sample data",
 };
@@ -279,12 +294,17 @@ const it: Dict = {
   "hero.daysTo": "giorni a",
   "hero.raceDay": "il giorno di gara",
   "login.title": "Accedi alla tua dashboard",
-  "login.hint": "Incolla la chiave del tuo account (inizia con trak_) — la stessa usata nel connettore del tuo coach.",
+  "login.hint": "Incolla la chiave del tuo account (inizia con {prefix}) — la stessa usata nel connettore del tuo coach.",
   "login.submit": "Accedi",
   "login.submitting": "Accesso…",
   "login.error": "Chiave non trovata.",
   "login.networkError": "Errore di rete. Riprova.",
   "login.lost": "Hai perso la chiave? Viene mostrata una sola volta — chiedine una nuova all'amministratore.",
+  "app.noData": "Nessun dato",
+  "app.sampleBanner": "Dati di esempio",
+  "app.reason.noDb": "PRODUCT_DATABASE_URL non è configurata in questo deploy (variabile mancante o serve un redeploy).",
+  "app.reason.empty": "Connesso, ma questo tenant non ha ancora dati.",
+  "app.footer": "Sincronizzato automaticamente dai check-in giornalieri · dashboard di allenamento TRAK",
   "common.live": "In diretta",
   "common.sampleData": "Dati di esempio",
 };
@@ -364,12 +384,17 @@ const es: Dict = {
   "hero.daysTo": "días para",
   "hero.raceDay": "el día de carrera",
   "login.title": "Entra a tu panel",
-  "login.hint": "Pega la clave de tu cuenta (empieza con trak_) — la misma que usaste en el conector de tu coach.",
+  "login.hint": "Pega la clave de tu cuenta (empieza con {prefix}) — la misma que usaste en el conector de tu coach.",
   "login.submit": "Entrar",
   "login.submitting": "Entrando…",
   "login.error": "Clave no encontrada.",
   "login.networkError": "Error de red. Inténtalo de nuevo.",
   "login.lost": "¿Perdiste la clave? Solo se muestra una vez — pide una nueva al administrador.",
+  "app.noData": "Sin datos",
+  "app.sampleBanner": "Mostrando datos de ejemplo",
+  "app.reason.noDb": "PRODUCT_DATABASE_URL no está configurada en este deploy (falta la variable o hace falta un redeploy).",
+  "app.reason.empty": "Conectado, pero este tenant aún no tiene datos.",
+  "app.footer": "Sincronizado automáticamente desde los check-ins diarios · panel de entrenamiento TRAK",
   "common.live": "En vivo",
   "common.sampleData": "Datos de ejemplo",
 };
@@ -449,12 +474,17 @@ const fr: Dict = {
   "hero.daysTo": "jours avant",
   "hero.raceDay": "le jour de course",
   "login.title": "Connectez-vous à votre tableau de bord",
-  "login.hint": "Collez la clé de votre compte (commence par trak_) — la même que dans le connecteur de votre coach.",
+  "login.hint": "Collez la clé de votre compte (commence par {prefix}) — la même que dans le connecteur de votre coach.",
   "login.submit": "Se connecter",
   "login.submitting": "Connexion…",
   "login.error": "Clé introuvable.",
   "login.networkError": "Erreur réseau. Réessayez.",
   "login.lost": "Clé perdue ? Elle n'est affichée qu'une fois — demandez-en une nouvelle à l'administrateur.",
+  "app.noData": "Aucune donnée",
+  "app.sampleBanner": "Données d'exemple",
+  "app.reason.noDb": "PRODUCT_DATABASE_URL n'est pas configurée sur ce déploiement (variable absente ou redéploiement nécessaire).",
+  "app.reason.empty": "Connecté, mais ce tenant n'a pas encore de données.",
+  "app.footer": "Synchronisé automatiquement depuis les check-ins quotidiens · tableau de bord d'entraînement TRAK",
   "common.live": "En direct",
   "common.sampleData": "Données d'exemple",
 };
@@ -463,6 +493,31 @@ const DICTS: Record<Locale, Dict> = { pt, en, it, es, fr };
 
 export function isLocale(v: unknown): v is Locale {
   return typeof v === "string" && (LOCALES as readonly string[]).includes(v);
+}
+
+/** Best supported locale for an Accept-Language header.
+ *
+ * Used on the pages that render *before* we know who the athlete is (the login
+ * screen), where there's no profile row to read a locale from. Honours the
+ * q-weights and matches on the primary subtag, so "fr-CA" picks French. */
+export function pickLocale(acceptLanguage: string | null | undefined): Locale {
+  if (!acceptLanguage) return DEFAULT_LOCALE;
+
+  const ranked = acceptLanguage
+    .split(",")
+    .map((part) => {
+      const [tag, ...params] = part.trim().split(";");
+      const q = params.find((p) => p.trim().startsWith("q="));
+      return { tag: tag.trim().toLowerCase(), q: q ? Number.parseFloat(q.split("=")[1]) : 1 };
+    })
+    .filter((e) => e.tag && Number.isFinite(e.q))
+    .sort((a, b) => b.q - a.q);
+
+  for (const { tag } of ranked) {
+    const primary = tag.split("-")[0];
+    if (isLocale(primary)) return primary;
+  }
+  return DEFAULT_LOCALE;
 }
 
 /** Falls back to English, then to the key itself, so a gap degrades to text

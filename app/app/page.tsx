@@ -17,7 +17,7 @@ import { APP_COOKIE } from "@/app/api/app-login/route";
 import { toISO } from "@/lib/utils";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import type { DashboardData } from "@/lib/types";
-import type { Locale } from "@/lib/i18n";
+import { translator, type Locale, type TKey } from "@/lib/i18n";
 import { HeroBlock } from "@/components/blocks/HeroBlock";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
@@ -70,12 +70,14 @@ export default async function ProductDashboardPage({
 
   const { data, live, locale } = await getProductDashboardData(tenantId ?? "");
 
+  const tr = translator(locale);
+
   // Say exactly WHY we fell back to mock — silent sample data is impossible to debug.
-  const reason = live
+  const reason: TKey | null = live
     ? null
     : !dbConfigured
-      ? "PRODUCT_DATABASE_URL não está configurada neste deploy (variável ausente ou faltou redeploy)."
-      : "Conectado, mas este tenant ainda não tem dados.";
+      ? "app.reason.noDb"
+      : "app.reason.empty";
   const props: BlockProps = { data, todayISO: toISO(new Date()), locale };
 
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
@@ -96,14 +98,14 @@ export default async function ProductDashboardPage({
         <img src="/logo-trak.png" alt="TRAK" className="h-[26px] w-auto" />
         <span className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--text-muted)]">
           <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
-          {live ? "Live · banco novo" : tenantId ? "Sem dados" : "Sample data"}
+          {live ? tr("common.live") : tenantId ? tr("app.noData") : tr("common.sampleData")}
         </span>
       </nav>
 
       {!live && reason && (
         <div className="mb-4 rounded-[14px] border border-[var(--warn)]/40 bg-[var(--surface-2)] px-4 py-3 text-[12.5px] text-[var(--text-muted)]">
-          <span className="font-semibold text-[var(--warn)]">Mostrando dados de exemplo · </span>
-          {reason}
+          <span className="font-semibold text-[var(--warn)]">{tr("app.sampleBanner")} · </span>
+          {tr(reason)}
         </div>
       )}
 

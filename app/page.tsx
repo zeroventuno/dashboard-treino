@@ -5,7 +5,7 @@ import { DaysPill } from "@/components/Countdown";
 import { Tagline } from "@/components/Tagline";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import type { DashboardData } from "@/lib/types";
-import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
+import { DEFAULT_LOCALE, translator, type Locale } from "@/lib/i18n";
 import { HeroBlock } from "@/components/blocks/HeroBlock";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
@@ -38,6 +38,7 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
 export default async function DashboardPage() {
   const { data, live } = await getDashboardData();
   const props: BlockProps = { data, todayISO: toISO(new Date()), locale: DEFAULT_LOCALE };
+  const tr = translator(DEFAULT_LOCALE);
 
   // Day's readiness ("farol") tints the whole dashboard accent via CSS.
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
@@ -64,7 +65,7 @@ export default async function DashboardPage() {
           </span>
           <span className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--text-muted)]">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
-            {live ? "Live" : "Sample data"}
+            {live ? tr("common.live") : tr("common.sampleData")}
           </span>
           <DaysPill />
         </div>
@@ -84,7 +85,7 @@ export default async function DashboardPage() {
 
       <footer className="mt-9 text-center">
         <Tagline />
-        <p className="mt-1.5 text-[11px] text-[var(--text-faint)]">Synced automatically via daily check-ins · TRAK personal training dashboard</p>
+        <p className="mt-1.5 text-[11px] text-[var(--text-faint)]">{tr("app.footer")}</p>
       </footer>
     </div>
   );
