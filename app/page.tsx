@@ -4,7 +4,7 @@ import { toISO } from "@/lib/utils";
 import { DaysPill } from "@/components/Countdown";
 import { Tagline } from "@/components/Tagline";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
-import type { DashboardData } from "@/lib/types";
+import { RACE_NAME, type DashboardData } from "@/lib/types";
 import { DEFAULT_LOCALE, translator, type Locale } from "@/lib/i18n";
 import { HeroBlock } from "@/components/blocks/HeroBlock";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
@@ -18,6 +18,10 @@ import { WatchPointsBlock } from "@/components/blocks/WatchPointsBlock";
 import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
 
 export const revalidate = 60;
+
+// The personal dashboard has exactly one target, so it comes from the constant
+// rather than a lookup (the multi-tenant /app resolves it per athlete).
+export const metadata = { title: `TRAK · ${RACE_NAME}` };
 
 type BlockProps = { data: DashboardData; todayISO: string; locale: Locale };
 

@@ -11,10 +11,12 @@
 import { Fragment } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getProductDashboardData, resolveTenantId } from "@/lib/data-product";
+import type { Metadata } from "next";
+import { getDashboardSubject, getProductDashboardData, resolveTenantId } from "@/lib/data-product";
 import { hasProductDb } from "@/lib/product-db";
 import { APP_COOKIE } from "@/app/api/app-login/route";
 import { toISO } from "@/lib/utils";
+import { Tagline } from "@/components/Tagline";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import type { DashboardData } from "@/lib/types";
 import { translator, type Locale, type TKey } from "@/lib/i18n";
@@ -30,6 +32,17 @@ import { WatchPointsBlock } from "@/components/blocks/WatchPointsBlock";
 import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
 
 export const revalidate = 60;
+
+/** Tab title names what the athlete is training for — with several TRAK tabs
+ * open, "TRAK" alone tells you nothing about which one you're looking at. */
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieKey = (await cookies()).get(APP_COOKIE)?.value ?? null;
+  if (!cookieKey) return { title: "TRAK" };
+
+  const tenantId = await resolveTenantId(cookieKey);
+  const subject = tenantId ? await getDashboardSubject(tenantId) : null;
+  return { title: subject ? `TRAK · ${subject}` : "TRAK" };
+}
 
 type BlockProps = { data: DashboardData; todayISO: string; locale: Locale };
 
@@ -120,6 +133,11 @@ export default async function ProductDashboardPage({
           ),
         )}
       </div>
+
+      <footer className="mt-9 text-center">
+        <Tagline />
+        <p className="mt-1.5 text-[11px] text-[var(--text-faint)]">{tr("app.footer")}</p>
+      </footer>
     </div>
   );
 }

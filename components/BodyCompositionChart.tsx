@@ -111,7 +111,11 @@ export function BodyCompositionChart({ entries }: { entries: BodyComposition[] }
 
       <div className="h-52 w-full sm:h-56">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={entries} margin={{ top: 6, right: 8, left: -14, bottom: 0 }}>
+          {/* No negative left margin here: weight/lean mass render four glyphs
+              ("63.4"), and pulling the axis out of the container clipped the
+              leading digit — a weight chart that reads "3.4" is worse than a
+              slightly wider gutter. */}
+          <LineChart data={entries} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="var(--border-soft)" vertical={false} />
             <XAxis dataKey="date" tickFormatter={(iso) => fmtDayMonth(String(iso))} tickLine={false} axisLine={false} minTickGap={24} />
             <YAxis

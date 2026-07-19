@@ -121,3 +121,51 @@ export async function getProductDashboardData(
     return { data: getMockData(), live: false, locale: DEFAULT_LOCALE };
   }
 }
+
+/**
+ * What this athlete is training FOR — their next A race, or the name of their
+ * current cycle if they aren't racing. Used for the browser tab title.
+ *
+ * Deliberately its own small query rather than reusing getProductDashboardData:
+ * Next runs generateMetadata alongside the page render, so sharing that function
+ * would mean loading every training table twice to print one string.
+ *
+ * Returns null when there's nothing to name (no DB, no tenant, or a fresh
+ * account) so the caller can fall back to the plain brand title.
+ */
+export async function getDashboardSubject(tenantId: string): Promise<string | null> {
+  if (!hasProductDb() || !tenantId) return null;
+
+  try {
+    return await withTenant(tenantId, async (c) => {
+      const mode = (
+        await c.query("select mode from profiles where tenant_id=$1 limit 1", [tenantId])
+      ).rows[0]?.mode;
+
+      if (mode !== "cycle") {
+        // Next A race that hasn't happened yet; falls back to any upcoming race,
+        // then to the most recent past one (just finished a season → still the
+        // thing the dashboard is about).
+        const { rows } = await c.query(
+          `select name from races where tenant_id=$1
+             order by (priority = 'A' and date >= current_date) desc,
+                      (date >= current_date) desc,
+                      case when date >= current_date then date end asc nulls last,
+                      date desc
+             limit 1`,
+          [tenantId],
+        );
+        if (rows[0]?.name) return rows[0].name as string;
+      }
+
+      const { rows } = await c.query(
+        "select name from training_cycles where tenant_id=$1 and active order by start_date desc limit 1",
+        [tenantId],
+      );
+      return (rows[0]?.name as string) ?? null;
+    });
+  } catch (err) {
+    console.error("[product] title lookup failed:", err);
+    return null;
+  }
+}
