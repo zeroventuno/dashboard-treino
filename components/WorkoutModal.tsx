@@ -5,22 +5,23 @@ import { createPortal } from "react-dom";
 import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
 import { DISCIPLINE_META, fmtDuration } from "@/lib/utils";
 import { getWorkoutBlocks } from "@/lib/workout-structure";
+import { DEFAULT_LOCALE, translator, type Locale, type T, type TKey } from "@/lib/i18n";
 import { DisciplineIcon, DownloadIcon, CloseIcon } from "./Icons";
 import { WorkoutBlocks } from "./WorkoutBlocks";
 
-export const STATUS_META: Record<WorkoutStatus, { label: string; dot: string; ring: string }> = {
-  planned:  { label: "Planned",   dot: "var(--text-faint)", ring: "var(--border)" },
-  done:     { label: "Done",      dot: "var(--good)",       ring: "color-mix(in oklab, var(--good) 45%, var(--border))" },
-  skipped:  { label: "Skipped",   dot: "var(--bad)",        ring: "var(--border)" },
-  modified: { label: "Modified",  dot: "var(--warn)",       ring: "color-mix(in oklab, var(--warn) 40%, var(--border))" },
+export const STATUS_META: Record<WorkoutStatus, { key: "status.planned" | "status.done" | "status.skipped" | "status.modified"; dot: string; ring: string }> = {
+  planned:  { key: "status.planned",  dot: "var(--text-faint)", ring: "var(--border)" },
+  done:     { key: "status.done",     dot: "var(--good)",       ring: "color-mix(in oklab, var(--good) 45%, var(--border))" },
+  skipped:  { key: "status.skipped",  dot: "var(--bad)",        ring: "var(--border)" },
+  modified: { key: "status.modified", dot: "var(--warn)",       ring: "color-mix(in oklab, var(--warn) 40%, var(--border))" },
 };
 
 // Status lights — mirror the workout's status set from the training log
 // (coach chat), not clickable actions. Planned = all off.
-const STATUS_LIGHTS: { status: WorkoutStatus; label: string; color: string }[] = [
-  { status: "done", label: "Done", color: "var(--good)" },
-  { status: "modified", label: "Modified", color: "var(--warn)" },
-  { status: "skipped", label: "Skipped", color: "var(--bad)" },
+const STATUS_LIGHTS: { status: WorkoutStatus; key: TKey; color: string }[] = [
+  { status: "done", key: "status.done", color: "var(--good)" },
+  { status: "modified", key: "status.modified", color: "var(--warn)" },
+  { status: "skipped", key: "status.skipped", color: "var(--bad)" },
 ];
 
 function downloadZwo(w: Workout) {
@@ -90,30 +91,30 @@ function fmtPace(discipline: Discipline, durationMin: number | null, distanceKm:
  * Pace prefers the stored Garmin value (actual_pace/planned_pace) and only
  * falls back to duration÷distance — the derived number overstates swim pace
  * because elapsed duration includes interval rests. */
-function ComparisonTable({ w }: { w: Workout }) {
+function ComparisonTable({ w, tr }: { w: Workout; tr: T }) {
   const rows = [
     {
-      label: "Time",
+      label: tr("modal.time"),
       planned: w.planned_duration_min != null ? fmtDuration(Math.round(Number(w.planned_duration_min))) : null,
       actual: w.actual_duration_min != null ? fmtDuration(Math.round(Number(w.actual_duration_min))) : null,
     },
     {
-      label: "Distance",
+      label: tr("modal.distance"),
       planned: w.planned_distance_km != null ? fmtKm(Number(w.planned_distance_km)) : null,
       actual: w.actual_distance_km != null ? fmtKm(Number(w.actual_distance_km)) : null,
     },
     {
-      label: "Avg pace",
+      label: tr("modal.pace"),
       planned: w.planned_pace ?? fmtPace(w.discipline, w.planned_duration_min, w.planned_distance_km),
       actual: w.actual_pace ?? fmtPace(w.discipline, w.actual_duration_min, w.actual_distance_km),
     },
     {
-      label: "Power",
+      label: tr("modal.power"),
       planned: w.planned_power_watts ?? null,
       actual: w.actual_power_watts ?? null,
     },
     {
-      label: "Load",
+      label: tr("modal.load"),
       planned: w.planned_tss != null ? `${Math.round(Number(w.planned_tss))}` : null,
       actual: w.actual_tss != null ? `${Math.round(Number(w.actual_tss))}` : null,
     },
@@ -125,8 +126,8 @@ function ComparisonTable({ w }: { w: Workout }) {
     <div className="border-b border-[var(--border)] px-5 py-3.5">
       <div className="grid grid-cols-[minmax(72px,auto)_1fr_1fr] items-baseline gap-x-4 gap-y-1.5">
         <span />
-        <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">Planned</span>
-        <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">Actual</span>
+        <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("modal.planned")}</span>
+        <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("modal.actual")}</span>
         {rows.map((r) => (
           <Fragment key={r.label}>
             <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{r.label}</span>
@@ -140,13 +141,15 @@ function ComparisonTable({ w }: { w: Workout }) {
 }
 
 export function WorkoutModal({
-  w, ftpWatts = null, onClose,
+  w, ftpWatts = null, locale = DEFAULT_LOCALE, onClose,
 }: {
   w: Workout;
+  locale?: Locale;
   /** Athlete's threshold power — .zwo stores power as a fraction of it. */
   ftpWatts?: number | null;
   onClose: () => void;
 }) {
+  const tr = translator(locale);
   const meta = DISCIPLINE_META[w.discipline];
   // coach-authored blocks, else derived from the .zwo (free for bike workouts)
   const blocks = getWorkoutBlocks(w, ftpWatts);
@@ -176,11 +179,11 @@ export function WorkoutModal({
             </span>
             <div>
               <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: meta.color }}>
-                <span>{meta.label} · {STATUS_META[w.status].label}</span>
+                <span>{tr(meta.i18nKey)} · {tr(STATUS_META[w.status].key)}</span>
                 {w.key_workout && (
                   <span className="rounded-full px-2 py-[2px] text-[9.5px] tracking-[0.1em] text-[var(--lime)]"
                     style={{ background: "color-mix(in oklab, var(--lime) 16%, transparent)" }}>
-                    ★ Treino-chave
+                    ★ {tr("modal.keyWorkout")}
                   </span>
                 )}
               </p>
@@ -192,29 +195,29 @@ export function WorkoutModal({
           </button>
         </div>
 
-        <ComparisonTable w={w} />
+        <ComparisonTable w={w} tr={tr} />
 
         <div className="space-y-5 p-5">
           {w.description && (
-            <Section label="Description">
+            <Section label={tr("modal.description")}>
               <pre className="whitespace-pre-wrap font-sans text-[13.5px] leading-relaxed text-[var(--text-muted)]">{w.description}</pre>
             </Section>
           )}
 
           {/* ── Pre-workout ───────────────────────────────────────────── */}
           {(w.activation || w.nutrition_pre) && (
-            <Phase label="Antes do treino" tint="var(--teal)">
-              {w.activation && <SubSection label="Ativação / aquecimento" text={w.activation} />}
-              {w.nutrition_pre && <SubSection label="🥤 Nutrição pré" text={w.nutrition_pre} />}
+            <Phase label={tr("modal.preWorkout")} tint="var(--teal)">
+              {w.activation && <SubSection label={tr("modal.activation")} text={w.activation} />}
+              {w.nutrition_pre && <SubSection label={"🥤 " + tr("modal.nutritionPre")} text={w.nutrition_pre} />}
             </Phase>
           )}
 
           {/* ── The workout itself ────────────────────────────────────── */}
           {(blocks.length > 0 || w.garmin_instructions) && (
-            <Section label="Build your workout">
+            <Section label={tr("modal.build")}>
               {blocks.length > 0 && (
                 <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-soft)] p-3.5">
-                  <WorkoutBlocks blocks={blocks} discipline={w.discipline} />
+                  <WorkoutBlocks blocks={blocks} discipline={w.discipline} locale={locale} />
                 </div>
               )}
               {w.garmin_instructions && (
@@ -227,19 +230,19 @@ export function WorkoutModal({
 
           {/* ── Post-workout ──────────────────────────────────────────── */}
           {(w.mobility || w.nutrition_post) && (
-            <Phase label="Depois do treino" tint="var(--strength)">
-              {w.mobility && <SubSection label="Alongamento / mobilidade" text={w.mobility} />}
-              {w.nutrition_post && <SubSection label="🥤 Nutrição pós" text={w.nutrition_post} />}
+            <Phase label={tr("modal.postWorkout")} tint="var(--strength)">
+              {w.mobility && <SubSection label={tr("modal.mobility")} text={w.mobility} />}
+              {w.nutrition_post && <SubSection label={"🥤 " + tr("modal.nutritionPost")} text={w.nutrition_post} />}
             </Phase>
           )}
 
           {w.nutrition_notes && (
-            <Section label="🥤 Nutrition">
+            <Section label={"🥤 " + tr("modal.nutrition")}>
               <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[var(--text-muted)]">{w.nutrition_notes}</p>
             </Section>
           )}
           {w.notes && (
-            <Section label="Notes">
+            <Section label={tr("modal.notes")}>
               <p className="text-[13.5px] italic text-[var(--text-muted)]">{w.notes}</p>
             </Section>
           )}
@@ -248,7 +251,7 @@ export function WorkoutModal({
               onClick={() => downloadZwo(w)}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors hover:border-[var(--lime)] hover:text-[var(--lime)]"
             >
-              <DownloadIcon /> Download .zwo file (Zwift)
+              <DownloadIcon /> {tr("modal.download")}
             </button>
           )}
         </div>
@@ -272,14 +275,14 @@ export function WorkoutModal({
                     className="text-[12px] font-bold uppercase tracking-[0.08em]"
                     style={{ color: on ? l.color : "var(--text-faint)" }}
                   >
-                    {l.label}
+                    {tr(l.key)}
                   </span>
                 </div>
               );
             })}
           </div>
           <p className="mt-2 text-center text-[10px] text-[var(--text-faint)]">
-            Status atualizado automaticamente pelo seu registro de treino
+            {tr("modal.statusHint")}
           </p>
         </div>
       </div>

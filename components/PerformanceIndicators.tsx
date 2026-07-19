@@ -1,4 +1,5 @@
 import type { PerformanceIndicators } from "@/lib/types";
+import { DEFAULT_LOCALE, translator, type Locale, type T } from "@/lib/i18n";
 import { BikeIcon, RunIcon, SwimIcon } from "./Icons";
 
 /** Zone labels look like "Z3 Tempo" or "Z1" — extract the leading number so we can
@@ -9,9 +10,9 @@ function zoneNumber(label: string): number {
   return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
 }
 
-function ZoneRows({ zones }: { zones: Record<string, string | [number, number]> | null }) {
+function ZoneRows({ zones, tr }: { zones: Record<string, string | [number, number]> | null; tr: T }) {
   if (!zones || Object.keys(zones).length === 0)
-    return <p className="text-[13px] text-[var(--text-faint)]">No zones set</p>;
+    return <p className="text-[13px] text-[var(--text-faint)]">{tr("zones.none")}</p>;
   const entries = Object.entries(zones).sort(([a], [b]) => zoneNumber(a) - zoneNumber(b));
   const n = entries.length;
   return (
@@ -57,38 +58,44 @@ function Block({ icon, title, headline, sub, children }: {
   );
 }
 
-export function PerformanceZones({ ind }: { ind: PerformanceIndicators | null }) {
-  if (!ind) return <p className="text-[13px] text-[var(--text-faint)]">No performance data yet.</p>;
+export function PerformanceZones({ ind, locale = DEFAULT_LOCALE }: {
+  ind: PerformanceIndicators | null;
+  locale?: Locale;
+}) {
+  const tr = translator(locale);
+  if (!ind) return <p className="text-[13px] text-[var(--text-faint)]">—</p>;
 
   const updated = ind.updated_at
-    ? new Date(ind.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    ? new Date(ind.updated_at).toLocaleDateString(locale, { month: "short", day: "numeric" })
     : "—";
 
   return (
     <>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <Block icon={<BikeIcon size={16} style={{ color: "var(--bike)" }} />} title="Bike"
+        <Block icon={<BikeIcon size={16} style={{ color: "var(--bike)" }} />} title={tr("discipline.bike")}
           headline={ind.ftp_watts ? `${ind.ftp_watts} W` : "—"} sub="FTP">
-          <ZoneRows zones={ind.bike_zones} />
+          <ZoneRows zones={ind.bike_zones} tr={tr} />
         </Block>
 
-        <Block icon={<RunIcon size={16} style={{ color: "var(--run)" }} />} title="Run"
+        <Block icon={<RunIcon size={16} style={{ color: "var(--run)" }} />} title={tr("discipline.run")}
           headline={ind.run_threshold_pace ? `${ind.run_threshold_pace}` : "—"} sub="/km LT">
-          <ZoneRows zones={ind.run_pace_zones} />
+          <ZoneRows zones={ind.run_pace_zones} tr={tr} />
           {ind.cadence_run_target && (
             <div className="mt-2 flex items-center justify-between border-t border-[var(--border)] pt-2 text-[13px]">
-              <span className="text-[var(--text-muted)]">Cadence target</span>
+              <span className="text-[var(--text-muted)]">{tr("zones.cadence")}</span>
               <span className="tnum font-semibold text-[var(--text)]">{ind.cadence_run_target} spm</span>
             </div>
           )}
         </Block>
 
-        <Block icon={<SwimIcon size={16} style={{ color: "var(--swim)" }} />} title="Swim"
+        <Block icon={<SwimIcon size={16} style={{ color: "var(--swim)" }} />} title={tr("discipline.swim")}
           headline={ind.swim_pace_per_100m ? `${ind.swim_pace_per_100m}` : "—"} sub="/100m CSS">
-          <ZoneRows zones={ind.swim_pace_zones} />
+          <ZoneRows zones={ind.swim_pace_zones} tr={tr} />
         </Block>
       </div>
-      <p className="mt-3 text-[11px] text-[var(--text-faint)]">Updated {updated} · zones synced from Strava</p>
+      <p className="mt-3 text-[11px] text-[var(--text-faint)]">
+        {tr("zones.updated")} {updated} · {tr("zones.synced")}
+      </p>
     </>
   );
 }

@@ -1,14 +1,25 @@
 import type { DashboardData } from "@/lib/types";
+import { DEFAULT_LOCALE, translator, type Locale } from "@/lib/i18n";
 import { SectionCard } from "../SectionCard";
 import { CalendarBoard } from "../CalendarBoard";
 
-export function CalendarBlock({ data, todayISO }: { data: DashboardData; todayISO: string }) {
+export function CalendarBlock({
+  data,
+  todayISO,
+  locale = DEFAULT_LOCALE,
+}: {
+  data: DashboardData;
+  todayISO: string;
+  locale?: Locale;
+}) {
+  const tr = translator(locale);
   return (
-    <SectionCard title="Training Calendar" subtitle="Click a workout for details · weekly totals on the right">
+    <SectionCard title={tr("block.calendar")} subtitle={tr("block.calendar.sub")}>
       {/* FTP is needed to turn .zwo power fractions into real watts */}
       <CalendarBoard
         workouts={data.workouts}
         todayISO={todayISO}
+        locale={locale}
         ftpWatts={data.indicators?.ftp_watts ?? null}
       />
     </SectionCard>

@@ -1,6 +1,7 @@
 import type { Discipline, WorkoutBlock } from "@/lib/types";
 import { DISCIPLINE_META } from "@/lib/utils";
 import { fmtBlockDuration } from "@/lib/workout-structure";
+import { DEFAULT_LOCALE, translator, type Locale } from "@/lib/i18n";
 
 /**
  * Workout profile: bar width = duration, bar height = intensity (% of
@@ -8,8 +9,9 @@ import { fmtBlockDuration } from "@/lib/workout-structure";
  * intensity, the colour ramp is redundant reinforcement rather than the only
  * cue. Uses the discipline's own hue (single hue, light→dark = sequential).
  */
-export function WorkoutBlocks({ blocks, discipline }: { blocks: WorkoutBlock[]; discipline: Discipline }) {
+export function WorkoutBlocks({ blocks, discipline, locale = DEFAULT_LOCALE }: { blocks: WorkoutBlock[]; discipline: Discipline; locale?: Locale }) {
   if (blocks.length === 0) return null;
+  const tr = translator(locale);
 
   const hue = DISCIPLINE_META[discipline].color;
   const totalMin = blocks.reduce((s, b) => s + b.duration_min, 0);
@@ -23,7 +25,7 @@ export function WorkoutBlocks({ blocks, discipline }: { blocks: WorkoutBlock[]; 
       <div
         className="relative h-[104px]"
         role="img"
-        aria-label={`Perfil do treino: ${blocks.length} blocos, ${fmtBlockDuration(totalMin)} no total`}
+        aria-label={`${tr("profile.aria")}: ${blocks.length} ${tr("profile.blocks")}, ${fmtBlockDuration(totalMin)}`}
       >
         {/* threshold reference, positioned as a share of the plot height */}
         {hasIntensity && ceiling > 100 && (
@@ -33,7 +35,7 @@ export function WorkoutBlocks({ blocks, discipline }: { blocks: WorkoutBlock[]; 
             aria-hidden
           >
             <span className="absolute right-0 -top-[13px] text-[9px] font-semibold tracking-wide text-[var(--text-faint)]">
-              limiar
+              {tr("profile.threshold")}
             </span>
           </div>
         )}
@@ -79,7 +81,7 @@ export function WorkoutBlocks({ blocks, discipline }: { blocks: WorkoutBlock[]; 
       </ul>
 
       <p className="mt-2.5 text-right text-[11px] text-[var(--text-faint)]">
-        {blocks.length} blocos · {fmtBlockDuration(totalMin)} no total
+        {blocks.length} {tr("profile.blocks")} · {fmtBlockDuration(totalMin)} {tr("profile.total")}
       </p>
     </div>
   );

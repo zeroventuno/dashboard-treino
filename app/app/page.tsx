@@ -17,6 +17,7 @@ import { APP_COOKIE } from "@/app/api/app-login/route";
 import { toISO } from "@/lib/utils";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import type { DashboardData } from "@/lib/types";
+import type { Locale } from "@/lib/i18n";
 import { HeroBlock } from "@/components/blocks/HeroBlock";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
@@ -30,19 +31,19 @@ import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
 
 export const revalidate = 60;
 
-type BlockProps = { data: DashboardData; todayISO: string };
+type BlockProps = { data: DashboardData; todayISO: string; locale: Locale };
 
 const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
-  hero: (p) => <HeroBlock data={p.data} />,
-  fitness: (p) => <FitnessBlock data={p.data} />,
-  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} />,
-  season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} />,
-  zones: (p) => <ZonesBlock data={p.data} />,
-  mealplan: (p) => <MealPlanBlock data={p.data} />,
-  body: (p) => <BodyBlock data={p.data} />,
-  strength: (p) => <StrengthBlock data={p.data} />,
-  watchpoints: (p) => <WatchPointsBlock data={p.data} />,
-  lifestyle: (p) => <LifestyleBlock data={p.data} />,
+  hero: (p) => <HeroBlock data={p.data} locale={p.locale} />,
+  fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
+  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
+  season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
+  zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
+  mealplan: (p) => <MealPlanBlock data={p.data} locale={p.locale} />,
+  body: (p) => <BodyBlock data={p.data} locale={p.locale} />,
+  strength: (p) => <StrengthBlock data={p.data} locale={p.locale} />,
+  watchpoints: (p) => <WatchPointsBlock data={p.data} locale={p.locale} />,
+  lifestyle: (p) => <LifestyleBlock data={p.data} locale={p.locale} />,
 };
 
 export default async function ProductDashboardPage({
@@ -67,7 +68,7 @@ export default async function ProductDashboardPage({
   // Stale/revoked key: send them back to log in rather than showing sample data.
   if (dbConfigured && !tenantId) redirect("/app/login?erro=1");
 
-  const { data, live } = await getProductDashboardData(tenantId ?? "");
+  const { data, live, locale } = await getProductDashboardData(tenantId ?? "");
 
   // Say exactly WHY we fell back to mock — silent sample data is impossible to debug.
   const reason = live
@@ -75,7 +76,7 @@ export default async function ProductDashboardPage({
     : !dbConfigured
       ? "PRODUCT_DATABASE_URL não está configurada neste deploy (variável ausente ou faltou redeploy)."
       : "Conectado, mas este tenant ainda não tem dados.";
-  const props: BlockProps = { data, todayISO: toISO(new Date()) };
+  const props: BlockProps = { data, todayISO: toISO(new Date()), locale };
 
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
 

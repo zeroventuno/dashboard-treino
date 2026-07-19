@@ -74,12 +74,17 @@ export function fmtSleepHours(hours: number | null | undefined): string {
 
 // ---- discipline metadata ---------------------------------------------------
 
-export const DISCIPLINE_META: Record<Discipline, { label: string; color: string; icon: string }> = {
-  swim: { label: "Swim", color: "var(--swim)", icon: "swim" },
-  bike: { label: "Bike", color: "var(--bike)", icon: "bike" },
-  run: { label: "Run", color: "var(--run)", icon: "run" },
-  strength: { label: "Strength", color: "var(--strength)", icon: "strength" },
-  rest: { label: "Rest", color: "var(--rest)", icon: "rest" },
+/** `label` is the untranslated fallback; `i18nKey` is what the UI should render
+ * (see lib/i18n.ts) once a locale is in hand. */
+export const DISCIPLINE_META: Record<
+  Discipline,
+  { label: string; i18nKey: "discipline.swim" | "discipline.bike" | "discipline.run" | "discipline.strength" | "discipline.rest"; color: string; icon: string }
+> = {
+  swim: { label: "Swim", i18nKey: "discipline.swim", color: "var(--swim)", icon: "swim" },
+  bike: { label: "Bike", i18nKey: "discipline.bike", color: "var(--bike)", icon: "bike" },
+  run: { label: "Run", i18nKey: "discipline.run", color: "var(--run)", icon: "run" },
+  strength: { label: "Strength", i18nKey: "discipline.strength", color: "var(--strength)", icon: "strength" },
+  rest: { label: "Rest", i18nKey: "discipline.rest", color: "var(--rest)", icon: "rest" },
 };
 
 export const READINESS_META: Record<Recommendation, { label: string; color: string; hint: string }> = {

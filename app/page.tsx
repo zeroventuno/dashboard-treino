@@ -5,6 +5,7 @@ import { DaysPill } from "@/components/Countdown";
 import { Tagline } from "@/components/Tagline";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import type { DashboardData } from "@/lib/types";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 import { HeroBlock } from "@/components/blocks/HeroBlock";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
@@ -18,25 +19,25 @@ import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
 
 export const revalidate = 60;
 
-type BlockProps = { data: DashboardData; todayISO: string };
+type BlockProps = { data: DashboardData; todayISO: string; locale: Locale };
 
 // id → renderer. Adding/removing a block here + in lib/blocks.ts is all it takes.
 const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
-  hero: (p) => <HeroBlock data={p.data} />,
-  fitness: (p) => <FitnessBlock data={p.data} />,
-  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} />,
-  season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} />,
-  zones: (p) => <ZonesBlock data={p.data} />,
-  mealplan: (p) => <MealPlanBlock data={p.data} />,
-  body: (p) => <BodyBlock data={p.data} />,
-  strength: (p) => <StrengthBlock data={p.data} />,
-  watchpoints: (p) => <WatchPointsBlock data={p.data} />,
-  lifestyle: (p) => <LifestyleBlock data={p.data} />,
+  hero: (p) => <HeroBlock data={p.data} locale={p.locale} />,
+  fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
+  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
+  season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
+  zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
+  mealplan: (p) => <MealPlanBlock data={p.data} locale={p.locale} />,
+  body: (p) => <BodyBlock data={p.data} locale={p.locale} />,
+  strength: (p) => <StrengthBlock data={p.data} locale={p.locale} />,
+  watchpoints: (p) => <WatchPointsBlock data={p.data} locale={p.locale} />,
+  lifestyle: (p) => <LifestyleBlock data={p.data} locale={p.locale} />,
 };
 
 export default async function DashboardPage() {
   const { data, live } = await getDashboardData();
-  const props: BlockProps = { data, todayISO: toISO(new Date()) };
+  const props: BlockProps = { data, todayISO: toISO(new Date()), locale: DEFAULT_LOCALE };
 
   // Day's readiness ("farol") tints the whole dashboard accent via CSS.
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;

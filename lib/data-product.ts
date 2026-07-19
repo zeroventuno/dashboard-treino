@@ -6,6 +6,7 @@
 // AND every query still carries an explicit tenant_id filter. Either alone would
 // do; together, a mistake in one can't leak data.
 import { getMockData } from "./mock";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n";
 import { hasProductDb, withTenant } from "./product-db";
 import { addDays, parseDate, toISO } from "./utils";
 import type {
@@ -52,15 +53,23 @@ function extendTrainingLoad(load: TrainingLoad[], workouts: Workout[], todayISO:
  */
 export async function getProductDashboardData(
   tenantId: string,
-): Promise<{ data: DashboardData; live: boolean }> {
-  if (!hasProductDb() || !tenantId) return { data: getMockData(), live: false };
+): Promise<{ data: DashboardData; live: boolean; locale: Locale }> {
+  if (!hasProductDb() || !tenantId) {
+    return { data: getMockData(), live: false, locale: DEFAULT_LOCALE };
+  }
 
   try {
-    const data = await withTenant(tenantId, async (c) => {
+    const result = await withTenant(tenantId, async (c) => {
       const q = async <T>(sql: string): Promise<T[]> => {
         const { rows } = await c.query(sql, [tenantId]);
         return rows as T[];
       };
+
+      // the athlete's UI language, set by the coach via set_profile
+      const profile = await q<{ locale: string | null }>(
+        "select locale from profiles where tenant_id=$1 limit 1",
+      );
+      const locale = isLocale(profile[0]?.locale) ? profile[0].locale : DEFAULT_LOCALE;
 
       const trainingLoad = await q<TrainingLoad>(
         "select date, tss, ctl, atl, tsb, source from training_load where tenant_id=$1 order by date",
@@ -90,7 +99,7 @@ export async function getProductDashboardData(
         "select * from nutrition_plan where tenant_id=$1 order by duration_category",
       );
 
-      return {
+      const data: DashboardData = {
         trainingLoad: extendTrainingLoad(trainingLoad, workouts, toISO(new Date())),
         workouts,
         phases,
@@ -102,12 +111,13 @@ export async function getProductDashboardData(
         bodyComposition,
         mealPlan,
         nutritionRules,
-      } satisfies DashboardData;
+      };
+      return { data, locale };
     });
 
-    return { live: true, data };
+    return { live: true, ...result };
   } catch (err) {
     console.error("[product] read failed, using mock:", err);
-    return { data: getMockData(), live: false };
+    return { data: getMockData(), live: false, locale: DEFAULT_LOCALE };
   }
 }

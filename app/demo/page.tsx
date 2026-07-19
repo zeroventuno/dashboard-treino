@@ -14,6 +14,7 @@ import { toISO } from "@/lib/utils";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import { DEMO_PROFILES, blockAvailable, type TenantConfig } from "@/lib/tenant-config";
 import type { DashboardData } from "@/lib/types";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 import { DemoHero, cycleToPhases } from "@/components/DemoHero";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
@@ -28,19 +29,19 @@ import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
 // fixed "today" so the demo countdown/cycle math is stable
 const DEMO_TODAY = "2026-07-11";
 
-type BlockProps = { config: TenantConfig; data: DashboardData; todayISO: string };
+type BlockProps = { config: TenantConfig; data: DashboardData; todayISO: string; locale: Locale };
 
 const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
   hero: (p) => <DemoHero config={p.config} data={p.data} todayISO={p.todayISO} />,
-  fitness: (p) => <FitnessBlock data={p.data} />,
-  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} />,
-  season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} />,
-  zones: (p) => <ZonesBlock data={p.data} />,
-  mealplan: (p) => <MealPlanBlock data={p.data} />,
-  body: (p) => <BodyBlock data={p.data} />,
-  strength: (p) => <StrengthBlock data={p.data} />,
-  watchpoints: (p) => <WatchPointsBlock data={p.data} />,
-  lifestyle: (p) => <LifestyleBlock data={p.data} />,
+  fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
+  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
+  season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
+  zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
+  mealplan: (p) => <MealPlanBlock data={p.data} locale={p.locale} />,
+  body: (p) => <BodyBlock data={p.data} locale={p.locale} />,
+  strength: (p) => <StrengthBlock data={p.data} locale={p.locale} />,
+  watchpoints: (p) => <WatchPointsBlock data={p.data} locale={p.locale} />,
+  lifestyle: (p) => <LifestyleBlock data={p.data} locale={p.locale} />,
 };
 
 /** Mock data masked to the athlete's available metrics (so even blocks that
@@ -88,7 +89,7 @@ export default async function DemoPage({
   const key = profile && DEMO_PROFILES[profile] ? profile : "race";
   const config = DEMO_PROFILES[key];
   const data = demoData(config);
-  const props: BlockProps = { config, data, todayISO: DEMO_TODAY };
+  const props: BlockProps = { config, data, todayISO: DEMO_TODAY, locale: (config.locale as Locale) ?? DEFAULT_LOCALE };
 
   const visible = BLOCKS.filter((b) => b.enabled && blockAvailable(b.requires, config.metrics));
   const hiddenIds = BLOCKS.filter((b) => b.enabled && !blockAvailable(b.requires, config.metrics)).map((b) => b.id);

@@ -12,6 +12,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import type { BlockId } from "./blocks";
+import type { Locale } from "./i18n";
 
 /** Capability flags — what data/devices the athlete actually has available. */
 export type Metric =
@@ -47,7 +48,7 @@ export interface TenantConfig {
   metrics: Metric[];
   races?: RaceTarget[]; // when mode === "race"
   cycle?: TrainingCycle; // when mode === "cycle"
-  locale?: "pt" | "en" | "es" | "it";
+  locale?: Locale;
   units?: "metric" | "imperial";
 }
 

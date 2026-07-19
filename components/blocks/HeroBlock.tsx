@@ -1,11 +1,12 @@
 import type { DashboardData } from "@/lib/types";
 import { fmtSleepHours } from "@/lib/utils";
 import { Countdown } from "../Countdown";
+import { DEFAULT_LOCALE, translator, type Locale, type TKey } from "@/lib/i18n";
 
-const READY_META: Record<string, { label: string; color: string; hint: string }> = {
-  green: { label: "READY", color: "var(--good)", hint: "Follow the plan — green light for the long ride." },
-  yellow: { label: "CAUTION", color: "var(--warn)", hint: "Ease the intensity today." },
-  red: { label: "RECOVER", color: "var(--bad)", hint: "Prioritise recovery." },
+const READY_META: Record<string, { label: TKey; color: string; hint: TKey }> = {
+  green: { label: "hero.ready", color: "var(--good)", hint: "hero.readyHint" },
+  yellow: { label: "hero.caution", color: "var(--warn)", hint: "hero.cautionHint" },
+  red: { label: "hero.recover", color: "var(--bad)", hint: "hero.recoverHint" },
 };
 
 function Dot({ active, color }: { active: boolean; color: string }) {
@@ -30,7 +31,8 @@ function Stat({ label, value }: { label: string; value: string | number | null }
   );
 }
 
-export function HeroBlock({ data }: { data: DashboardData }) {
+export function HeroBlock({ data, locale = DEFAULT_LOCALE }: { data: DashboardData; locale?: Locale }) {
+  const tr = translator(locale);
   const latest = data.checkins.length ? data.checkins[data.checkins.length - 1] : null;
   const rec = latest?.recommendation ?? null;
   const meta = rec ? READY_META[rec] : null;
@@ -58,20 +60,20 @@ export function HeroBlock({ data }: { data: DashboardData }) {
           <Dot active={rec === "red"} color="var(--bad)" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--text-faint)]">Readiness today</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--text-faint)]">{tr("hero.readiness")}</p>
           <p className="dsp mt-0.5 text-[26px] font-extrabold leading-none" style={{ color: meta?.color ?? "var(--text-muted)" }}>
-            {meta?.label ?? "NO DATA"}
+            {meta ? tr(meta.label) : tr("hero.noData")}
           </p>
           {latest && (
             <div className="mt-2.5 grid grid-cols-4 gap-x-3 gap-y-1">
-              <Stat label="Score" value={latest.readiness_score} />
-              <Stat label="HRV" value={latest.hrv} />
-              <Stat label="Battery" value={latest.body_battery} />
-              <Stat label="Sleep" value={fmtSleepHours(latest.sleep_hours)} />
+              <Stat label={tr("hero.score")} value={latest.readiness_score} />
+              <Stat label={tr("hero.hrv")} value={latest.hrv} />
+              <Stat label={tr("hero.battery")} value={latest.body_battery} />
+              <Stat label={tr("hero.sleep")} value={fmtSleepHours(latest.sleep_hours)} />
             </div>
           )}
           <p className="mt-2 text-[12px] text-[var(--text-faint)]">
-            {meta?.hint ?? "Log a check-in in chat to activate."}
+            {meta ? tr(meta.hint) : tr("hero.noDataHint")}
           </p>
         </div>
       </div>

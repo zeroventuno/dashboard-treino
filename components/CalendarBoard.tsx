@@ -2,12 +2,18 @@
 
 import { useMemo, useState } from "react";
 import type { Workout, Discipline } from "@/lib/types";
-import { DISCIPLINE_META, fmtDuration, parseDate, startOfWeek, addDays, toISO, monthName } from "@/lib/utils";
+import { DISCIPLINE_META, fmtDuration, parseDate, startOfWeek, addDays, toISO } from "@/lib/utils";
 import { DisciplineIcon } from "./Icons";
 import { WorkoutModal } from "./WorkoutModal";
+import { DEFAULT_LOCALE, translator, type Locale, type T } from "@/lib/i18n";
 
 const LEGEND: Discipline[] = ["swim", "bike", "run", "strength"];
-const WD = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+
+/** Localized Mon→Sun short weekday names (2026-01-05 is a Monday). */
+function weekdayNames(locale: Locale): string[] {
+  const f = new Intl.DateTimeFormat(locale, { weekday: "short" });
+  return Array.from({ length: 7 }, (_, i) => f.format(new Date(2026, 0, 5 + i)));
+}
 // disciplines that get a weekly km total (strength has no distance)
 const KM_DISCIPLINES: Discipline[] = ["swim", "bike", "run"];
 
@@ -38,12 +44,16 @@ export function CalendarBoard({
   workouts,
   todayISO,
   ftpWatts = null,
+  locale = DEFAULT_LOCALE,
 }: {
   workouts: Workout[];
   todayISO: string;
+  locale?: Locale;
   /** Athlete's threshold power — converts .zwo power fractions into watts. */
   ftpWatts?: number | null;
 }) {
+  const tr = translator(locale);
+  const WD = useMemo(() => weekdayNames(locale), [locale]);
   const today = parseDate(todayISO);
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() });
   const [open, setOpen] = useState<Workout | null>(null);
@@ -97,14 +107,14 @@ export function CalendarBoard({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button onClick={() => shift(-1)} className="grid h-[30px] w-[30px] place-items-center rounded-[9px] border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] transition-colors hover:border-[var(--text-faint)] hover:text-[var(--text)]">‹</button>
-          <span className="dsp min-w-[140px] text-center text-[16px] font-bold text-[var(--text)]">{monthName(ym.m)} {ym.y}</span>
+          <span className="dsp min-w-[140px] text-center text-[16px] font-bold text-[var(--text)]">{new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(ym.y, ym.m, 1))} {ym.y}</span>
           <button onClick={() => shift(1)} className="grid h-[30px] w-[30px] place-items-center rounded-[9px] border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] transition-colors hover:border-[var(--text-faint)] hover:text-[var(--text)]">›</button>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {LEGEND.map((d) => (
             <span key={d} className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
               <span className="h-2 w-2 rounded-full" style={{ background: DISCIPLINE_META[d].color }} />
-              {DISCIPLINE_META[d].label}
+              {tr(DISCIPLINE_META[d].i18nKey)}
             </span>
           ))}
         </div>
@@ -117,23 +127,24 @@ export function CalendarBoard({
             {WD.map((d) => (
               <div key={d} className="px-1 pb-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{d}</div>
             ))}
-            <div className="px-1 pb-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">Week</div>
+            <div className="px-1 pb-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("calendar.week")}</div>
 
             {weeks.map((week) => (
-              <WeekRow key={week.days[0].iso} week={week} todayISO={todayISO} onOpen={setOpen} />
+              <WeekRow key={week.days[0].iso} week={week} todayISO={todayISO} tr={tr} onOpen={setOpen} />
             ))}
           </div>
         </div>
       </div>
 
-      {open && <WorkoutModal w={open} ftpWatts={ftpWatts} onClose={() => setOpen(null)} />}
+      {open && <WorkoutModal w={open} ftpWatts={ftpWatts} locale={locale} onClose={() => setOpen(null)} />}
     </>
   );
 }
 
-function WeekRow({ week, todayISO, onOpen }: {
+function WeekRow({ week, todayISO, tr, onOpen }: {
   week: WeekData;
   todayISO: string;
+  tr: T;
   onOpen: (w: Workout) => void;
 }) {
   return (
@@ -165,7 +176,7 @@ function WeekRow({ week, todayISO, onOpen }: {
                   <button
                     key={w.id}
                     onClick={() => onOpen(w)}
-                    title={key ? `Treino-chave · ${w.title}` : w.title}
+                    title={key ? `${tr("modal.keyWorkout")} · ${w.title}` : w.title}
                     className="group flex w-full items-center gap-1 rounded-md border-l-2 px-1.5 py-1 text-left transition-[background-color,transform] duration-150 hover:scale-[1.03] hover:bg-[var(--border)]"
                     style={{
                       borderColor: meta.color,
@@ -178,7 +189,7 @@ function WeekRow({ week, todayISO, onOpen }: {
                   >
                     <DisciplineIcon discipline={w.discipline} size={11} style={{ color: meta.color, flexShrink: 0 }} />
                     {key && (
-                      <span className="shrink-0 text-[9px] leading-none text-[var(--lime)]" aria-label="Treino-chave">★</span>
+                      <span className="shrink-0 text-[9px] leading-none text-[var(--lime)]" aria-label={tr("modal.keyWorkout")}>★</span>
                     )}
                     <span
                       className={`flex-1 truncate text-[10.5px] leading-tight ${
@@ -210,9 +221,9 @@ function WeekRow({ week, todayISO, onOpen }: {
         }}
       >
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">Week {week.wk}</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("calendar.week")} {week.wk}</p>
           {week.isThis && (
-            <span className="rounded-full bg-[var(--lime)] px-1.5 py-[1px] text-[8px] font-bold uppercase tracking-wide text-[#0a0b0d]">This week</span>
+            <span className="rounded-full bg-[var(--lime)] px-1.5 py-[1px] text-[8px] font-bold uppercase tracking-wide text-[#0a0b0d]">{tr("calendar.thisWeek")}</span>
           )}
         </div>
         <p className="dsp tnum mt-0.5 text-[22px] font-extrabold leading-none text-[var(--text)]">
@@ -226,7 +237,7 @@ function WeekRow({ week, todayISO, onOpen }: {
               <div key={d} className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: DISCIPLINE_META[d].color }} />
                 <span className="tnum text-[11px] text-[var(--text-muted)]">
-                  {fmtKm(week.km[d])} {DISCIPLINE_META[d].label.toLowerCase()}
+                  {fmtKm(week.km[d])} {tr(DISCIPLINE_META[d].i18nKey).toLowerCase()}
                 </span>
               </div>
             ))}
@@ -236,7 +247,7 @@ function WeekRow({ week, todayISO, onOpen }: {
         <div className="mt-2 h-[4px] w-full overflow-hidden rounded-full bg-[#1a1d23]">
           <div className="h-full rounded-full bg-[var(--lime)]" style={{ width: `${week.total ? (week.done / week.total) * 100 : 0}%` }} />
         </div>
-        <p className="tnum mt-1.5 text-[11px] text-[var(--text-muted)]">{Math.round(week.tss)} TSS · {week.done}/{week.total} done</p>
+        <p className="tnum mt-1.5 text-[11px] text-[var(--text-muted)]">{Math.round(week.tss)} TSS · {week.done}/{week.total} {tr("calendar.done")}</p>
       </div>
     </>
   );
