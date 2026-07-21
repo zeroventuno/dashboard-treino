@@ -268,7 +268,14 @@ export function registerTools(server: McpServer, tenantId: string): void {
         "Create or UPDATE one session. When logging a result, update the existing planned row (same date+discipline+title) — never insert a duplicate.",
       inputSchema: {
         date: z.string(),
-        discipline: z.string(),
+        // Was z.string(), and the dashboard indexes its colour table by this
+        // value — so one session written as "cycling" or "ciclismo" resolved to
+        // undefined and blanked the whole page at render time. The enum makes
+        // the coach fail loudly here instead of the athlete failing silently
+        // there, and the error names the accepted values.
+        discipline: z
+          .enum(["swim", "bike", "run", "strength", "rest"])
+          .describe("one of: swim, bike, run, strength, rest — never a translated or free-form name"),
         title: z.string(),
         status: z.enum(["planned", "done", "skipped", "modified"]).default("planned"),
         description: z.string().optional(),

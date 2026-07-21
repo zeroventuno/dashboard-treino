@@ -3,7 +3,7 @@
 import { Fragment, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
-import { DISCIPLINE_META, fmtDuration } from "@/lib/utils";
+import { disciplineMeta, fmtDuration } from "@/lib/utils";
 import { getWorkoutBlocks } from "@/lib/workout-structure";
 import { DEFAULT_LOCALE, translator, type Locale, type T, type TKey } from "@/lib/i18n";
 import { DisciplineIcon, DownloadIcon, CloseIcon } from "./Icons";
@@ -150,7 +150,7 @@ export function WorkoutModal({
   onClose: () => void;
 }) {
   const tr = translator(locale);
-  const meta = DISCIPLINE_META[w.discipline];
+  const meta = disciplineMeta(w.discipline);
   // coach-authored blocks, else derived from the .zwo (free for bike workouts)
   const blocks = getWorkoutBlocks(w, ftpWatts);
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Workout, Discipline } from "@/lib/types";
-import { DISCIPLINE_META, fmtDuration, parseDate, startOfWeek, addDays, toISO } from "@/lib/utils";
+import { DISCIPLINE_META, disciplineMeta, fmtDuration, parseDate, startOfWeek, addDays, toISO } from "@/lib/utils";
 import { DisciplineIcon } from "./Icons";
 import { WorkoutModal } from "./WorkoutModal";
 import { DEFAULT_LOCALE, translator, type Locale, type T } from "@/lib/i18n";
@@ -170,7 +170,7 @@ function WeekRow({ week, todayISO, tr, onOpen }: {
             </div>
             <div className="space-y-1">
               {day.items.map((w) => {
-                const meta = DISCIPLINE_META[w.discipline];
+                const meta = disciplineMeta(w.discipline);
                 const key = Boolean(w.key_workout);
                 return (
                   <button

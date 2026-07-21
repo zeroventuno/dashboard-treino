@@ -1,5 +1,5 @@
 import type { Discipline, WorkoutBlock } from "@/lib/types";
-import { DISCIPLINE_META } from "@/lib/utils";
+import { disciplineMeta } from "@/lib/utils";
 import { fmtBlockDuration } from "@/lib/workout-structure";
 import { DEFAULT_LOCALE, translator, type Locale } from "@/lib/i18n";
 
@@ -13,7 +13,7 @@ export function WorkoutBlocks({ blocks, discipline, locale = DEFAULT_LOCALE }: {
   if (blocks.length === 0) return null;
   const tr = translator(locale);
 
-  const hue = DISCIPLINE_META[discipline].color;
+  const hue = disciplineMeta(discipline).color;
   const totalMin = blocks.reduce((s, b) => s + b.duration_min, 0);
   const hasIntensity = blocks.some((b) => b.intensity != null);
   // Headroom above threshold so a 110% VO2 block isn't clipped.

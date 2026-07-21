@@ -87,6 +87,27 @@ export const DISCIPLINE_META: Record<
   rest: { label: "Rest", i18nKey: "discipline.rest", color: "var(--rest)", icon: "rest" },
 };
 
+/** Shown for a discipline we don't recognise — neutral, never missing. */
+const UNKNOWN_DISCIPLINE = {
+  label: "—",
+  i18nKey: "discipline.rest",
+  color: "var(--text-faint)",
+  icon: "rest",
+} as const satisfies (typeof DISCIPLINE_META)[Discipline];
+
+/**
+ * Runtime-safe lookup — always use this instead of indexing DISCIPLINE_META.
+ *
+ * `Workout.discipline` is typed as Discipline, but that's a promise the
+ * database doesn't keep: the column is plain text and the coach writes it. One
+ * session saved as "cycling" instead of "bike" made the lookup undefined, and
+ * reading `.color` off it threw during render — blanking the entire dashboard,
+ * with no message, over a single misspelled string.
+ */
+export function disciplineMeta(d: string): (typeof DISCIPLINE_META)[Discipline] {
+  return DISCIPLINE_META[d as Discipline] ?? UNKNOWN_DISCIPLINE;
+}
+
 export const READINESS_META: Record<Recommendation, { label: string; color: string; hint: string }> = {
   green: { label: "Ready", color: "var(--good)", hint: "Follow the plan" },
   yellow: { label: "Caution", color: "var(--warn)", hint: "Ease the intensity" },
