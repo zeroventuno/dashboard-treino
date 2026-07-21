@@ -132,7 +132,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
       // so the two intents stay expressible; only the accident is gone. The
       // update references the parameters, not excluded.*, because the INSERT
       // branch already substituted defaults for the nulls.
-      const row = await withTenant(tenantId, (c) =>
+      await withTenant(tenantId, (c) =>
         c.query(
           // The ::text[] casts are load-bearing. Without them Postgres infers
           // $3 from the bare '{}' literal — which is untyped, so it lands on
@@ -149,8 +149,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
              mode    = coalesce($5::text, profiles.mode),
              locale  = coalesce($6::text, profiles.locale),
              units   = coalesce($7::text, profiles.units),
-             updated_at = now()
-           returning mode, metrics`,
+             updated_at = now()`,
           [
             tenantId,
             a.athlete ?? null,
@@ -162,8 +161,23 @@ export function registerTools(server: McpServer, tenantId: string): void {
           ],
         ),
       );
-      const saved = row.rows[0];
-      return ok(`Profile saved — ${saved.mode} mode, ${saved.metrics?.length ?? 0} metrics.`);
+      // No RETURNING. It was the one thing this tool did that no other tool
+      // does, and reading a row back just to phrase a nicer confirmation isn't
+      // worth being the odd one out while this is the tool that keeps failing.
+      // The coach can call get_profile if it wants to see the result.
+      const changed = [
+        a.athlete !== undefined && "athlete",
+        a.devices !== undefined && `${a.devices.length} devices`,
+        a.metrics !== undefined && `${a.metrics.length} metrics`,
+        a.mode !== undefined && `${a.mode} mode`,
+        a.locale !== undefined && `locale ${a.locale}`,
+        a.units !== undefined && a.units,
+      ].filter(Boolean);
+      return ok(
+        changed.length > 0
+          ? `Profile saved — ${changed.join(", ")}. Fields you omitted were kept.`
+          : "Nothing to change.",
+      );
     },
   );
 
