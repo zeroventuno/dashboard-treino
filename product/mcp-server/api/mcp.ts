@@ -46,10 +46,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
+  // The transport rejects (406) any client that doesn't accept BOTH
+  // application/json and text/event-stream — spec-correct, but plenty of real
+  // clients send only application/json, or */*, and get a wall instead of the
+  // tool list. We never stream on this endpoint, so relaxing it costs nothing:
+  // rewrite the header to what the transport insists on.
+  //
+  // Both copies have to be patched. Hono converts the Node request into a Web
+  // Request and reads it via headers.get(), so mutating req.headers alone left
+  // the check still failing on the raw list.
+  const NEEDED = "application/json, text/event-stream";
+  const accept = String(req.headers.accept ?? "");
+  if (!accept.includes("application/json") || !accept.includes("text/event-stream")) {
+    req.headers.accept = NEEDED;
+    const raw = req.rawHeaders ?? [];
+    let patched = false;
+    for (let i = 0; i < raw.length; i += 2) {
+      if (raw[i]?.toLowerCase() === "accept") {
+        raw[i + 1] = NEEDED;
+        patched = true;
+      }
+    }
+    if (!patched) raw.push("accept", NEEDED);
+  }
+
   // Stateless: one MCP server + transport per request, tools bound to this tenant.
   const server = new McpServer({ name: "trak-coach", version: "0.1.0" });
   registerTools(server, tenantId);
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+  // enableJsonResponse: plain JSON instead of an SSE frame. Simple HTTP clients
+  // can parse the reply directly; compliant clients handle either.
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
   res.on("close", () => {
     transport.close();
     server.close();
