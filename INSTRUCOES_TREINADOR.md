@@ -1,4 +1,10 @@
-# Briefing do Treinador — Dashboard TRAK
+# Briefing do Treinador — Dashboard TRAK (uso PESSOAL do dono do repo)
+
+> ⚠ **Não envie este arquivo para outros atletas.** Ele manda o coach usar o MCP
+> do Supabase e rodar SQL direto no projeto pessoal `ironman-costa-navarino`, de
+> modo que o coach de outra pessoa passaria a escrever nesta base — não na conta
+> dela. Para atletas do produto multi-tenant, use `product/BRIEFING_COACH.md`,
+> que fala pelo conector TRAK e isola cada um pela chave da conta.
 
 > Cole o bloco abaixo no início da conversa com o seu Claude-treinador (Claude Desktop,
 > com o MCP do Supabase conectado). Ele passa a manter o dashboard como espelho das
