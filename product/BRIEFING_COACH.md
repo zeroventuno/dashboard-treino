@@ -28,7 +28,7 @@ Reiniciar o Claude Desktop depois de adicionar.
 **2. O painel** (a mesma chave; o primeiro acesso já deixa a sessão salva):
 
 ```
-https://treino-costanavarino.vercel.app/app?key=<CHAVE>
+https://trakdash.vercel.app/app?key=<CHAVE>
 ```
 
 **3. O bloco abaixo**, colado no início da conversa com o coach.

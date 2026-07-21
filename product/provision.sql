@@ -47,10 +47,10 @@ select
 --
 --    1) Claude Desktop → Settings → Connectors → Add custom connector:
 --         Name: TRAK Coach
---         URL:  https://<mcp-host>/api/mcp?key=<CHAVE>
+--         URL:  https://dashboard-treino-zeroventunos-projects.vercel.app/api/mcp?key=<CHAVE>
 --       Reiniciar o app; as ferramentas do coach aparecem.
 --
---    2) Painel: https://treino-costanavarino.vercel.app/app?key=<CHAVE>
+--    2) Painel: https://trakdash.vercel.app/app?key=<CHAVE>
 --
 --    3) Pedir ao coach: "liste meus aparelhos e o que cada um mede", e
 --       registrar o check-in de hoje.
