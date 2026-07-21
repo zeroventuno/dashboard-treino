@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { translator, type Locale, type TKey } from "@/lib/i18n";
+import { coachBriefing } from "@/lib/coach-briefing";
 
 /** First screen of a brand-new account.
  *
@@ -24,11 +25,16 @@ function CopyField({
   copyLabel,
   copiedLabel,
   selectLabel,
+  hideValue = false,
 }: {
   value: string;
   copyLabel: string;
   copiedLabel: string;
   selectLabel: string;
+  /** The briefing is already shown above in its own scroll box; repeating it
+   * inside the field would be absurd. The hidden copy still backs the manual
+   * Ctrl+C fallback when the clipboard is refused. */
+  hideValue?: boolean;
 }) {
   const [state, setState] = useState<"idle" | "copied" | "selected">("idle");
   const ref = useRef<HTMLElement>(null);
@@ -66,7 +72,11 @@ function CopyField({
       <code
         ref={ref}
         onClick={selectText}
-        className="min-w-0 flex-1 cursor-pointer select-all break-all rounded-[10px] border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2 font-mono text-[11.5px] leading-relaxed text-[var(--text-muted)]"
+        className={
+          hideValue
+            ? "sr-only"
+            : "min-w-0 flex-1 cursor-pointer select-all break-all rounded-[10px] border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2 font-mono text-[11.5px] leading-relaxed text-[var(--text-muted)]"
+        }
       >
         {value}
       </code>
@@ -101,6 +111,7 @@ export function Onboarding({
 
   // Claude Code takes the URL as a terminal argument, not pasted into a field.
   const codeCommand = `claude mcp add --transport http trak-coach "${connectorUrl}"`;
+  const briefing = coachBriefing(locale);
 
   return (
     <div className="mx-auto max-w-[680px] py-8">
@@ -172,16 +183,33 @@ export function Onboarding({
           </div>
         </div>
 
-        {/* 3 — first thing to say to the coach */}
+        {/* 3 — the briefing. A bare question ("list my devices") pasted into a
+            fresh chat tells the model nothing: not that the TRAK tools exist,
+            not to read before writing, not what any of the fields mean. This
+            block is what actually turns a general assistant into the coach. */}
         <div className="mt-6 flex gap-3.5">
           <span className="mt-[2px] grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--surface-3)] text-[11px] font-bold text-[var(--text-faint)]">
             3
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-semibold text-[var(--text)]">{tr("onboarding.step3")}</p>
-            <p className="mt-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2 text-[12.5px] italic leading-relaxed text-[var(--text-muted)]">
-              {tr("onboarding.step3.prompt")}
+            <p className="mt-1 text-[12.5px] leading-relaxed text-[var(--text-faint)]">
+              {tr("onboarding.step3.why")}
             </p>
+
+            <div className="mt-3 max-h-[220px] overflow-y-auto rounded-[10px] border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2.5">
+              <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-[var(--text-muted)]">
+                {briefing}
+              </pre>
+            </div>
+
+            <CopyField
+              value={briefing}
+              copyLabel={tr("onboarding.copyBriefing")}
+              copiedLabel={tr("onboarding.copied")}
+              selectLabel={tr("onboarding.selected")}
+              hideValue
+            />
           </div>
         </div>
 
