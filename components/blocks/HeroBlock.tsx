@@ -1,4 +1,8 @@
-import type { DashboardData } from "@/lib/types";
+import {
+  RACE_DATE as RACE_DATE_DEFAULT,
+  RACE_NAME as RACE_NAME_DEFAULT,
+  type DashboardData,
+} from "@/lib/types";
 import { fmtSleepHours } from "@/lib/utils";
 import { Countdown } from "../Countdown";
 import { DEFAULT_LOCALE, translator, type Locale, type TKey } from "@/lib/i18n";
@@ -31,7 +35,23 @@ function Stat({ label, value }: { label: string; value: string | number | null }
   );
 }
 
-export function HeroBlock({ data, locale = DEFAULT_LOCALE }: { data: DashboardData; locale?: Locale }) {
+/** What this athlete is training for. The name and date used to be written into
+ * this component, so every tenant's dashboard counted down to the repo owner's
+ * race — it must come from their own data. */
+export interface HeroTarget {
+  raceName: string;
+  raceISO: string | null; // null → a cycle, or nothing scheduled yet
+}
+
+export function HeroBlock({
+  data,
+  locale = DEFAULT_LOCALE,
+  target = { raceName: RACE_NAME_DEFAULT, raceISO: RACE_DATE_DEFAULT },
+}: {
+  data: DashboardData;
+  locale?: Locale;
+  target?: HeroTarget;
+}) {
   const tr = translator(locale);
   const latest = data.checkins.length ? data.checkins[data.checkins.length - 1] : null;
   const rec = latest?.recommendation ?? null;
@@ -48,9 +68,17 @@ export function HeroBlock({ data, locale = DEFAULT_LOCALE }: { data: DashboardDa
       <div>
         <p className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--lime)]">
           <span className="breathe inline-block h-1.5 w-1.5 rounded-full bg-[var(--lime)] text-[var(--lime)]" />
-          IRONMAN 70.3 Costa Navarino · Greece
+          {target.raceName}
         </p>
-        <Countdown />
+        {/* No date → nothing to count down to (a cycle, or a fresh account). The
+            countdown would otherwise have to invent one. */}
+        {target.raceISO ? (
+          <Countdown raceISO={target.raceISO} locale={locale} />
+        ) : (
+          <p className="dsp text-[34px] font-extrabold leading-tight text-[var(--text-2)] sm:text-[44px]">
+            {tr("hero.noRace")}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-4 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg-soft)]/70 p-4 sm:min-w-[264px]">

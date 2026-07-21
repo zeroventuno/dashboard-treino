@@ -12,7 +12,15 @@ import { Fragment } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { getDashboardSubject, getProductDashboardData, resolveTenantId } from "@/lib/data-product";
+import {
+  getDashboardSubject,
+  getProductDashboardData,
+  isUnconfigured,
+  resolveTenantId,
+  type TenantView,
+} from "@/lib/data-product";
+import { blockAvailable } from "@/lib/tenant-config";
+import { Onboarding } from "@/components/Onboarding";
 import { hasProductDb } from "@/lib/product-db";
 import { APP_COOKIE } from "@/app/api/app-login/route";
 import { toISO } from "@/lib/utils";
@@ -44,10 +52,21 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: subject ? `TRAK · ${subject}` : "TRAK" };
 }
 
-type BlockProps = { data: DashboardData; todayISO: string; locale: Locale };
+type BlockProps = { data: DashboardData; todayISO: string; locale: Locale; tenant: TenantView };
 
 const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
-  hero: (p) => <HeroBlock data={p.data} locale={p.locale} />,
+  hero: (p) => (
+    <HeroBlock
+      data={p.data}
+      locale={p.locale}
+      target={{
+        // Race, else the cycle's name, else nothing scheduled — never the repo
+        // owner's race, which is what this used to fall back to.
+        raceName: p.tenant.raceName ?? p.tenant.cycleName ?? "",
+        raceISO: p.tenant.raceName ? p.tenant.raceISO : null,
+      }}
+    />
+  ),
   fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
   calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
@@ -81,9 +100,27 @@ export default async function ProductDashboardPage({
   // Stale/revoked key: send them back to log in rather than showing sample data.
   if (dbConfigured && !tenantId) redirect("/app/login?erro=1");
 
-  const { data, live, locale } = await getProductDashboardData(tenantId ?? "");
+  const { data, live, locale, tenant } = await getProductDashboardData(tenantId ?? "");
 
   const tr = translator(locale);
+
+  // Nothing configured and nothing logged: show what to do, not eight empty
+  // blocks. Vanishes on its own the moment the coach writes anything.
+  if (live && isUnconfigured(tenant, data)) {
+    return (
+      <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
+        <nav className="mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] px-1 py-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-trak.png" alt="TRAK" className="h-[26px] w-auto" />
+        </nav>
+        <Onboarding
+          locale={locale}
+          athlete={tenant.athlete}
+          connectorUrl={process.env.MCP_CONNECTOR_URL ?? "https://dashboard-treino-zeroventunos-projects.vercel.app/api/mcp?key=SUA_CHAVE"}
+        />
+      </div>
+    );
+  }
 
   // Say exactly WHY we fell back to mock — silent sample data is impossible to debug.
   const reason: TKey | null = live
@@ -91,11 +128,14 @@ export default async function ProductDashboardPage({
     : !dbConfigured
       ? "app.reason.noDb"
       : "app.reason.empty";
-  const props: BlockProps = { data, todayISO: toISO(new Date()), locale };
+  const props: BlockProps = { data, todayISO: toISO(new Date()), locale, tenant };
 
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
 
-  const enabled = BLOCKS.filter((b) => b.enabled);
+  // Only blocks this athlete can actually feed. The product used to render
+  // every block to everyone -- so an athlete with no scale still got an empty
+  // body-composition panel. /demo has always gated on this; /app never did.
+  const enabled = BLOCKS.filter((b) => b.enabled && blockAvailable(b.requires, tenant.metrics));
   const groups: (BlockDef | BlockDef[])[] = [];
   for (const b of enabled) {
     const last = groups[groups.length - 1];

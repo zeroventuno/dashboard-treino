@@ -9,12 +9,55 @@ import { getMockData } from "./mock";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n";
 import { hasProductDb, withTenant } from "./product-db";
 import { addDays, parseDate, toISO } from "./utils";
+import { RACE_DATE, RACE_NAME } from "./types";
 import type {
   BodyComposition, Checkin, DailyMeal, DashboardData, InjuryEntry, NutritionRule,
   PerformanceIndicators, PerformanceMilestone, Phase, StrengthSession, TrainingLoad, Workout,
 } from "./types";
 
+import type { Metric } from "./tenant-config";
+
 export { resolveTenantId } from "./product-db";
+
+/** The athlete's own configuration — what they're training for and which blocks
+ * apply to them. Separate from DashboardData (the training rows) because it
+ * answers "what should this dashboard look like", not "what happened". */
+export interface TenantView {
+  athlete: string | null;
+  metrics: Metric[];
+  mode: "race" | "cycle";
+  raceName: string | null;
+  raceISO: string | null;
+  cycleName: string | null;
+}
+
+/** Used only on the mock/fallback paths. Carries the sample data's own metrics
+ * so the fallback renders a complete dashboard rather than an onboarding screen
+ * — the fallback exists to prove the UI works, not to look like a new account. */
+const MOCK_TENANT: TenantView = {
+  athlete: null,
+  metrics: [
+    "hrv", "body_battery", "sleep", "readiness", "power", "zones",
+    "bioimpedance", "nutrition", "strength", "hydration", "protein",
+  ],
+  mode: "race",
+  raceName: RACE_NAME,
+  raceISO: RACE_DATE,
+  cycleName: null,
+};
+
+/** A tenant the coach has never configured: no metrics declared and nothing
+ * logged. Rendering the full dashboard here means eight empty blocks, so the
+ * caller shows onboarding instead. */
+export function isUnconfigured(tenant: TenantView, data: DashboardData): boolean {
+  return (
+    tenant.metrics.length === 0 &&
+    data.workouts.length === 0 &&
+    data.checkins.length === 0 &&
+    !tenant.raceName &&
+    !tenant.cycleName
+  );
+}
 
 /** Continue the PMC from the last training_load row to today using workout TSS
  * (same logic as the personal dashboard; kept here so lib/data.ts stays as-is). */
@@ -53,9 +96,9 @@ function extendTrainingLoad(load: TrainingLoad[], workouts: Workout[], todayISO:
  */
 export async function getProductDashboardData(
   tenantId: string,
-): Promise<{ data: DashboardData; live: boolean; locale: Locale }> {
+): Promise<{ data: DashboardData; live: boolean; locale: Locale; tenant: TenantView }> {
   if (!hasProductDb() || !tenantId) {
-    return { data: getMockData(), live: false, locale: DEFAULT_LOCALE };
+    return { data: getMockData(), live: false, locale: DEFAULT_LOCALE, tenant: MOCK_TENANT };
   }
 
   try {
@@ -65,11 +108,38 @@ export async function getProductDashboardData(
         return rows as T[];
       };
 
-      // the athlete's UI language, set by the coach via set_profile
-      const profile = await q<{ locale: string | null }>(
-        "select locale from profiles where tenant_id=$1 limit 1",
-      );
+      // The athlete's own config, set by the coach via set_profile. `metrics`
+      // decides which blocks exist for them at all — without it the dashboard
+      // would show every block to everyone, including ones they can't feed.
+      const profile = await q<{
+        locale: string | null;
+        metrics: string[] | null;
+        mode: string | null;
+        athlete: string | null;
+      }>("select locale, metrics, mode, athlete from profiles where tenant_id=$1 limit 1");
       const locale = isLocale(profile[0]?.locale) ? profile[0].locale : DEFAULT_LOCALE;
+
+      // Next A race, else the soonest upcoming, else the most recent past one.
+      const races = await q<{ name: string; date: string }>(
+        `select name, date from races where tenant_id=$1
+           order by (priority = 'A' and date >= current_date) desc,
+                    (date >= current_date) desc,
+                    case when date >= current_date then date end asc nulls last,
+                    date desc
+           limit 1`,
+      );
+      const cycles = await q<{ name: string }>(
+        "select name from training_cycles where tenant_id=$1 and active order by start_date desc limit 1",
+      );
+
+      const tenant: TenantView = {
+        athlete: profile[0]?.athlete ?? null,
+        metrics: (profile[0]?.metrics ?? []) as Metric[],
+        mode: profile[0]?.mode === "cycle" ? "cycle" : "race",
+        raceName: races[0]?.name ?? null,
+        raceISO: races[0]?.date ?? null,
+        cycleName: cycles[0]?.name ?? null,
+      };
 
       const trainingLoad = await q<TrainingLoad>(
         "select date, tss, ctl, atl, tsb, source from training_load where tenant_id=$1 order by date",
@@ -112,13 +182,13 @@ export async function getProductDashboardData(
         mealPlan,
         nutritionRules,
       };
-      return { data, locale };
+      return { data, locale, tenant };
     });
 
     return { live: true, ...result };
   } catch (err) {
     console.error("[product] read failed, using mock:", err);
-    return { data: getMockData(), live: false, locale: DEFAULT_LOCALE };
+    return { data: getMockData(), live: false, locale: DEFAULT_LOCALE, tenant: MOCK_TENANT };
   }
 }
 
