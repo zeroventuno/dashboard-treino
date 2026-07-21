@@ -43,7 +43,11 @@ console.log("Verificações:");
 const isPooler = u.hostname.includes("pooler.supabase.com");
 if (isPooler) {
   if (/^postgres\.[a-z0-9]{16,}$/.test(user)) ok(`usuário no formato do pooler (postgres.<ref>)`);
-  else bad(`no pooler o usuário precisa ser "postgres.<project-ref>", não "${user}" — é exatamente o que o 28P01 reclamou`);
+  else bad(`no pooler o usuário precisa ser "postgres.<project-ref>", não "${user}"`);
+  // NB: a 28P01 always names `postgres`, never `postgres.<ref>` — the pooler
+  // uses the ref to route and then connects downstream as `postgres`. So that
+  // message says nothing about whether the ref is present; don't read it as
+  // evidence either way.
 } else if (u.hostname.startsWith("db.")) {
   warn("host de conexão DIRETA: só resolve em IPv6, costuma dar ENOTFOUND. Use o pooler.");
 } else {
@@ -75,3 +79,37 @@ if (atCount > 1) {
 
 if (!pass) bad("senha vazia depois do parse");
 console.log("");
+
+// A real connection attempt: the string can be perfectly well-formed and the
+// password still be wrong, and that's the only way to tell the two apart.
+console.log("Tentando conectar…");
+const { default: pkg } = await import("pg");
+const client = new pkg.Client({ connectionString: raw, ssl: { rejectUnauthorized: false } });
+try {
+  await client.connect();
+  const { rows } = await client.query(
+    "select current_user, has_table_privilege('app.tenants','insert') as pode_criar_tenant",
+  );
+  ok(`conectado como "${rows[0].current_user}"`);
+  if (rows[0].pode_criar_tenant) ok("pode criar tenants — provision.mjs vai funcionar");
+  else bad("conectou, mas NÃO pode criar tenants: essa é a credencial do app_writer, não a do postgres");
+} catch (e) {
+  if (e.code === "28P01") {
+    bad("senha rejeitada (28P01).");
+    console.log(
+      "\n     A string está bem formada, então sobra a senha em si. O erro nomeia\n" +
+        '     "postgres" mesmo quando o ref está presente (o pooler roteia pelo ref\n' +
+        "     e conecta como postgres), então isso NÃO indica falta do ref.\n\n" +
+        "     Redefina em: Supabase → Project Settings → Database → Reset database\n" +
+        "     password. Escolha só letras e números para evitar de vez o encoding.",
+    );
+  } else if (e.code === "ENOTFOUND") {
+    bad(`host não resolve (${u.hostname}) — se for db.<ref>.supabase.co, é IPv6-only; use o pooler.`);
+  } else {
+    bad(`${e.code ?? ""} ${e.message}`);
+  }
+  process.exitCode = 1;
+} finally {
+  await client.end().catch(() => {});
+  console.log("");
+}
