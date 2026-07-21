@@ -7,11 +7,21 @@ import { translator, type Locale } from "@/lib/i18n";
 /** The account key always starts with this, in every language. */
 const KEY_PREFIX = "trak_";
 
-export function LoginForm({ locale }: { locale: Locale }) {
+export type LoginErrorCode = "not_found" | "unavailable";
+
+export function LoginForm({
+  locale,
+  initialError = null,
+}: {
+  locale: Locale;
+  initialError?: LoginErrorCode | null;
+}) {
   const tr = translator(locale);
   const router = useRouter();
   const [key, setKey] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    initialError ? tr(initialError === "not_found" ? "login.error" : "login.unavailable") : null,
+  );
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -25,8 +35,10 @@ export function LoginForm({ locale }: { locale: Locale }) {
         body: JSON.stringify({ key: key.trim() }),
       });
       if (!res.ok) {
+        // Never default to "key not found": an unreachable database used to land
+        // here too, and blaming the key sent us auditing hashes for hours.
         const body = await res.json().catch(() => ({}));
-        setError(body.error ?? tr("login.error"));
+        setError(tr(body.code === "not_found" ? "login.error" : "login.unavailable"));
         return;
       }
       router.push("/app");

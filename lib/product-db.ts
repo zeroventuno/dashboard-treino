@@ -51,6 +51,20 @@ export async function withTenant<T>(tenantId: string, fn: (c: PoolClient) => Pro
   }
 }
 
+/** Can this deployment actually reach the product database, and does it see the
+ * tenants table? Never throws — the caller wants a diagnosis, not an exception. */
+export async function healthCheck(): Promise<
+  { ok: true; tenants: number } | { ok: false; code: string }
+> {
+  try {
+    const { rows } = await getPool().query<{ n: string }>("select count(*)::text as n from app.tenants");
+    return { ok: true, tenants: Number(rows[0].n) };
+  } catch (err) {
+    const e = err as { code?: string; message?: string };
+    return { ok: false, code: e.code ?? e.message ?? "unknown" };
+  }
+}
+
 /** account API key → tenant_id (app.tenants is private; app_writer has SELECT). */
 export async function resolveTenantId(accountKey: string): Promise<string | null> {
   if (!hasProductDb()) return null;

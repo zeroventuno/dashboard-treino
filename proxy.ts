@@ -7,7 +7,10 @@ import { AUTH_COOKIE, tokenFor } from "@/lib/auth";
 //    auth of its own (account key in an httpOnly cookie), so gating it behind the
 //    single shared password would be both redundant and wrong: each athlete signs
 //    in with their own key, and the login redirect would eat the ?key= magic link.
-const PUBLIC = ["/login", "/api/login", "/app", "/api/app-login"];
+// /api/health is public on purpose: it's what you reach for when logging in is
+// the thing that's broken, so it can't sit behind the login. It exposes only
+// up/down + an error code.
+const PUBLIC = ["/login", "/api/login", "/app", "/api/app-login", "/api/health"];
 
 // Next 16 renamed the "middleware" convention to "proxy".
 export async function proxy(req: NextRequest) {

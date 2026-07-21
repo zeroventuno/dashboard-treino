@@ -23,20 +23,38 @@ function withKeyCookie(res: NextResponse, key: string): NextResponse {
  *  (so the key never lingers in the address bar or browser history). */
 export async function GET(req: NextRequest) {
   const key = req.nextUrl.searchParams.get("key") ?? "";
-  const tenantId = key ? await resolveTenantId(key) : null;
-  if (!tenantId) {
-    return NextResponse.redirect(new URL("/app/login?erro=1", req.url));
+
+  let tenantId: string | null = null;
+  try {
+    tenantId = key ? await resolveTenantId(key) : null;
+  } catch (err) {
+    console.error("[app-login] tenant lookup failed:", err);
+    return NextResponse.redirect(new URL("/app/login?erro=unavailable", req.url));
   }
+
+  if (!tenantId) return NextResponse.redirect(new URL("/app/login?erro=not_found", req.url));
   return withKeyCookie(NextResponse.redirect(new URL("/app", req.url)), key);
 }
 
 /** Form login from /app/login. */
 export async function POST(req: NextRequest) {
   const { key } = await req.json().catch(() => ({ key: "" }));
-  const tenantId = typeof key === "string" && key ? await resolveTenantId(key) : null;
-  if (!tenantId) {
-    return NextResponse.json({ ok: false, error: "Chave não encontrada." }, { status: 401 });
+  if (typeof key !== "string" || !key) {
+    return NextResponse.json({ ok: false, code: "not_found" }, { status: 401 });
   }
+
+  // A database that can't be reached is NOT a bad key, and saying so cost us an
+  // afternoon: the lookup threw, the route 500'd, and the form fell back to
+  // "key not found" — sending us hunting for a hash mismatch that never existed.
+  let tenantId: string | null;
+  try {
+    tenantId = await resolveTenantId(key);
+  } catch (err) {
+    console.error("[app-login] tenant lookup failed:", err);
+    return NextResponse.json({ ok: false, code: "unavailable" }, { status: 503 });
+  }
+
+  if (!tenantId) return NextResponse.json({ ok: false, code: "not_found" }, { status: 401 });
   return withKeyCookie(NextResponse.json({ ok: true }), key);
 }
 
