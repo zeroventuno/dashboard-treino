@@ -60,8 +60,29 @@ DATABASE_URL=postgres://...  TENANT_EMAIL=you@example.com \
   node migrate.mjs ../backup/personal-data-2026-07-11.json
 ```
 
+## Running these scripts on Windows
+PowerShell has no inline `VAR=value cmd` prefix — set each variable on its own
+line first, and use **single** quotes so a `$` in the password isn't
+interpolated away:
+```powershell
+$env:DATABASE_URL = 'postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:6543/postgres'
+$env:TENANT_EMAIL = 'you@example.com'
+node migrate.mjs ../backup/personal-data-2026-07-11.json
+```
+URL-encode the password in either shell: `@` → `%40`, `!` → `%21`. Use the
+**pooler** host, not `db.<ref>.supabase.co` (that one is IPv6-only).
+
+## Which role to connect as
+- `app_writer` for anything the **running app** does — reads and training-data
+  writes. It's a non-superuser, so RLS actually enforces isolation (`postgres`
+  and the service role bypass RLS entirely).
+- `postgres` only for **admin** acts: `provision.mjs` creates accounts, and
+  `app_writer` deliberately can't (`grant select on app.tenants` and nothing
+  more). Running provision as `app_writer` fails with
+  `permission denied for table tenants` — that's the grant working as designed,
+  not a bug to patch by widening it.
+
 ## Security notes
-- Connect as the **non-superuser `app_writer`** role (see `../schema.sql`) so RLS
-  actually enforces isolation — the default `postgres`/service role bypasses RLS.
+- Keys are stored only as sha256 hashes; rotate by replacing `api_key_hash`.
 - Keys are stored only as sha256 hashes; rotate by replacing `api_key_hash`.
 - Every tool call can be logged per tenant for audit.

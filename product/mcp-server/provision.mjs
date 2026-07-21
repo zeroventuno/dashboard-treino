@@ -3,10 +3,24 @@
 //  The "manual signup" for the friends-test phase: creates the account + key +
 //  a starter profile, and prints a ready-to-send onboarding message.
 //
-//  Usage:
-//    DATABASE_URL=<pooler, app_writer or postgres> \
+//  Usage (bash):
+//    DATABASE_URL=<pooler URL as postgres — NOT app_writer> \
 //    TENANT_EMAIL=friend@example.com  TENANT_NAME="Nome do Atleta" \
 //    node provision.mjs
+//
+//  Usage (PowerShell — there's no inline env-var prefix, and single quotes
+//  matter: double quotes would interpolate a "$" inside the password):
+//    $env:DATABASE_URL = '<pooler URL as postgres>'
+//    $env:TENANT_EMAIL = 'friend@example.com'
+//    $env:TENANT_NAME  = 'Nome do Atleta'
+//    node provision.mjs
+//
+//  URL-encode the password either way: @ → %40, ! → %21.
+//
+//  Must run as postgres: app_writer has SELECT on app.tenants and nothing more,
+//  on purpose — it's the MCP server's runtime role, and minting accounts isn't
+//  something the runtime should ever be able to do. Creating a tenant is an
+//  admin act, so it uses an admin connection.
 //
 //  Prints the account API key ONCE — only its hash is stored, so save it.
 // ────────────────────────────────────────────────────────────────────────────
@@ -35,6 +49,21 @@ const client = new Client({
 await client.connect();
 
 try {
+  // Fail with the fix rather than a bare "permission denied for table tenants"
+  // three queries later, mid-transaction.
+  const { rows: perm } = await client.query(
+    "select current_user, has_table_privilege('app.tenants','insert') as can_insert",
+  );
+  if (!perm[0].can_insert) {
+    console.error(
+      `Conectado como "${perm[0].current_user}", que não pode criar tenants.\n` +
+        "Use a connection string do usuário postgres (Supabase → Project Settings →\n" +
+        "Database → Connection string → pooler), não a do app_writer.\n" +
+        "Lembre de URL-encodar a senha: @ vira %40, ! vira %21.",
+    );
+    process.exit(1);
+  }
+
   const existing = await client.query("select id from app.tenants where email=$1", [EMAIL]);
   if (existing.rows.length) {
     console.error(`Tenant ${EMAIL} already exists (${existing.rows[0].id}). Aborting.`);
