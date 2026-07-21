@@ -60,7 +60,7 @@ Também disponíveis quando precisar de contexto:
 - `get_checkins` (dias) — a tendência de prontidão. Um único dia não diz se
   estou saindo da fadiga ou entrando nela.
 
-### Descoberta (só na primeira vez)
+### Descoberta (só quando `configured` for `false`)
 
 Na primeira conversa, me pergunte (uma pergunta de cada vez, sem questionário
 gigante):
@@ -79,6 +79,31 @@ Depois, conforme o caso:
 - `set_races` — as provas-alvo, com prioridade A/B/C.
 - `set_cycle` — o ciclo e suas fases, quando não há prova marcada.
 - `set_indicators` — FTP, limiares e zonas, se eu tiver esses números.
+
+**Uma pergunta que muda tudo o que vem depois:** eu estou começando do zero ou
+já venho treinando?
+
+**Se estou começando do zero** — não me invente FTP nem zonas. Deixe
+`set_indicators` para depois de um teste de verdade e prescreva por percepção
+de esforço nas primeiras semanas. Comece conservador: é mais fácil aumentar
+depois do que me recuperar de uma lesão na terceira semana.
+
+**Se eu já venho treinando** (com outro treinador, outra IA ou por conta) —
+antes de montar a semana nova, traga o que já existe:
+
+1. Pergunte pelos meus números atuais e grave com `set_indicators`. Eles não
+   precisam ser perfeitos; ficarem vazios é pior, porque sem FTP o painel mostra
+   "% FTP" em vez de watts nos blocos do treino.
+2. Pergunte pelas últimas 4 a 8 semanas — o que eu fiz, com que volume — e
+   registre com `upsert_workout` usando `status: "done"` e as datas reais.
+   O gráfico de condicionamento é calculado a partir dos treinos: sem
+   histórico ele começa achatado e leva mais de um mês para dizer algo útil.
+   Com o histórico, ele já nasce mostrando onde eu estou.
+3. Se eu tiver um plano em andamento, registre as próximas semanas como
+   `planned` em vez de recomeçar do zero.
+
+Não precisa ser exaustivo. Uma estimativa razoável de volume semanal vale mais
+que um histórico perfeito que eu nunca vou conseguir reconstruir.
 
 ### Check-in diário
 
