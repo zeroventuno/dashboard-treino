@@ -114,26 +114,51 @@ export function registerTools(server: McpServer, tenantId: string): void {
       description:
         "Set/update the athlete config (devices, available metrics, race|cycle mode). Run during onboarding discovery so the dashboard adapts.",
       inputSchema: {
-        athlete: z.string(),
-        devices: z.array(z.string()).default([]),
-        metrics: z.array(z.string()).default([]),
-        mode: z.enum(["race", "cycle"]),
+        athlete: z.string().optional(),
+        devices: z.array(z.string()).optional().describe("omit to keep; [] to clear"),
+        metrics: z.array(z.string()).optional().describe("omit to keep; [] to clear"),
+        mode: z.enum(["race", "cycle"]).optional(),
         locale: z.string().optional(),
         units: z.string().optional(),
       },
     },
     async (a) => {
-      await withTenant(tenantId, (c) =>
+      // Omitted ≠ cleared. This used to overwrite every column, so a later call
+      // that only switched the mode would silently wipe devices and metrics —
+      // and with metrics gone the dashboard hides the blocks that depend on
+      // them. Same shape as the bug that erased a day of check-ins.
+      //
+      // Passing an explicit [] still clears (an athlete can sell a power meter),
+      // so the two intents stay expressible; only the accident is gone. The
+      // update references the parameters, not excluded.*, because the INSERT
+      // branch already substituted defaults for the nulls.
+      const row = await withTenant(tenantId, (c) =>
         c.query(
           `insert into profiles (tenant_id, athlete, devices, metrics, mode, locale, units, updated_at)
-           values ($1,$2,$3,$4,$5,coalesce($6,'pt'),coalesce($7,'metric'),now())
+           values ($1, $2, coalesce($3,'{}'), coalesce($4,'{}'), coalesce($5,'race'),
+                   coalesce($6,'pt'), coalesce($7,'metric'), now())
            on conflict (tenant_id) do update set
-             athlete=excluded.athlete, devices=excluded.devices, metrics=excluded.metrics,
-             mode=excluded.mode, locale=excluded.locale, units=excluded.units, updated_at=now()`,
-          [tenantId, a.athlete, a.devices, a.metrics, a.mode, a.locale ?? null, a.units ?? null],
+             athlete = coalesce($2, profiles.athlete),
+             devices = coalesce($3, profiles.devices),
+             metrics = coalesce($4, profiles.metrics),
+             mode    = coalesce($5, profiles.mode),
+             locale  = coalesce($6, profiles.locale),
+             units   = coalesce($7, profiles.units),
+             updated_at = now()
+           returning mode, metrics`,
+          [
+            tenantId,
+            a.athlete ?? null,
+            a.devices ?? null,
+            a.metrics ?? null,
+            a.mode ?? null,
+            a.locale ?? null,
+            a.units ?? null,
+          ],
         ),
       );
-      return ok(`Profile saved — ${a.mode} mode, ${a.metrics.length} metrics.`);
+      const saved = row.rows[0];
+      return ok(`Profile saved — ${saved.mode} mode, ${saved.metrics?.length ?? 0} metrics.`);
     },
   );
 
