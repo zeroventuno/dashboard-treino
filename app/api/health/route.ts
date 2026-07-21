@@ -23,10 +23,24 @@ export async function GET() {
   const result = await healthCheck();
   const ms = Date.now() - started;
 
-  return NextResponse.json(
-    result.ok
-      ? { db: "ok", tenants: result.tenants, ms }
-      : { db: "unreachable", code: result.code, ms },
-    { status: result.ok ? 200 : 503 },
-  );
+  if (!result.ok) {
+    return NextResponse.json({ db: "unreachable", code: result.code, ms }, { status: 503 });
+  }
+
+  // Reachable but blind: every key will fail to resolve, so this is an outage,
+  // not a healthy deployment that happens to have no accounts.
+  if (result.rlsHidingRows) {
+    return NextResponse.json(
+      {
+        db: "ok",
+        tenants: 0,
+        problem: "rls_hiding_rows",
+        fix: "alter table app.tenants disable row level security;",
+        ms,
+      },
+      { status: 503 },
+    );
+  }
+
+  return NextResponse.json({ db: "ok", tenants: result.tenants, ms }, { status: 200 });
 }

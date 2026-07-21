@@ -54,11 +54,21 @@ export async function withTenant<T>(tenantId: string, fn: (c: PoolClient) => Pro
 /** Can this deployment actually reach the product database, and does it see the
  * tenants table? Never throws — the caller wants a diagnosis, not an exception. */
 export async function healthCheck(): Promise<
-  { ok: true; tenants: number } | { ok: false; code: string }
+  { ok: true; tenants: number; rlsHidingRows?: true } | { ok: false; code: string }
 > {
   try {
     const { rows } = await getPool().query<{ n: string }>("select count(*)::text as n from app.tenants");
-    return { ok: true, tenants: Number(rows[0].n) };
+    const tenants = Number(rows[0].n);
+    if (tenants > 0) return { ok: true, tenants };
+
+    // Zero tenants on a reachable database is ambiguous, and the ambiguity is
+    // expensive: RLS on app.tenants hides every row from app_writer *silently* —
+    // no permission error — so every account key stops resolving and the login
+    // blames the key. Name it here instead of leaving a bare 0 to interpret.
+    const { rows: sec } = await getPool().query<{ on: boolean }>(
+      "select relrowsecurity as on from pg_class where oid = 'app.tenants'::regclass",
+    );
+    return sec[0]?.on ? { ok: true, tenants, rlsHidingRows: true } : { ok: true, tenants };
   } catch (err) {
     const e = err as { code?: string; message?: string };
     return { ok: false, code: e.code ?? e.message ?? "unknown" };
