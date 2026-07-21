@@ -9,7 +9,26 @@ import { resolveTenant } from "../src/auth.js";
 import { registerTools } from "../src/tools.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  // CORS preflight. Clients that reach us from a browser context (ChatGPT's
+  // connector UI among them) send OPTIONS first and never attempt the POST if
+  // it fails — which looked like "the connector just doesn't work".
+  if (req.method === "OPTIONS") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "content-type, authorization, mcp-session-id, mcp-protocol-version");
+    res.setHeader("Access-Control-Max-Age", "86400");
+    res.status(204).end();
+    return;
+  }
+
+  // Safe to allow any origin: the account key is the only credential and it
+  // travels in the request, never in a cookie, so there's no ambient authority
+  // for another site to borrow.
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
   if (req.method !== "POST") {
+    // Spec-compliant: no SSE stream on this endpoint, so GET gets 405. Same for
+    // DELETE — the server is stateless and has no session to terminate.
     res.status(405).json({ error: "method not allowed" });
     return;
   }
