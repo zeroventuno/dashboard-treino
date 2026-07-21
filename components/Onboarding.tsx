@@ -1,10 +1,91 @@
-import { translator, type Locale } from "@/lib/i18n";
+"use client";
+
+import { useRef, useState } from "react";
+import { translator, type Locale, type TKey } from "@/lib/i18n";
 
 /** First screen of a brand-new account.
  *
  * A tenant with no profile and no data would otherwise render eight empty
  * blocks — a dashboard that looks broken rather than new. This says what to do
- * instead, and disappears on its own as soon as the coach writes anything. */
+ * instead, and disappears on its own as soon as the coach writes anything.
+ *
+ * The connector setup is the one genuinely hard step, and it differs per app,
+ * so it's spelled out per client rather than described in general terms. Every
+ * client here speaks HTTP directly: no terminal, no Node, just the URL. */
+
+const CLIENTS = [
+  { id: "claude", label: "Claude Desktop", steps: ["onboarding.claude.1", "onboarding.claude.2", "onboarding.claude.3"] },
+  { id: "chatgpt", label: "ChatGPT", steps: ["onboarding.chatgpt.1", "onboarding.chatgpt.2", "onboarding.chatgpt.3"] },
+  { id: "code", label: "Claude Code", steps: ["onboarding.code.1", "onboarding.code.2"] },
+] as const satisfies readonly { id: string; label: string; steps: readonly TKey[] }[];
+
+function CopyField({
+  value,
+  copyLabel,
+  copiedLabel,
+  selectLabel,
+}: {
+  value: string;
+  copyLabel: string;
+  copiedLabel: string;
+  selectLabel: string;
+}) {
+  const [state, setState] = useState<"idle" | "copied" | "selected">("idle");
+  const ref = useRef<HTMLElement>(null);
+
+  /** Select the text so Ctrl+C still works. The Clipboard API can refuse with
+   * NotAllowedError even in a secure context, and a button that silently does
+   * nothing is worse than no button — this athlete has to get the URL across
+   * somehow, and retyping a 53-character key is how keys get typed wrong. */
+  function selectText() {
+    const node = ref.current;
+    if (!node) return;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    setState("selected");
+  }
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setState("copied");
+      setTimeout(() => setState("idle"), 2000);
+    } catch {
+      selectText();
+    }
+  }
+
+  const label = state === "copied" ? copiedLabel : state === "selected" ? selectLabel : copyLabel;
+  const done = state !== "idle";
+
+  return (
+    <div className="mt-2 flex items-stretch gap-2">
+      <code
+        ref={ref}
+        onClick={selectText}
+        className="min-w-0 flex-1 cursor-pointer select-all break-all rounded-[10px] border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2 font-mono text-[11.5px] leading-relaxed text-[var(--text-muted)]"
+      >
+        {value}
+      </code>
+      <button
+        type="button"
+        onClick={copy}
+        className="shrink-0 self-start rounded-[10px] border px-3 py-2 text-[11.5px] font-bold transition-colors"
+        style={{
+          borderColor: done ? "var(--good)" : "var(--lime)",
+          background: done ? "transparent" : "var(--lime)",
+          color: done ? "var(--good)" : "#0a0b0d",
+        }}
+      >
+        {label}
+      </button>
+    </div>
+  );
+}
+
 export function Onboarding({
   locale,
   athlete,
@@ -15,15 +96,14 @@ export function Onboarding({
   connectorUrl: string;
 }) {
   const tr = translator(locale);
+  const [client, setClient] = useState<(typeof CLIENTS)[number]["id"]>("claude");
+  const active = CLIENTS.find((c) => c.id === client) ?? CLIENTS[0];
 
-  const steps: { done: boolean; title: string; body?: string }[] = [
-    { done: true, title: tr("onboarding.step1") },
-    { done: false, title: tr("onboarding.step2"), body: connectorUrl },
-    { done: false, title: tr("onboarding.step3"), body: tr("onboarding.step3.prompt") },
-  ];
+  // Claude Code takes the URL as a terminal argument, not pasted into a field.
+  const codeCommand = `claude mcp add --transport http trak-coach "${connectorUrl}"`;
 
   return (
-    <div className="mx-auto max-w-[640px] py-8">
+    <div className="mx-auto max-w-[680px] py-8">
       <div className="rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] p-7 shadow-[var(--shadow)] sm:p-9">
         <h1 className="dsp text-[26px] font-extrabold text-[var(--text)]">
           {athlete ? `${tr("onboarding.welcome")}, ${athlete}` : tr("onboarding.welcome")}
@@ -32,29 +112,78 @@ export function Onboarding({
           {tr("onboarding.intro")}
         </p>
 
-        <ol className="mt-7 space-y-5">
-          {steps.map((s, i) => (
-            <li key={i} className="flex gap-3.5">
-              <span
-                className="mt-[2px] grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold"
-                style={{
-                  background: s.done ? "var(--lime)" : "var(--surface-3)",
-                  color: s.done ? "#0a0b0d" : "var(--text-faint)",
-                }}
-              >
-                {s.done ? "✓" : i + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold text-[var(--text)]">{s.title}</p>
-                {s.body && (
-                  <p className="mt-1.5 break-all rounded-[10px] border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2 font-mono text-[11.5px] leading-relaxed text-[var(--text-muted)]">
-                    {s.body}
-                  </p>
-                )}
-              </div>
-            </li>
-          ))}
-        </ol>
+        {/* 1 — already done, just so the list starts with a win */}
+        <div className="mt-7 flex gap-3.5">
+          <span className="mt-[2px] grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--lime)] text-[11px] font-bold text-[#0a0b0d]">
+            ✓
+          </span>
+          <p className="text-[14px] font-semibold text-[var(--text)]">{tr("onboarding.step1")}</p>
+        </div>
+
+        {/* 2 — the hard one: connect the coach */}
+        <div className="mt-6 flex gap-3.5">
+          <span className="mt-[2px] grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--surface-3)] text-[11px] font-bold text-[var(--text-faint)]">
+            2
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-semibold text-[var(--text)]">{tr("onboarding.step2")}</p>
+            <p className="mt-1 text-[12.5px] text-[var(--text-faint)]">{tr("onboarding.step2.pick")}</p>
+
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {CLIENTS.map((c) => {
+                const on = c.id === client;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setClient(c.id)}
+                    className="rounded-full border px-3.5 py-1.5 text-[12px] font-semibold transition-colors"
+                    style={{
+                      borderColor: on ? "var(--lime)" : "var(--border)",
+                      background: on ? "var(--lime)" : "transparent",
+                      color: on ? "#0a0b0d" : "var(--text-muted)",
+                    }}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <ol className="mt-4 space-y-2.5">
+              {active.steps.map((k, i) => (
+                <li key={k} className="flex gap-2.5 text-[13px] leading-relaxed text-[var(--text-2)]">
+                  <span className="tnum shrink-0 font-semibold text-[var(--text-faint)]">{i + 1}.</span>
+                  <span className="min-w-0">{tr(k)}</span>
+                </li>
+              ))}
+            </ol>
+
+            <CopyField
+              value={client === "code" ? codeCommand : connectorUrl}
+              copyLabel={tr("onboarding.copy")}
+              copiedLabel={tr("onboarding.copied")}
+              selectLabel={tr("onboarding.selected")}
+            />
+
+            <p className="mt-2 text-[11.5px] leading-relaxed text-[var(--text-faint)]">
+              {tr("onboarding.secret")}
+            </p>
+          </div>
+        </div>
+
+        {/* 3 — first thing to say to the coach */}
+        <div className="mt-6 flex gap-3.5">
+          <span className="mt-[2px] grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--surface-3)] text-[11px] font-bold text-[var(--text-faint)]">
+            3
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-semibold text-[var(--text)]">{tr("onboarding.step3")}</p>
+            <p className="mt-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2 text-[12.5px] italic leading-relaxed text-[var(--text-muted)]">
+              {tr("onboarding.step3.prompt")}
+            </p>
+          </div>
+        </div>
 
         <p className="mt-7 border-t border-[var(--border)] pt-5 text-[12.5px] leading-relaxed text-[var(--text-faint)]">
           {tr("onboarding.footer")}
