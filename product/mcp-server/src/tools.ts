@@ -5,6 +5,9 @@ import { withTenant } from "./db.js";
 const ok = (text: string) => ({ content: [{ type: "text" as const, text }] });
 const j = (v: unknown) => (v == null ? null : JSON.stringify(v));
 
+/** Read tools answer with data, not prose — the model parses it. */
+const data = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(v, null, 2) }] });
+
 /**
  * Registers the coach write-tools, all bound to one authenticated tenant.
  * No tool takes a tenant_id — it comes from the API key, so a coach can only
@@ -12,6 +15,99 @@ const j = (v: unknown) => (v == null ? null : JSON.stringify(v));
  * to avoid the duplicate-row problems the dashboard already had.
  */
 export function registerTools(server: McpServer, tenantId: string): void {
+  // ── Read tools ────────────────────────────────────────────────────────────
+  //
+  // The server was write-only at first, on the reasoning that the dashboard
+  // does the reading. But the coach chat has no memory across sessions: a new
+  // conversation knew nothing about the athlete, so it either re-interviewed
+  // them or overwrote settings it couldn't see. These close that loop.
+
+  server.registerTool(
+    "get_profile",
+    {
+      description:
+        "Read everything already configured for this athlete: devices, available metrics, race|cycle mode, language, target races, active cycle and performance zones. Call this FIRST in a new conversation — it tells you what you already know, so you don't ask again or overwrite settings you can't see.",
+      inputSchema: {},
+    },
+    async () =>
+      data(
+        await withTenant(tenantId, async (c) => {
+          const [profile, races, cycle, indicators] = await Promise.all([
+            c.query(
+              "select athlete, devices, metrics, mode, locale, units, updated_at from profiles where tenant_id=$1 limit 1",
+              [tenantId],
+            ),
+            c.query("select name, date, priority from races where tenant_id=$1 order by date", [tenantId]),
+            c.query(
+              "select name, start_date, weeks, phases from training_cycles where tenant_id=$1 and active order by start_date desc limit 1",
+              [tenantId],
+            ),
+            c.query("select * from performance_indicators where tenant_id=$1 limit 1", [tenantId]),
+          ]);
+          return {
+            profile: profile.rows[0] ?? null,
+            races: races.rows,
+            active_cycle: cycle.rows[0] ?? null,
+            indicators: indicators.rows[0] ?? null,
+            configured: profile.rows.length > 0,
+          };
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "get_workouts",
+    {
+      description:
+        "Read planned/completed sessions in a date range. Use before writing a week so you build on what's already scheduled instead of duplicating or clobbering it, and to see what the athlete actually did.",
+      inputSchema: {
+        from: z.string().describe("start date, YYYY-MM-DD"),
+        to: z.string().describe("end date, YYYY-MM-DD"),
+      },
+    },
+    async (a) =>
+      data(
+        await withTenant(tenantId, async (c) => {
+          const { rows } = await c.query(
+            `select date, discipline, title, status, key_workout,
+                    planned_duration_min, planned_tss, actual_duration_min, actual_tss, notes
+               from workouts
+              where tenant_id=$1 and date between $2 and $3
+              order by date`,
+            [tenantId, a.from, a.to],
+          );
+          return { from: a.from, to: a.to, count: rows.length, workouts: rows };
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "get_checkins",
+    {
+      description:
+        "Read recent daily check-ins (readiness, HRV, sleep, body battery and the traffic-light you set). Use to see the trend before prescribing — yesterday's number alone doesn't show whether the athlete is climbing out of fatigue or sliding into it.",
+      inputSchema: {
+        days: z.number().int().min(1).max(90).default(14).describe("how many days back"),
+      },
+    },
+    async (a) =>
+      data(
+        await withTenant(tenantId, async (c) => {
+          const { rows } = await c.query(
+            `select date, readiness_score, hrv, sleep_hours, body_battery, resting_hr,
+                    recommendation, hydration_liters, notes
+               from checkins
+              where tenant_id=$1 and date >= current_date - $2::int
+              order by date desc`,
+            [tenantId, a.days],
+          );
+          return { days: a.days, count: rows.length, checkins: rows };
+        }),
+      ),
+  );
+
+  // ── Write tools ───────────────────────────────────────────────────────────
+
   server.registerTool(
     "set_profile",
     {

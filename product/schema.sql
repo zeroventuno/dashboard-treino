@@ -82,6 +82,16 @@ create table workouts (
   actual_power_watts    text,
   notes                 text,
   nutrition_notes       text,
+  -- Session detail added after the first deploy (see workout-sections.sql, which
+  -- migrates existing projects). Kept here too so this file alone still builds a
+  -- complete, current schema — a fresh project created from it was missing these
+  -- and the dashboard queries referenced columns that didn't exist.
+  structure             jsonb,          -- [{kind,label,minutes,intensity}] → profile chart
+  activation            text,           -- drills / warm-up before the session
+  nutrition_pre         text,
+  mobility              text,           -- stretching / cool-down after
+  nutrition_post        text,
+  key_workout           boolean not null default false,
   created_at            timestamptz not null default now(),
   unique (tenant_id, date, discipline, title)
 );

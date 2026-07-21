@@ -26,7 +26,24 @@ key. A coach can only ever read/write its own athlete. Keys are revocable
 - Connection carries the account key (MCP auth field / `Authorization: Bearer …`).
 - Server: `sha256(key)` → `tenants.api_key_hash`. Reject if no match or `status = 'canceled'`.
 
-## Tools (write-only; the dashboard reads directly)
+## Tools
+
+### Read
+
+The server started out write-only — the dashboard does the reading, so why
+would the coach need it? Because the coach chat has no memory between sessions.
+A new conversation knew nothing about the athlete and would either interview
+them again or overwrite settings it couldn't see.
+
+- **`get_profile`** — no arguments. Devices, metrics, mode, language, races,
+  active cycle, zones, plus `configured: false` when the athlete is brand new.
+  The coach should call this first in any new conversation.
+- **`get_workouts`** — `{from, to}`. What's scheduled or done in a range, so
+  writing a week builds on what exists instead of duplicating it.
+- **`get_checkins`** — `{days}` (default 14). Readiness trend, because one day's
+  number doesn't say whether the athlete is recovering or degrading.
+
+### Write
 
 ### `set_profile` — discovery / config
 Records what the athlete has so the dashboard adapts (this is the onboarding
