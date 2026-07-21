@@ -16,6 +16,13 @@ export const STATUS_META: Record<WorkoutStatus, { key: "status.planned" | "statu
   modified: { key: "status.modified", dot: "var(--warn)",       ring: "color-mix(in oklab, var(--warn) 40%, var(--border))" },
 };
 
+/** Same reasoning as disciplineMeta: `status` is text in the database, and rows
+ * written before the enum reached the tool can hold anything. Falls back to
+ * "planned", the neutral state, instead of throwing mid-render. */
+function statusMeta(s: string): (typeof STATUS_META)[WorkoutStatus] {
+  return STATUS_META[s as WorkoutStatus] ?? STATUS_META.planned;
+}
+
 // Status lights — mirror the workout's status set from the training log
 // (coach chat), not clickable actions. Planned = all off.
 const STATUS_LIGHTS: { status: WorkoutStatus; key: TKey; color: string }[] = [
@@ -179,7 +186,7 @@ export function WorkoutModal({
             </span>
             <div>
               <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: meta.color }}>
-                <span>{tr(meta.i18nKey)} · {tr(STATUS_META[w.status].key)}</span>
+                <span>{tr(meta.i18nKey)} · {tr(statusMeta(w.status).key)}</span>
                 {w.key_workout && (
                   <span className="rounded-full px-2 py-[2px] text-[9.5px] tracking-[0.1em] text-[var(--lime)]"
                     style={{ background: "color-mix(in oklab, var(--lime) 16%, transparent)" }}>

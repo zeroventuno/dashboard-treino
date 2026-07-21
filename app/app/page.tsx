@@ -8,8 +8,8 @@
 //  you in and bounces to a clean /app.
 // ────────────────────────────────────────────────────────────────────────────
 
-import { Fragment } from "react";
 import { cookies } from "next/headers";
+import { BlockBoundary } from "@/components/BlockBoundary";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import {
@@ -166,10 +166,16 @@ export default async function ProductDashboardPage({
         {groups.map((g, i) =>
           Array.isArray(g) ? (
             <div key={i} className="grid grid-cols-1 gap-[22px] md:grid-cols-2 lg:grid-cols-3">
-              {g.map((b) => <Fragment key={b.id}>{REGISTRY[b.id](props)}</Fragment>)}
+              {g.map((b) => (
+                <BlockBoundary key={b.id} id={b.id} locale={props.locale}>
+                  {REGISTRY[b.id](props)}
+                </BlockBoundary>
+              ))}
             </div>
           ) : (
-            <Fragment key={g.id}>{REGISTRY[g.id](props)}</Fragment>
+            <BlockBoundary key={g.id} id={g.id} locale={props.locale}>
+              {REGISTRY[g.id](props)}
+            </BlockBoundary>
           ),
         )}
       </div>

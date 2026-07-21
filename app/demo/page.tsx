@@ -8,7 +8,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import Link from "next/link";
-import { Fragment } from "react";
+import { BlockBoundary } from "@/components/BlockBoundary";
 import { getMockData } from "@/lib/mock";
 import { toISO } from "@/lib/utils";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
@@ -152,10 +152,16 @@ export default async function DemoPage({
         {groups.map((g, i) =>
           Array.isArray(g) ? (
             <div key={i} className="grid grid-cols-1 gap-[22px] md:grid-cols-2 lg:grid-cols-3">
-              {g.map((b) => <Fragment key={b.id}>{REGISTRY[b.id](props)}</Fragment>)}
+              {g.map((b) => (
+                <BlockBoundary key={b.id} id={b.id} locale={props.locale}>
+                  {REGISTRY[b.id](props)}
+                </BlockBoundary>
+              ))}
             </div>
           ) : (
-            <Fragment key={g.id}>{REGISTRY[g.id](props)}</Fragment>
+            <BlockBoundary key={g.id} id={g.id} locale={props.locale}>
+              {REGISTRY[g.id](props)}
+            </BlockBoundary>
           ),
         )}
       </div>
