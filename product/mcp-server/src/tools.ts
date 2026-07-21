@@ -134,16 +134,21 @@ export function registerTools(server: McpServer, tenantId: string): void {
       // branch already substituted defaults for the nulls.
       const row = await withTenant(tenantId, (c) =>
         c.query(
+          // The ::text[] casts are load-bearing. Without them Postgres infers
+          // $3 from the bare '{}' literal — which is untyped, so it lands on
+          // text — and then refuses to put a text into a text[] column. Every
+          // set_profile call failed with a type error the coach saw only as
+          // "internal error".
           `insert into profiles (tenant_id, athlete, devices, metrics, mode, locale, units, updated_at)
-           values ($1, $2, coalesce($3,'{}'), coalesce($4,'{}'), coalesce($5,'race'),
-                   coalesce($6,'pt'), coalesce($7,'metric'), now())
+           values ($1, $2, coalesce($3::text[],'{}'::text[]), coalesce($4::text[],'{}'::text[]),
+                   coalesce($5::text,'race'), coalesce($6::text,'pt'), coalesce($7::text,'metric'), now())
            on conflict (tenant_id) do update set
-             athlete = coalesce($2, profiles.athlete),
-             devices = coalesce($3, profiles.devices),
-             metrics = coalesce($4, profiles.metrics),
-             mode    = coalesce($5, profiles.mode),
-             locale  = coalesce($6, profiles.locale),
-             units   = coalesce($7, profiles.units),
+             athlete = coalesce($2::text, profiles.athlete),
+             devices = coalesce($3::text[], profiles.devices),
+             metrics = coalesce($4::text[], profiles.metrics),
+             mode    = coalesce($5::text, profiles.mode),
+             locale  = coalesce($6::text, profiles.locale),
+             units   = coalesce($7::text, profiles.units),
              updated_at = now()
            returning mode, metrics`,
           [
