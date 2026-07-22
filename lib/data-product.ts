@@ -28,6 +28,9 @@ export interface TenantView {
   mode: "race" | "cycle";
   raceName: string | null;
   raceISO: string | null;
+  /** Every target race. The coach writes A/B/C with set_races, and showing only
+   * the primary meant the B and C races went nowhere. */
+  races: { name: string; date: string; priority: string }[];
   cycleName: string | null;
   /** Full cycle, for the hero's week-of-N progress and the season timeline.
    * Null when the athlete is training toward a race instead. */
@@ -74,6 +77,7 @@ const MOCK_TENANT: TenantView = {
   mode: "race",
   raceName: RACE_NAME,
   raceISO: RACE_DATE,
+  races: [{ name: RACE_NAME, date: RACE_DATE, priority: "A" }],
   cycleName: null,
   cycle: null,
 };
@@ -174,13 +178,12 @@ export async function getProductDashboardData(
       const locale = isLocale(profile[0]?.locale) ? profile[0].locale : DEFAULT_LOCALE;
 
       // Next A race, else the soonest upcoming, else the most recent past one.
-      const races = await q<{ name: string; date: string }>(
-        `select name, date from races where tenant_id=$1
+      const races = await q<{ name: string; date: string; priority: string }>(
+        `select name, date, priority from races where tenant_id=$1
            order by (priority = 'A' and date >= current_date) desc,
                     (date >= current_date) desc,
                     case when date >= current_date then date end asc nulls last,
-                    date desc
-           limit 1`,
+                    date desc`,
       );
       const cycles = await q<{ name: string; start_date: string; weeks: number; phases: CyclePhase[] | null }>(
         "select name, start_date, weeks, phases from training_cycles where tenant_id=$1 and active order by start_date desc limit 1",
@@ -198,6 +201,7 @@ export async function getProductDashboardData(
         athlete: profile[0]?.athlete ?? null,
         metrics: (profile[0]?.metrics ?? []) as Metric[],
         mode: profile[0]?.mode === "cycle" ? "cycle" : "race",
+        races,
         raceName: races[0]?.name ?? null,
         raceISO: races[0]?.date ?? null,
         cycleName: cycle?.name ?? null,

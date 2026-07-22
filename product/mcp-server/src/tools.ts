@@ -119,7 +119,13 @@ export function registerTools(server: McpServer, tenantId: string): void {
         metrics: z.array(z.string()).optional().describe("omit to keep; [] to clear"),
         mode: z.enum(["race", "cycle"]).optional(),
         locale: z.string().optional(),
-        units: z.string().optional(),
+        // Recorded, but the dashboard renders metric regardless — every chart
+        // and formatter assumes km/kg today. Say so rather than let an athlete
+        // ask for miles, see the value accepted, and wonder why nothing changed.
+        units: z
+          .string()
+          .optional()
+          .describe("stored for later; the dashboard currently displays metric only"),
       },
     },
     async (a) => {

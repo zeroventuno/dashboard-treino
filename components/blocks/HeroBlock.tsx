@@ -3,7 +3,7 @@ import {
   RACE_NAME as RACE_NAME_DEFAULT,
   type DashboardData,
 } from "@/lib/types";
-import { daysBetween, fmtSleepHours, toISO } from "@/lib/utils";
+import { daysBetween, fmtSleepHours, parseDate, toISO } from "@/lib/utils";
 import { Countdown } from "../Countdown";
 import { DEFAULT_LOCALE, translator, type Locale, type TKey } from "@/lib/i18n";
 
@@ -45,6 +45,63 @@ export interface HeroTarget {
    * then counts weeks elapsed, not days remaining — "no race scheduled" reads
    * as something missing to someone who deliberately has no race. */
   cycle?: { weeks: number; startISO: string; phases: { name: string; weeks: number; focus: string | null }[] } | null;
+  /** The athlete's other target races. The coach writes A/B/C races with
+   * set_races and only the primary was ever shown, so the B and C races
+   * silently went nowhere. */
+  races?: { name: string; date: string; priority: string }[];
+}
+
+const PRIORITY_COLOR: Record<string, string> = {
+  A: "var(--lime)",
+  B: "var(--teal)",
+  C: "var(--text-faint)",
+};
+
+function RaceList({
+  races,
+  locale,
+  tr,
+}: {
+  races: NonNullable<HeroTarget["races"]>;
+  locale: Locale;
+  tr: ReturnType<typeof translator>;
+}) {
+  const todayISO = toISO(new Date());
+  const byDate = [...races].sort((a, b) => (a.date < b.date ? -1 : 1));
+
+  return (
+    <div className="mt-4 space-y-1.5">
+      {byDate.map((r) => {
+        const d = daysBetween(todayISO, r.date);
+        const past = d < 0;
+        return (
+          <div key={`${r.name}-${r.date}`} className="flex items-center gap-2.5 text-[12.5px]">
+            <span
+              className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md text-[10px] font-extrabold"
+              style={{
+                background: `color-mix(in oklab, ${PRIORITY_COLOR[r.priority] ?? "var(--text-faint)"} 22%, transparent)`,
+                color: PRIORITY_COLOR[r.priority] ?? "var(--text-faint)",
+              }}
+            >
+              {r.priority}
+            </span>
+            <span className={`flex-1 truncate ${past ? "text-[var(--text-faint)] line-through" : "text-[var(--text-2)]"}`}>
+              {r.name}
+            </span>
+            <span className="tnum shrink-0 text-[var(--text-faint)]">
+              {parseDate(r.date).toLocaleDateString(locale, { day: "numeric", month: "short" })}
+            </span>
+            <span
+              className="tnum w-[70px] shrink-0 text-right font-semibold"
+              style={{ color: past ? "var(--text-faint)" : "var(--text-muted)" }}
+            >
+              {past ? tr("hero.raceDone") : `${d} d`}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /** Week N of M, and which phase that lands in. */
@@ -123,7 +180,13 @@ export function HeroBlock({
         {/* No date → nothing to count down to (a cycle, or a fresh account). The
             countdown would otherwise have to invent one. */}
         {target.raceISO ? (
-          <Countdown raceISO={target.raceISO} locale={locale} />
+          <>
+            <Countdown raceISO={target.raceISO} locale={locale} />
+            {/* Only worth listing when there's more than the one being counted. */}
+            {target.races && target.races.length > 1 && (
+              <RaceList races={target.races} locale={locale} tr={tr} />
+            )}
+          </>
         ) : target.cycle ? (
           <CycleProgress cycle={target.cycle} tr={tr} />
         ) : (
