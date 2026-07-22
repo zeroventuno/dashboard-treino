@@ -64,6 +64,7 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
         // owner's race, which is what this used to fall back to.
         raceName: p.tenant.raceName ?? p.tenant.cycleName ?? "",
         raceISO: p.tenant.raceName ? p.tenant.raceISO : null,
+        cycle: p.tenant.raceName ? null : p.tenant.cycle,
       }}
     />
   ),

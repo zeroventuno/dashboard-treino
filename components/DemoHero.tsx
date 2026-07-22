@@ -3,7 +3,7 @@
 // and shows only the readiness stats the athlete's device actually provides.
 import type { DashboardData } from "@/lib/types";
 import type { Metric, TenantConfig } from "@/lib/tenant-config";
-import { addDays, fmtSleepHours, parseDate, toISO } from "@/lib/utils";
+import { addDays, daysBetween, fmtSleepHours, parseDate, toISO } from "@/lib/utils";
 
 const READY_META: Record<string, { label: string; color: string; hint: string }> = {
   green: { label: "READY", color: "var(--good)", hint: "Follow the plan — green light." },
@@ -15,9 +15,6 @@ const MON = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out
 function fmtDate(iso: string): string {
   const d = parseDate(iso);
   return `${String(d.getDate()).padStart(2, "0")} ${MON[d.getMonth()]} ${d.getFullYear()}`;
-}
-function daysBetween(fromISO: string, toISOstr: string): number {
-  return Math.round((parseDate(toISOstr).getTime() - parseDate(fromISO).getTime()) / 86_400_000);
 }
 
 const PRIORITY_COLOR: Record<string, string> = {

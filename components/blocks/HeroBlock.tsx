@@ -3,7 +3,7 @@ import {
   RACE_NAME as RACE_NAME_DEFAULT,
   type DashboardData,
 } from "@/lib/types";
-import { fmtSleepHours } from "@/lib/utils";
+import { daysBetween, fmtSleepHours, toISO } from "@/lib/utils";
 import { Countdown } from "../Countdown";
 import { DEFAULT_LOCALE, translator, type Locale, type TKey } from "@/lib/i18n";
 
@@ -41,6 +41,56 @@ function Stat({ label, value }: { label: string; value: string | number | null }
 export interface HeroTarget {
   raceName: string;
   raceISO: string | null; // null → a cycle, or nothing scheduled yet
+  /** Set when the athlete trains on a cycle instead of toward a race. The hero
+   * then counts weeks elapsed, not days remaining — "no race scheduled" reads
+   * as something missing to someone who deliberately has no race. */
+  cycle?: { weeks: number; startISO: string; phases: { name: string; weeks: number; focus: string | null }[] } | null;
+}
+
+/** Week N of M, and which phase that lands in. */
+function cycleProgress(cycle: NonNullable<HeroTarget["cycle"]>, todayISO: string) {
+  const elapsedDays = Math.max(0, daysBetween(cycle.startISO, todayISO));
+  const week = Math.min(cycle.weeks, Math.floor(elapsedDays / 7) + 1);
+  let acc = 0;
+  let current = cycle.phases[0] ?? null;
+  for (const ph of cycle.phases) {
+    if (week <= acc + ph.weeks) { current = ph; break; }
+    acc += ph.weeks;
+  }
+  return { week, current, pct: Math.round((week / Math.max(1, cycle.weeks)) * 100) };
+}
+
+function CycleProgress({
+  cycle,
+  tr,
+}: {
+  cycle: NonNullable<HeroTarget["cycle"]>;
+  tr: ReturnType<typeof translator>;
+}) {
+  const { week, current, pct } = cycleProgress(cycle, toISO(new Date()));
+
+  return (
+    <div>
+      <div className="flex items-end gap-3">
+        <span className="dsp tnum text-[80px] font-black leading-[0.86] text-[var(--text)] sm:text-[104px]">
+          {week}
+        </span>
+        <span className="mb-2.5 text-[15px] font-semibold leading-tight text-[var(--text-2)]">
+          {tr("hero.week")}<br />
+          {tr("hero.ofWeeks")} {cycle.weeks}
+        </span>
+      </div>
+      {current && (
+        <p className="mt-3 text-[13px] text-[var(--text-muted)]">
+          {tr("hero.phase")} <span className="font-semibold text-[var(--text-2)]">{current.name}</span>
+          {current.focus ? ` · ${current.focus}` : ""}
+        </p>
+      )}
+      <div className="mt-3 h-[5px] w-full max-w-[320px] overflow-hidden rounded-full bg-[var(--bg-soft)]">
+        <div className="h-full rounded-full bg-[var(--lime)]" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
 }
 
 export function HeroBlock({
@@ -74,6 +124,8 @@ export function HeroBlock({
             countdown would otherwise have to invent one. */}
         {target.raceISO ? (
           <Countdown raceISO={target.raceISO} locale={locale} />
+        ) : target.cycle ? (
+          <CycleProgress cycle={target.cycle} tr={tr} />
         ) : (
           <p className="dsp text-[34px] font-extrabold leading-tight text-[var(--text-2)] sm:text-[44px]">
             {tr("hero.noRace")}

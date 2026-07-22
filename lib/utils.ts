@@ -8,6 +8,11 @@ export function parseDate(iso: string): Date {
   return new Date(y, m - 1, d);
 }
 
+/** Whole days from one ISO date to another; negative when `toISOstr` is past. */
+export function daysBetween(fromISO: string, toISOstr: string): number {
+  return Math.round((parseDate(toISOstr).getTime() - parseDate(fromISO).getTime()) / 86_400_000);
+}
+
 export function toISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

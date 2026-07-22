@@ -29,6 +29,37 @@ export interface TenantView {
   raceName: string | null;
   raceISO: string | null;
   cycleName: string | null;
+  /** Full cycle, for the hero's week-of-N progress and the season timeline.
+   * Null when the athlete is training toward a race instead. */
+  cycle: { name: string; startISO: string; weeks: number; phases: CyclePhase[] } | null;
+}
+
+export interface CyclePhase {
+  name: string;
+  weeks: number;
+  focus: string | null;
+}
+
+/** A cycle's phases live inside training_cycles.phases (jsonb); the Season block
+ * reads the `phases` TABLE, which only race-mode athletes populate. Without this
+ * translation an athlete on a cycle gets an empty Season block forever — /demo
+ * has always done it, /app never did. */
+function cycleToPhases(cycle: NonNullable<TenantView["cycle"]>): Phase[] {
+  const colors = ["#2dd4bf", "#c6f24e", "#f4a24e", "#4fb8ff"];
+  let cursor = parseDate(cycle.startISO);
+  return cycle.phases.map((ph, i) => {
+    const start = cursor;
+    const end = addDays(start, ph.weeks * 7 - 1);
+    cursor = addDays(end, 1);
+    return {
+      id: `cycle-${i}`,
+      name: ph.name,
+      start_date: toISO(start),
+      end_date: toISO(end),
+      focus: ph.focus,
+      color: colors[i % colors.length],
+    };
+  });
 }
 
 /** Used only on the mock/fallback paths. Carries the sample data's own metrics
@@ -44,6 +75,7 @@ const MOCK_TENANT: TenantView = {
   raceName: RACE_NAME,
   raceISO: RACE_DATE,
   cycleName: null,
+  cycle: null,
 };
 
 /** A tenant the coach has never configured: no metrics declared and nothing
@@ -150,9 +182,17 @@ export async function getProductDashboardData(
                     date desc
            limit 1`,
       );
-      const cycles = await q<{ name: string }>(
-        "select name from training_cycles where tenant_id=$1 and active order by start_date desc limit 1",
+      const cycles = await q<{ name: string; start_date: string; weeks: number; phases: CyclePhase[] | null }>(
+        "select name, start_date, weeks, phases from training_cycles where tenant_id=$1 and active order by start_date desc limit 1",
       );
+      const cycle = cycles[0]
+        ? {
+            name: cycles[0].name,
+            startISO: cycles[0].start_date,
+            weeks: Number(cycles[0].weeks),
+            phases: cycles[0].phases ?? [],
+          }
+        : null;
 
       const tenant: TenantView = {
         athlete: profile[0]?.athlete ?? null,
@@ -160,7 +200,8 @@ export async function getProductDashboardData(
         mode: profile[0]?.mode === "cycle" ? "cycle" : "race",
         raceName: races[0]?.name ?? null,
         raceISO: races[0]?.date ?? null,
-        cycleName: cycles[0]?.name ?? null,
+        cycleName: cycle?.name ?? null,
+        cycle,
       };
 
       const trainingLoad = await q<TrainingLoad>(
@@ -194,7 +235,9 @@ export async function getProductDashboardData(
       const data: DashboardData = {
         trainingLoad: extendTrainingLoad(trainingLoad, workouts, toISO(new Date())),
         workouts,
-        phases,
+        // An athlete on a cycle has no rows in `phases` — their phases live
+        // inside the cycle. Derive them, or the Season block stays empty.
+        phases: phases.length > 0 ? phases : cycle ? cycleToPhases(cycle) : [],
         milestones,
         indicators: indicators[0] ?? null,
         strength,
