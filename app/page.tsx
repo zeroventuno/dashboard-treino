@@ -62,7 +62,7 @@ export default async function DashboardPage() {
       {/* sticky top bar */}
       <nav className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] bg-[rgba(38,43,52,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-trak.png" alt="TRAK" className="h-[26px] w-auto" />
+        <img src="/logo-trakr.svg" alt="MY TRAKR" className="h-[26px] w-auto" />
         <div className="flex items-center gap-2">
           <span className="hidden rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-[5px] text-[11.5px] font-semibold text-[var(--text-muted)] sm:inline">
             IRONMAN 70.3 Costa Navarino

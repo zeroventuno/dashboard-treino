@@ -58,7 +58,7 @@ export function LoginForm({
     <div className="grid min-h-screen place-items-center px-4">
       <div className="w-full max-w-[400px] rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] p-7 shadow-[var(--shadow)]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-trak.png" alt="TRAK" className="mb-6 h-[26px] w-auto" />
+        <img src="/logo-trakr.svg" alt="MY TRAKR" className="mb-6 h-[26px] w-auto" />
 
         <h1 className="dsp text-[22px] font-extrabold text-[var(--text)]">{tr("login.title")}</h1>
         <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--text-muted)]">
