@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800">
+<style>
+.body{fill:#151a20;stroke:#747b84;stroke-width:3}
+.muscle{fill:#252b33;stroke:#69717b;stroke-width:2;transition:.2s;cursor:pointer}
+.muscle:hover{fill:#ff9f32;stroke:#ffb04d;filter:drop-shadow(0 0 8px #ff9f32)}
+</style>
+<rect width="1000" height="800" fill="#101419"/>
+<!-- simplified body silhouettes / structural outlines -->
+<g id="front-body">
+<ellipse class="body" cx="280" cy="90" rx="42" ry="58"/>
+<path class="body" d="M245 145 Q210 160 185 205 L155 350 Q145 420 175 500 L205 455 215 290 230 255 220 510 235 710 270 710 280 505 290 710 325 710 340 510 330 255 345 290 355 455 385 500 Q415 420 405 350 L375 205 Q350 160 315 145Z"/>
+<g id="peitoral" class="muscle-group"><path class="muscle" d="M230 185 Q250 165 277 180 L277 245 Q240 260 220 225Z"/><path class="muscle" d="M283 180 Q310 165 330 185 L340 225 Q320 260 283 245Z"/></g>
+<g id="deltoide" class="muscle-group"><path class="muscle" d="M220 178 Q190 185 185 225 Q205 215 225 195Z"/><path class="muscle" d="M340 178 Q370 185 375 225 Q355 215 335 195Z"/></g>
+<g id="biceps" class="muscle-group"><path class="muscle" d="M190 235 Q215 230 215 300 Q205 335 185 315Z"/><path class="muscle" d="M370 235 Q345 230 345 300 Q355 335 375 315Z"/></g>
+<g id="abdomen" class="muscle-group"><path class="muscle" d="M250 260 H275 V300 H250Z"/><path class="muscle" d="M285 260 H310 V300 H285Z"/><path class="muscle" d="M250 310 H275 V350 H250Z"/><path class="muscle" d="M285 310 H310 V350 H285Z"/><path class="muscle" d="M255 360 Q280 350 305 360 L295 440 H265Z"/></g>
+<g id="quadriceps" class="muscle-group"><path class="muscle" d="M235 450 Q270 420 272 500 L260 610 Q225 570 230 500Z"/><path class="muscle" d="M325 450 Q290 420 288 500 L300 610 Q335 570 330 500Z"/></g>
+<g id="panturrilha-front" class="muscle-group"><path class="muscle" d="M238 615 Q260 600 265 650 L250 700Z"/><path class="muscle" d="M322 615 Q300 600 295 650 L310 700Z"/></g>
+</g>
+
+<g id="back-body">
+<ellipse class="body" cx="720" cy="90" rx="42" ry="58"/>
+<path class="body" d="M685 145 Q650 160 625 205 L595 350 Q585 420 615 500 L645 455 655 290 670 255 660 510 675 710 710 710 720 505 730 710 765 710 780 510 770 255 785 290 795 455 825 500 Q855 420 845 350 L815 205 Q790 160 755 145Z"/>
+<g id="deltoide-back" class="muscle-group"><path class="muscle" d="M660 178 Q630 185 625 225 Q645 215 665 195Z"/><path class="muscle" d="M780 178 Q810 185 815 225 Q795 215 775 195Z"/></g>
+<g id="triceps" class="muscle-group"><path class="muscle" d="M630 235 Q655 230 655 300 Q645 335 625 315Z"/><path class="muscle" d="M810 235 Q785 230 785 300 Q795 335 815 315Z"/></g>
+<g id="dorsal" class="muscle-group"><path class="muscle" d="M675 200 Q700 210 712 245 L700 380 Q660 340 660 255Z"/><path class="muscle" d="M765 200 Q740 210 728 245 L740 380 Q780 340 780 255Z"/></g>
+<g id="gluteos" class="muscle-group"><path class="muscle" d="M665 390 Q715 370 715 440 Q690 470 660 445Z"/><path class="muscle" d="M775 390 Q725 370 725 440 Q750 470 780 445Z"/></g>
+<g id="isquiotibiais" class="muscle-group"><path class="muscle" d="M665 455 Q710 450 710 510 L690 610 Q660 570 660 500Z"/><path class="muscle" d="M775 455 Q730 450 730 510 L750 610 Q780 570 780 500Z"/></g>
+<g id="panturrilha" class="muscle-group"><path class="muscle" d="M675 615 Q710 600 710 650 L690 700 Q665 665 670 630Z"/><path class="muscle" d="M765 615 Q730 600 730 650 L750 700 Q775 665 770 630Z"/></g>
+</g>
+<text x="280" y="760" fill="#747b84" text-anchor="middle" font-family="Arial" font-size="24">FRONT</text>
+<text x="720" y="760" fill="#747b84" text-anchor="middle" font-family="Arial" font-size="24">BACK</text>
+</svg>
