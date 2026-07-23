@@ -21,7 +21,7 @@ export const revalidate = 60;
 
 // The personal dashboard has exactly one target, so it comes from the constant
 // rather than a lookup (the multi-tenant /app resolves it per athlete).
-export const metadata = { title: `TRAK · ${RACE_NAME}` };
+export const metadata = { title: `MY TRAKR · ${RACE_NAME}` };
 
 type BlockProps = { data: DashboardData; todayISO: string; locale: Locale };
 

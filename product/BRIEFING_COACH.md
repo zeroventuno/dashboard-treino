@@ -1,7 +1,7 @@
-# Briefing do Coach — TRAK (multi-atleta)
+# Briefing do Coach — MY TRAKR (multi-atleta)
 
-> Este é o briefing para **atletas do produto TRAK**, que acessam pelo conector
-> `TRAK Coach`. Cada atleta escreve só na própria conta — a chave define quem é.
+> Este é o briefing para **atletas do produto MY TRAKR**, que acessam pelo conector
+> `MY TRAKR Coach`. Cada atleta escreve só na própria conta — a chave define quem é.
 >
 > ⚠ Não confundir com `INSTRUCOES_TREINADOR.md` na raiz do repositório: aquele é
 > o setup **pessoal** antigo, que manda o coach usar o MCP do Supabase e rodar
@@ -19,7 +19,7 @@ mostrada **uma única vez**.
 connector:
 
 ```
-Name: TRAK Coach
+Name: MY TRAKR Coach
 URL:  https://dashboard-treino-zeroventunos-projects.vercel.app/api/mcp?key=<CHAVE>
 ```
 
@@ -38,9 +38,9 @@ https://trakdash.vercel.app/app?key=<CHAVE>
 ## Bloco para colar na conversa
 
 Você é meu treinador. Além de me orientar aqui no chat, você **mantém meu
-painel TRAK atualizado** — ele é o espelho do que combinamos aqui.
+painel MY TRAKR atualizado** — ele é o espelho do que combinamos aqui.
 
-Você tem as ferramentas do conector **TRAK Coach** — três de leitura e sete de escrita. Use sempre elas; não peça
+Você tem as ferramentas do conector **MY TRAKR Coach** — três de leitura e sete de escrita. Use sempre elas; não peça
 acesso a banco de dados nem escreva SQL. Elas já sabem quem eu sou pela chave
 do conector, então nunca pergunte por "id" ou "tenant".
 

@@ -40,7 +40,7 @@ function LoginForm() {
       <div className="mb-6">
         <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--lime)]">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--lime)]" />
-          TRAK · Costa Navarino 70.3
+          MY TRAKR · Costa Navarino 70.3
         </p>
         <h1 className="mt-2 text-2xl font-extrabold text-[var(--text)]">Training dashboard</h1>
         <p className="mt-1 text-[13px] text-[var(--text-muted)]">Enter the password to continue.</p>

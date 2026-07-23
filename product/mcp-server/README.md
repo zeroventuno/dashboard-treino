@@ -1,4 +1,4 @@
-# TRAK coach MCP server
+# MY TRAKR coach MCP server
 
 The write path from any LLM chat (Claude Desktop, ChatGPT, …) into a tenant's
 training data. A standard **remote MCP server** — the dashboard doesn't care
@@ -38,7 +38,7 @@ key travels as a Bearer header):
 ```json
 {
   "mcpServers": {
-    "trak-coach": {
+    "mytrakr-coach": {
       "command": "npx",
       "args": [
         "-y", "mcp-remote",

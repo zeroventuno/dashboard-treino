@@ -46,7 +46,7 @@ select
 --  Depois de rodar, envie ao atleta (trocando <CHAVE> pelo valor acima):
 --
 --    1) Claude Desktop → Settings → Connectors → Add custom connector:
---         Name: TRAK Coach
+--         Name: MY TRAKR Coach
 --         URL:  https://dashboard-treino-zeroventunos-projects.vercel.app/api/mcp?key=<CHAVE>
 --       Reiniciar o app; as ferramentas do coach aparecem.
 --

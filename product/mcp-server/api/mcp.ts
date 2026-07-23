@@ -1,4 +1,4 @@
-// Vercel serverless entry for the TRAK coach MCP server.
+// Vercel serverless entry for the MY TRAKR coach MCP server.
 // Same logic as src/index.ts, but as a function (Vercel runs functions, not a
 // long-lived listener). Deploy this folder as its own Vercel project; set
 // DATABASE_URL (app_writer, via the Supabase transaction pooler) as a secret.
@@ -71,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   // Stateless: one MCP server + transport per request, tools bound to this tenant.
-  const server = new McpServer({ name: "trak-coach", version: "0.1.0" });
+  const server = new McpServer({ name: "mytrakr-coach", version: "0.1.0" });
   registerTools(server, tenantId);
   // enableJsonResponse: plain JSON instead of an SSE frame. Simple HTTP clients
   // can parse the reply directly; compliant clients handle either.

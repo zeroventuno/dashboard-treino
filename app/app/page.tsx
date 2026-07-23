@@ -41,15 +41,15 @@ import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
 
 export const revalidate = 60;
 
-/** Tab title names what the athlete is training for — with several TRAK tabs
- * open, "TRAK" alone tells you nothing about which one you're looking at. */
+/** Tab title names what the athlete is training for — with several MY TRAKR tabs
+ * open, "MY TRAKR" alone tells you nothing about which one you're looking at. */
 export async function generateMetadata(): Promise<Metadata> {
   const cookieKey = (await cookies()).get(APP_COOKIE)?.value ?? null;
-  if (!cookieKey) return { title: "TRAK" };
+  if (!cookieKey) return { title: "MY TRAKR" };
 
   const tenantId = await resolveTenantId(cookieKey);
   const subject = tenantId ? await getDashboardSubject(tenantId) : null;
-  return { title: subject ? `TRAK · ${subject}` : "TRAK" };
+  return { title: subject ? `MY TRAKR · ${subject}` : "MY TRAKR" };
 }
 
 type BlockProps = { data: DashboardData; todayISO: string; locale: Locale; tenant: TenantView };

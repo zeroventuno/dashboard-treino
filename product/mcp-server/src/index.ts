@@ -45,7 +45,7 @@ const httpServer = createServer(async (req, res) => {
   }
 
   // Stateless: one MCP server + transport per request, tools bound to this tenant.
-  const server = new McpServer({ name: "trak-coach", version: "0.1.0" });
+  const server = new McpServer({ name: "mytrakr-coach", version: "0.1.0" });
   registerTools(server, tenantId);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   res.on("close", () => {
@@ -57,5 +57,5 @@ const httpServer = createServer(async (req, res) => {
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`TRAK coach MCP listening on :${PORT}/mcp`);
+  console.log(`MY TRAKR coach MCP listening on :${PORT}/mcp`);
 });

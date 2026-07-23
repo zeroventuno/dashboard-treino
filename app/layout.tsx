@@ -22,7 +22,7 @@ const archivo = Archivo({
 // Pages that know whose dashboard they are override it — `/` from RACE_NAME,
 // `/app` from that tenant's next A race or active cycle.
 export const metadata: Metadata = {
-  title: "TRAK",
+  title: "MY TRAKR",
   description: "Train. Track. Evolve. — the athlete's training dashboard.",
 };
 

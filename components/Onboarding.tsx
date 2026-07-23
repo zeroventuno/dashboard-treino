@@ -110,7 +110,7 @@ export function Onboarding({
   const active = CLIENTS.find((c) => c.id === client) ?? CLIENTS[0];
 
   // Claude Code takes the URL as a terminal argument, not pasted into a field.
-  const codeCommand = `claude mcp add --transport http trak-coach "${connectorUrl}"`;
+  const codeCommand = `claude mcp add --transport http mytrakr-coach "${connectorUrl}"`;
   const briefing = coachBriefing(locale);
 
   return (
@@ -184,7 +184,7 @@ export function Onboarding({
         </div>
 
         {/* 3 — the briefing. A bare question ("list my devices") pasted into a
-            fresh chat tells the model nothing: not that the TRAK tools exist,
+            fresh chat tells the model nothing: not that the MY TRAKR tools exist,
             not to read before writing, not what any of the fields mean. This
             block is what actually turns a general assistant into the coach. */}
         <div className="mt-6 flex gap-3.5">

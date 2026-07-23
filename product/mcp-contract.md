@@ -1,4 +1,4 @@
-# TRAK coach MCP — tool contract (Phase 0)
+# MY TRAKR coach MCP — tool contract (Phase 0)
 
 The coach chat (Claude Desktop, ChatGPT connectors, or any MCP-capable client)
 connects to **our hosted MCP server** with the athlete's per-account API key.

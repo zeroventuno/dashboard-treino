@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** TRAK section card: bold title + descriptive subtitle, soft rounded surface. */
+/** MY TRAKR section card: bold title + descriptive subtitle, soft rounded surface. */
 export function SectionCard({
   title, subtitle, action, children, className = "", bodyClass = "",
 }: {

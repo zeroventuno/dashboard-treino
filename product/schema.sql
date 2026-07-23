@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════════════════════
---  TRAK (multi-tenant product) — full Phase 0 schema.
+--  MY TRAKR (multi-tenant product) — full Phase 0 schema.
 --
 --  Apply to a NEW Supabase project (any account). The personal dashboard's
 --  project stays untouched. Isolation: every data table carries tenant_id and

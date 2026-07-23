@@ -1,7 +1,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 //  TENANT CONFIG — the per-user profile that drives an adaptive dashboard.
 //
-//  In the productized (multi-tenant) TRAK, the coach chat records this once
+//  In the productized (multi-tenant) MY TRAKR, the coach chat records this once
 //  (a discovery step: "list every device and what it measures") and keeps it
 //  updated. The dashboard is a pure renderer of this config + the tenant's
 //  data — it shows only the blocks whose required metrics the athlete has,
