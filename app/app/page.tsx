@@ -8,7 +8,7 @@
 //  you in and bounces to a clean /app.
 // ────────────────────────────────────────────────────────────────────────────
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { BlockBoundary } from "@/components/BlockBoundary";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -27,7 +27,7 @@ import { toISO } from "@/lib/utils";
 import { Tagline } from "@/components/Tagline";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import type { DashboardData } from "@/lib/types";
-import { translator, type Locale, type TKey } from "@/lib/i18n";
+import { pickLocale, translator, type Locale, type TKey } from "@/lib/i18n";
 import { HeroBlock } from "@/components/blocks/HeroBlock";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
@@ -109,6 +109,12 @@ export default async function ProductDashboardPage({
   // Nothing configured and nothing logged: show what to do, not eight empty
   // blocks. Vanishes on its own the moment the coach writes anything.
   if (live && isUnconfigured(tenant, data)) {
+    // profiles.locale is still the 'pt' default here — the coach hasn't run
+    // set_profile yet, so it isn't a real choice. This is the first screen a
+    // brand-new athlete sees, and an Italian friend would read a Portuguese
+    // welcome and paste a Portuguese briefing. Fall back to the browser
+    // language, exactly like /app/login does before it knows who you are.
+    const onboardingLocale = pickLocale((await headers()).get("accept-language"));
     return (
       <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
         <nav className="mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] px-1 py-3">
@@ -116,7 +122,7 @@ export default async function ProductDashboardPage({
           <img src="/logo-trak.png" alt="TRAK" className="h-[26px] w-auto" />
         </nav>
         <Onboarding
-          locale={locale}
+          locale={onboardingLocale}
           athlete={tenant.athlete}
           connectorUrl={process.env.MCP_CONNECTOR_URL ?? "https://dashboard-treino-zeroventunos-projects.vercel.app/api/mcp?key=SUA_CHAVE"}
         />

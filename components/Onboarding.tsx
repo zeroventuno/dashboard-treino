@@ -14,37 +14,11 @@ import { coachBriefing } from "@/lib/coach-briefing";
  * so it's spelled out per client rather than described in general terms. Every
  * client here speaks HTTP directly: no terminal, no Node, just the URL. */
 
-// `icon` is a black-on-transparent raster used as a CSS mask, not an <img>: the
-// tab flips text colour on active/inactive, and a mask painted with currentColor
-// flips with it (dark on the lime active pill, muted otherwise). Claude Desktop
-// and Claude Code share the Anthropic mark.
 const CLIENTS = [
-  { id: "claude", label: "Claude Desktop", icon: "/logo-claude.png", steps: ["onboarding.claude.1", "onboarding.claude.2", "onboarding.claude.3"] },
-  { id: "chatgpt", label: "ChatGPT", icon: "/logo-chatgpt.webp", steps: ["onboarding.chatgpt.1", "onboarding.chatgpt.2", "onboarding.chatgpt.3"] },
-  { id: "code", label: "Claude Code", icon: "/logo-claude.png", steps: ["onboarding.code.1", "onboarding.code.2"] },
-] as const satisfies readonly { id: string; label: string; icon: string; steps: readonly TKey[] }[];
-
-/** A brand mark that inherits the button's text colour. Uses the image's alpha
- * as a mask, so it works for any monochrome-on-transparent logo. */
-function BrandMark({ src }: { src: string }) {
-  return (
-    <span
-      aria-hidden
-      className="inline-block h-[14px] w-[14px] shrink-0"
-      style={{
-        backgroundColor: "currentColor",
-        WebkitMaskImage: `url(${src})`,
-        maskImage: `url(${src})`,
-        WebkitMaskSize: "contain",
-        maskSize: "contain",
-        WebkitMaskRepeat: "no-repeat",
-        maskRepeat: "no-repeat",
-        WebkitMaskPosition: "center",
-        maskPosition: "center",
-      }}
-    />
-  );
-}
+  { id: "claude", label: "Claude Desktop", steps: ["onboarding.claude.1", "onboarding.claude.2", "onboarding.claude.3"] },
+  { id: "chatgpt", label: "ChatGPT", steps: ["onboarding.chatgpt.1", "onboarding.chatgpt.2", "onboarding.chatgpt.3"] },
+  { id: "code", label: "Claude Code", steps: ["onboarding.code.1", "onboarding.code.2"] },
+] as const satisfies readonly { id: string; label: string; steps: readonly TKey[] }[];
 
 function CopyField({
   value,
@@ -174,14 +148,13 @@ export function Onboarding({
                     key={c.id}
                     type="button"
                     onClick={() => setClient(c.id)}
-                    className="flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold transition-colors"
+                    className="rounded-full border px-3.5 py-1.5 text-[12px] font-semibold transition-colors"
                     style={{
                       borderColor: on ? "var(--lime)" : "var(--border)",
                       background: on ? "var(--lime)" : "transparent",
                       color: on ? "#0a0b0d" : "var(--text-muted)",
                     }}
                   >
-                    <BrandMark src={c.icon} />
                     {c.label}
                   </button>
                 );
