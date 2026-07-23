@@ -21,6 +21,7 @@ import {
 } from "@/lib/data-product";
 import { blockAvailable } from "@/lib/tenant-config";
 import { Onboarding } from "@/components/Onboarding";
+import { LogoutButton } from "@/components/LogoutButton";
 import { hasProductDb } from "@/lib/product-db";
 import { APP_COOKIE } from "@/app/api/app-login/route";
 import { toISO } from "@/lib/utils";
@@ -120,6 +121,9 @@ export default async function ProductDashboardPage({
         <nav className="mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] px-1 py-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-trakr.svg" alt="MY TRAKR" className="h-[26px] w-auto" />
+          {/* Also here: landing on the wrong account's welcome screen is exactly
+              when you most need a way out. */}
+          <LogoutButton locale={onboardingLocale} />
         </nav>
         <Onboarding
           locale={onboardingLocale}
@@ -157,10 +161,13 @@ export default async function ProductDashboardPage({
       <nav className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] bg-[rgba(38,43,52,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo-trakr.svg" alt="MY TRAKR" className="h-[26px] w-auto" />
-        <span className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--text-muted)]">
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
-          {live ? tr("common.live") : tenantId ? tr("app.noData") : tr("common.sampleData")}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--text-muted)]">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
+            {live ? tr("common.live") : tenantId ? tr("app.noData") : tr("common.sampleData")}
+          </span>
+          <LogoutButton locale={locale} />
+        </div>
       </nav>
 
       {!live && reason && (
