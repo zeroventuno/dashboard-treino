@@ -126,6 +126,11 @@ Cada sessão é um `upsert_workout`. Alguns campos mudam bastante a experiência
 - `activation` e `nutrition_pre` — o que fazer antes: ativação/aquecimento e o
   que comer.
 - `mobility` e `nutrition_post` — o que fazer depois.
+- `muscle_groups` — **nos treinos de musculação**, quais grupos a sessão
+  trabalha. É o que acende o mapa muscular do corpo. Use exatamente estes
+  termos em inglês (nunca nome de exercício nem outro idioma): `quadriceps`,
+  `glutes`, `hamstrings`, `core`, `shoulders`, `back`, `calves`, `chest`,
+  `biceps`, `triceps`. Ex.: inferiores → `["quadriceps","glutes","hamstrings","calves"]`.
 - `zwo_content` — arquivo Zwift, quando fizer sentido para treinos de bike com
   potência.
 

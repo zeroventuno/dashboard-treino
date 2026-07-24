@@ -69,7 +69,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
       data(
         await withTenant(tenantId, async (c) => {
           const { rows } = await c.query(
-            `select date, discipline, title, status, key_workout,
+            `select date, discipline, title, status, key_workout, muscle_groups,
                     planned_duration_min, planned_tss, actual_duration_min, actual_tss, notes
                from workouts
               where tenant_id=$1 and date between $2 and $3
@@ -336,6 +336,17 @@ export function registerTools(server: McpServer, tenantId: string): void {
         /** Post-workout */
         mobility: z.string().optional(),
         nutrition_post: z.string().optional(),
+        /** For strength sessions: which muscle groups it works, so the body
+         *  heatmap lights up. Use the fixed English slugs below, never exercise
+         *  names or other languages — the map keys on these exact values and a
+         *  "leg press" or "quadríceps" would light nothing. */
+        muscle_groups: z
+          .array(z.enum([
+            "quadriceps", "glutes", "hamstrings", "core", "shoulders",
+            "back", "calves", "chest", "biceps", "triceps",
+          ]))
+          .optional()
+          .describe("strength only; fixed English slugs, e.g. [\"quadriceps\",\"glutes\",\"core\"]"),
       },
     },
     async (a) => {
@@ -344,9 +355,9 @@ export function registerTools(server: McpServer, tenantId: string): void {
           `insert into workouts (tenant_id,date,discipline,title,status,description,garmin_instructions,zwo_content,
              planned_duration_min,actual_duration_min,planned_distance_km,actual_distance_km,planned_tss,actual_tss,
              planned_pace,actual_pace,planned_power_watts,actual_power_watts,notes,nutrition_notes,
-             key_workout,structure,activation,nutrition_pre,mobility,nutrition_post)
+             key_workout,structure,activation,nutrition_pre,mobility,nutrition_post,muscle_groups)
            values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-             coalesce($21,false),$22::jsonb,$23,$24,$25,$26)
+             coalesce($21,false),$22::jsonb,$23,$24,$25,$26,coalesce($27::text[],'{}'::text[]))
            on conflict (tenant_id,date,discipline,title) do update set
              status=excluded.status,
              description=coalesce(excluded.description,workouts.description),
@@ -369,7 +380,8 @@ export function registerTools(server: McpServer, tenantId: string): void {
              activation=coalesce(excluded.activation,workouts.activation),
              nutrition_pre=coalesce(excluded.nutrition_pre,workouts.nutrition_pre),
              mobility=coalesce(excluded.mobility,workouts.mobility),
-             nutrition_post=coalesce(excluded.nutrition_post,workouts.nutrition_post)`,
+             nutrition_post=coalesce(excluded.nutrition_post,workouts.nutrition_post),
+             muscle_groups=coalesce($27::text[],workouts.muscle_groups)`,
           [
             tenantId, a.date, a.discipline, a.title, a.status, a.description ?? null, a.garmin_instructions ?? null,
             a.zwo_content ?? null, a.planned_duration_min ?? null, a.actual_duration_min ?? null,
@@ -378,6 +390,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
             a.notes ?? null, a.nutrition_notes ?? null,
             a.key_workout ?? null, a.structure ? JSON.stringify(a.structure) : null,
             a.activation ?? null, a.nutrition_pre ?? null, a.mobility ?? null, a.nutrition_post ?? null,
+            a.muscle_groups ?? null,
           ],
         ),
       );

@@ -219,9 +219,23 @@ export async function getProductDashboardData(
       const indicators = await q<PerformanceIndicators>(
         "select * from performance_indicators where tenant_id=$1 limit 1",
       );
-      const strength = await q<StrengthSession>(
-        "select * from strength_sessions where tenant_id=$1 order by date desc",
+      // The body heatmap reads `strength`, but strength_sessions was never
+      // written by any coach tool — a strength workout logged via upsert_workout
+      // went to `workouts`, not here. Derive the sessions from those workouts so
+      // one write feeds both the calendar and the map. (strength_sessions stays
+      // for the personal dashboard, which has its own migrated data.)
+      const strengthRows = await q<{ id: string; date: string; title: string; muscle_groups: string[] | null; notes: string | null }>(
+        `select id, date, title, muscle_groups, notes from workouts
+           where tenant_id=$1 and discipline='strength' and coalesce(array_length(muscle_groups,1),0) > 0
+           order by date desc`,
       );
+      const strength: StrengthSession[] = strengthRows.map((w) => ({
+        id: w.id,
+        date: w.date,
+        muscle_groups: (w.muscle_groups ?? []) as StrengthSession["muscle_groups"],
+        exercises: null,
+        notes: w.notes,
+      }));
       const checkins = await q<Checkin>("select * from checkins where tenant_id=$1 order by date");
       const injuries = await q<InjuryEntry>(
         "select * from injury_log where tenant_id=$1 order by date desc",

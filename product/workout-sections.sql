@@ -22,7 +22,15 @@ alter table workouts
 
   -- The week's priority sessions — highlighted in the calendar so the athlete
   -- can see at a glance which ones must not be skipped.
-  add column if not exists key_workout      boolean not null default false;
+  add column if not exists key_workout      boolean not null default false,
+
+  -- Muscle groups a strength session works, so the body-heatmap block lights
+  -- up. The map read strength_sessions, which no tool ever wrote — a strength
+  -- workout logged via upsert_workout populated the calendar but never the map.
+  -- Deriving the map from workouts means one write feeds both. Values are the
+  -- 10 the map knows: quadriceps, glutes, hamstrings, core, shoulders, back,
+  -- calves, chest, biceps, triceps.
+  add column if not exists muscle_groups     text[] not null default '{}';
 
 comment on column workouts.structure is
   'Interval blocks: [{label, duration_min, intensity(0-100+, %threshold), target(text), note}]';

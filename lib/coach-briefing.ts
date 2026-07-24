@@ -47,6 +47,7 @@ Cada sessão é um upsert_workout. Vale caprichar em:
 - structure: os blocos do treino (aquecimento, séries, recuperações, volta à calma) com duração e intensidade. É o que desenha o gráfico de perfil. Vale muito nos intervalados.
 - activation e nutrition_pre: o que fazer e comer antes.
 - mobility e nutrition_post: o que fazer e comer depois.
+- muscle_groups: NOS TREINOS DE MUSCULAÇÃO, quais grupos o treino trabalha — é o que acende o mapa muscular do corpo. Use exatamente estes termos em inglês (não nomes de exercício nem português): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ex.: um treino de inferiores → ["quadriceps","glutes","hamstrings","calves"].
 - zwo_content: arquivo Zwift, quando fizer sentido para bike com potência.
 Ao me mandar a semana ou o mês, diga quais são os treinos-chave.
 
@@ -98,6 +99,7 @@ Each session is an upsert_workout. Worth the effort:
 - structure: the session's blocks (warm-up, intervals, recoveries, cool-down) with duration and intensity. It's what draws the profile chart. Especially worth it for intervals.
 - activation and nutrition_pre: what to do and eat before.
 - mobility and nutrition_post: what to do and eat after.
+- muscle_groups: FOR STRENGTH SESSIONS, which groups the session works — this is what lights up the body heatmap. Use exactly these English slugs (not exercise names or other languages): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. E.g. a lower-body session → ["quadriceps","glutes","hamstrings","calves"].
 - zwo_content: a Zwift file, when it makes sense for bike sessions with power.
 When you send me the week or the month, say which are the key sessions.
 
@@ -149,6 +151,7 @@ Ogni sessione è un upsert_workout. Vale la pena curare:
 - structure: i blocchi della sessione (riscaldamento, ripetute, recuperi, defaticamento) con durata e intensità. È ciò che disegna il grafico del profilo. Utilissimo nelle ripetute.
 - activation e nutrition_pre: cosa fare e mangiare prima.
 - mobility e nutrition_post: cosa fare e mangiare dopo.
+- muscle_groups: NELLE SESSIONI DI FORZA, quali gruppi lavora la seduta — è ciò che accende la mappa muscolare. Usa esattamente questi termini inglesi (non nomi di esercizi né altre lingue): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Es.: una seduta per la parte inferiore → ["quadriceps","glutes","hamstrings","calves"].
 - zwo_content: file Zwift, quando ha senso per sessioni in bici con potenza.
 Quando mi mandi la settimana o il mese, dimmi quali sono le sessioni chiave.
 
@@ -200,6 +203,7 @@ Cada sesión es un upsert_workout. Vale la pena cuidar:
 - structure: los bloques de la sesión (calentamiento, series, recuperaciones, vuelta a la calma) con duración e intensidad. Es lo que dibuja el gráfico de perfil. Muy útil en series.
 - activation y nutrition_pre: qué hacer y comer antes.
 - mobility y nutrition_post: qué hacer y comer después.
+- muscle_groups: EN LAS SESIONES DE FUERZA, qué grupos trabaja la sesión — es lo que enciende el mapa muscular. Usa exactamente estos términos en inglés (no nombres de ejercicios ni otros idiomas): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ej.: una sesión de tren inferior → ["quadriceps","glutes","hamstrings","calves"].
 - zwo_content: archivo Zwift, cuando tenga sentido para bici con potencia.
 Cuando me mandes la semana o el mes, dime cuáles son las sesiones clave.
 
@@ -251,6 +255,7 @@ Chaque séance est un upsert_workout. Cela vaut la peine de soigner :
 - structure : les blocs de la séance (échauffement, fractionné, récupérations, retour au calme) avec durée et intensité. C'est ce qui dessine le profil. Très utile pour le fractionné.
 - activation et nutrition_pre : quoi faire et manger avant.
 - mobility et nutrition_post : quoi faire et manger après.
+- muscle_groups : POUR LES SÉANCES DE FORCE, quels groupes la séance travaille — c'est ce qui allume la carte musculaire. Utilise exactement ces termes anglais (pas de noms d'exercices ni d'autres langues) : quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ex. : une séance bas du corps → ["quadriceps","glutes","hamstrings","calves"].
 - zwo_content : fichier Zwift, quand cela a du sens pour le vélo avec puissance.
 Quand tu m'envoies la semaine ou le mois, dis-moi quelles sont les séances clés.
 

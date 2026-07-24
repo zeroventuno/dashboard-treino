@@ -92,6 +92,7 @@ create table workouts (
   mobility              text,           -- stretching / cool-down after
   nutrition_post        text,
   key_workout           boolean not null default false,
+  muscle_groups         text[]  not null default '{}',   -- strength → body-heatmap
   created_at            timestamptz not null default now(),
   unique (tenant_id, date, discipline, title)
 );
