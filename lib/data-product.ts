@@ -213,9 +213,25 @@ export async function getProductDashboardData(
       );
       const workouts = await q<Workout>("select * from workouts where tenant_id=$1 order by date");
       const phases = await q<Phase>("select * from phases where tenant_id=$1 order by start_date");
-      const milestones = await q<PerformanceMilestone>(
+      const milestoneRows = await q<PerformanceMilestone>(
         "select * from performance_milestones where tenant_id=$1 order by date",
       );
+      // The Season block draws its bottom markers from `milestones`, but no
+      // coach tool writes performance_milestones — it's empty on every real
+      // account (the /demo shows entries only because they're in mock data).
+      // Meanwhile the athlete's races DO get written, via set_races, and only
+      // ever surfaced in the hero. So a race the coach added showed up top but
+      // not on the season timeline. Fold the races in as markers, using the
+      // priority letter as the label, so they land where they belong.
+      const raceMarkers: PerformanceMilestone[] = races.map((r, i) => ({
+        id: `race-${i}`,
+        date: r.date,
+        metric: r.priority === "A" ? "Race" : `Race ${r.priority}`,
+        value: null,
+        unit: null,
+        notes: r.name,
+      }));
+      const milestones = [...milestoneRows, ...raceMarkers];
       const indicators = await q<PerformanceIndicators>(
         "select * from performance_indicators where tenant_id=$1 limit 1",
       );
