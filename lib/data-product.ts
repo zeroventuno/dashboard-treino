@@ -32,6 +32,8 @@ export interface TenantView {
    * the primary meant the B and C races went nowhere. */
   races: { name: string; date: string; priority: string }[];
   cycleName: string | null;
+  /** Body figure for the strength map. */
+  anatomy: "male" | "female";
   /** Full cycle, for the hero's week-of-N progress and the season timeline.
    * Null when the athlete is training toward a race instead. */
   cycle: { name: string; startISO: string; weeks: number; phases: CyclePhase[] } | null;
@@ -80,6 +82,7 @@ const MOCK_TENANT: TenantView = {
   races: [{ name: RACE_NAME, date: RACE_DATE, priority: "A" }],
   cycleName: null,
   cycle: null,
+  anatomy: "male",
 };
 
 /** A tenant the coach has never configured: no metrics declared and nothing
@@ -174,7 +177,8 @@ export async function getProductDashboardData(
         metrics: string[] | null;
         mode: string | null;
         athlete: string | null;
-      }>("select locale, metrics, mode, athlete from profiles where tenant_id=$1 limit 1");
+        anatomy: string | null;
+      }>("select locale, metrics, mode, athlete, anatomy from profiles where tenant_id=$1 limit 1");
       const locale = isLocale(profile[0]?.locale) ? profile[0].locale : DEFAULT_LOCALE;
 
       // Next A race, else the soonest upcoming, else the most recent past one.
@@ -206,6 +210,7 @@ export async function getProductDashboardData(
         raceISO: races[0]?.date ?? null,
         cycleName: cycle?.name ?? null,
         cycle,
+        anatomy: profile[0]?.anatomy === "female" ? "female" : "male",
       };
 
       const trainingLoad = await q<TrainingLoad>(

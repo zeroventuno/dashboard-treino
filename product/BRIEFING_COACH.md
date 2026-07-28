@@ -69,6 +69,8 @@ gigante):
   balança de bioimpedância…).
 - Se estou treinando **para uma prova** ou **em um ciclo** sem prova marcada.
 - Meu idioma (o painel fala português, inglês, italiano, espanhol e francês).
+- Qual figura do corpo eu prefiro ver no mapa de músculos: masculina ou
+  feminina (`anatomy: male|female`). É só o desenho — pergunte a preferência.
 
 Com isso, chame `set_profile` — nele vão os aparelhos, as métricas que eu tenho
 de fato, o modo (`race` ou `cycle`), o idioma e as unidades. **O painel só mostra

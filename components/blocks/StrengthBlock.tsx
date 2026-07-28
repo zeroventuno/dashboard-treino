@@ -3,13 +3,15 @@ import { DEFAULT_LOCALE, translator, type Locale } from "@/lib/i18n";
 import { SectionCard } from "../SectionCard";
 import { BodyMap } from "../BodyMap";
 
-export function StrengthBlock({ data, locale = DEFAULT_LOCALE }: { data: DashboardData;
+export function StrengthBlock({ data, locale = DEFAULT_LOCALE, anatomy = "male" }: {
+  data: DashboardData;
   locale?: Locale;
+  anatomy?: "male" | "female";
 }) {
   const tr = translator(locale);
   return (
     <SectionCard title={tr("block.strength")} subtitle={tr("block.strength.sub")}>
-      <BodyMap sessions={data.strength} locale={locale} />
+      <BodyMap sessions={data.strength} locale={locale} anatomy={anatomy} />
     </SectionCard>
   );
 }

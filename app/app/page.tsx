@@ -76,7 +76,7 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
   zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
   mealplan: (p) => <MealPlanBlock data={p.data} locale={p.locale} />,
   body: (p) => <BodyBlock data={p.data} locale={p.locale} />,
-  strength: (p) => <StrengthBlock data={p.data} locale={p.locale} />,
+  strength: (p) => <StrengthBlock data={p.data} locale={p.locale} anatomy={p.tenant.anatomy} />,
   watchpoints: (p) => <WatchPointsBlock data={p.data} locale={p.locale} />,
   lifestyle: (p) => <LifestyleBlock data={p.data} locale={p.locale} />,
 };

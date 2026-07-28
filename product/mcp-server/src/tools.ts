@@ -34,7 +34,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
         await withTenant(tenantId, async (c) => {
           const [profile, races, cycle, indicators] = await Promise.all([
             c.query(
-              "select athlete, devices, metrics, mode, locale, units, updated_at from profiles where tenant_id=$1 limit 1",
+              "select athlete, devices, metrics, mode, locale, units, anatomy, updated_at from profiles where tenant_id=$1 limit 1",
               [tenantId],
             ),
             c.query("select name, date, priority from races where tenant_id=$1 order by date", [tenantId]),
@@ -126,6 +126,12 @@ export function registerTools(server: McpServer, tenantId: string): void {
           .string()
           .optional()
           .describe("stored for later; the dashboard currently displays metric only"),
+        // The body figure drawn in the strength/muscle map. It's the drawing,
+        // not gender identity — ask which figure the athlete prefers to see.
+        anatomy: z
+          .enum(["male", "female"])
+          .optional()
+          .describe("body figure in the muscle map; ask the athlete's preference"),
       },
     },
     async (a) => {
@@ -145,9 +151,10 @@ export function registerTools(server: McpServer, tenantId: string): void {
           // text — and then refuses to put a text into a text[] column. Every
           // set_profile call failed with a type error the coach saw only as
           // "internal error".
-          `insert into profiles (tenant_id, athlete, devices, metrics, mode, locale, units, updated_at)
+          `insert into profiles (tenant_id, athlete, devices, metrics, mode, locale, units, anatomy, updated_at)
            values ($1, $2, coalesce($3::text[],'{}'::text[]), coalesce($4::text[],'{}'::text[]),
-                   coalesce($5::text,'race'), coalesce($6::text,'pt'), coalesce($7::text,'metric'), now())
+                   coalesce($5::text,'race'), coalesce($6::text,'pt'), coalesce($7::text,'metric'),
+                   coalesce($8::text,'male'), now())
            on conflict (tenant_id) do update set
              athlete = coalesce($2::text, profiles.athlete),
              devices = coalesce($3::text[], profiles.devices),
@@ -155,6 +162,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
              mode    = coalesce($5::text, profiles.mode),
              locale  = coalesce($6::text, profiles.locale),
              units   = coalesce($7::text, profiles.units),
+             anatomy = coalesce($8::text, profiles.anatomy),
              updated_at = now()`,
           [
             tenantId,
@@ -164,6 +172,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
             a.mode ?? null,
             a.locale ?? null,
             a.units ?? null,
+            a.anatomy ?? null,
           ],
         ),
       );

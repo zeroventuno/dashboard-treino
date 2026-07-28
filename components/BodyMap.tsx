@@ -53,7 +53,15 @@ function intensityOf(count: number, max: number): number {
   return Math.max(1, Math.ceil(t * HEAT.length));
 }
 
-export function BodyMap({ sessions, locale = DEFAULT_LOCALE }: { sessions: StrengthSession[]; locale?: Locale }) {
+export function BodyMap({
+  sessions,
+  locale = DEFAULT_LOCALE,
+  anatomy = "male",
+}: {
+  sessions: StrengthSession[];
+  locale?: Locale;
+  anatomy?: "male" | "female";
+}) {
   const tr = translator(locale);
   const usage = muscleUsage(sessions, 7);
   const max = Math.max(1, ...Object.values(usage));
@@ -79,7 +87,7 @@ export function BodyMap({ sessions, locale = DEFAULT_LOCALE }: { sessions: Stren
             <div className="flex h-64 items-center justify-center sm:h-72">
               <Body
                 side={side}
-                gender="male"
+                gender={anatomy}
                 data={data}
                 colors={HEAT}
                 scale={0.85}

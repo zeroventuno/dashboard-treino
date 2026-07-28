@@ -28,7 +28,8 @@ Pergunte uma coisa de cada vez, sem questionário gigante:
 1. Quais aparelhos eu uso e o que cada um mede.
 2. Se estou treinando para uma prova ou num ciclo sem prova marcada.
 3. Meu idioma.
-4. Se estou começando do zero ou já venho treinando.
+4. Qual figura do corpo prefiro ver no mapa de músculos: masculina ou feminina (é só o desenho).
+5. Se estou começando do zero ou já venho treinando.
 Grave com set_profile. Declare apenas as métricas que eu realmente meço: o painel só mostra os blocos cujas métricas existem, então declarar a mais cria gráfico vazio. Depois use set_races (provas, prioridade A/B/C), set_cycle (ciclo e fases) e set_indicators (FTP, limiares, zonas).
 
 SE EU JÁ VENHO TREINANDO
@@ -80,7 +81,8 @@ Ask one thing at a time, no giant questionnaire:
 1. Which devices I use and what each one measures.
 2. Whether I'm training for a race or in a cycle with no race booked.
 3. My language.
-4. Whether I'm starting from scratch or already training.
+4. Which body figure I prefer in the muscle map: male or female (it is only the drawing).
+5. Whether I'm starting from scratch or already training.
 Save it with set_profile. Declare only the metrics I actually measure: the dashboard shows only the blocks whose metrics exist, so declaring extra ones creates empty charts. Then use set_races (races, priority A/B/C), set_cycle (cycle and phases) and set_indicators (FTP, thresholds, zones).
 
 IF I'M ALREADY TRAINING
@@ -132,7 +134,8 @@ Chiedi una cosa alla volta, senza questionari infiniti:
 1. Quali dispositivi uso e cosa misura ciascuno.
 2. Se mi sto preparando per una gara o sono in un ciclo senza gara fissata.
 3. La mia lingua.
-4. Se parto da zero o mi alleno già.
+4. Quale figura del corpo preferisco nella mappa muscolare: maschile o femminile (è solo il disegno).
+5. Se parto da zero o mi alleno già.
 Salva con set_profile. Dichiara solo le metriche che misuro davvero: la dashboard mostra solo i blocchi le cui metriche esistono, quindi dichiararne in più crea grafici vuoti. Poi usa set_races (gare, priorità A/B/C), set_cycle (ciclo e fasi) e set_indicators (FTP, soglie, zone).
 
 SE MI ALLENO GIÀ
@@ -184,7 +187,8 @@ Pregunta una cosa a la vez, sin cuestionarios enormes:
 1. Qué dispositivos uso y qué mide cada uno.
 2. Si entreno para una carrera o estoy en un ciclo sin carrera fijada.
 3. Mi idioma.
-4. Si empiezo desde cero o ya vengo entrenando.
+4. Qué figura del cuerpo prefiero en el mapa muscular: masculina o femenina (es solo el dibujo).
+5. Si empiezo desde cero o ya vengo entrenando.
 Guarda con set_profile. Declara solo las métricas que realmente mido: el panel muestra solo los bloques cuyas métricas existen, así que declarar de más crea gráficos vacíos. Después usa set_races (carreras, prioridad A/B/C), set_cycle (ciclo y fases) y set_indicators (FTP, umbrales, zonas).
 
 SI YA VENGO ENTRENANDO
@@ -236,7 +240,8 @@ Pose une question à la fois, sans questionnaire interminable :
 1. Quels appareils j'utilise et ce que chacun mesure.
 2. Si je prépare une course ou si je suis dans un cycle sans course fixée.
 3. Ma langue.
-4. Si je pars de zéro ou si je m'entraîne déjà.
+4. Quelle silhouette je préfère dans la carte musculaire : masculine ou féminine (ce n'est que le dessin).
+5. Si je pars de zéro ou si je m'entraîne déjà.
 Enregistre avec set_profile. Ne déclare que les métriques que je mesure réellement : le tableau de bord n'affiche que les blocs dont les métriques existent, donc en déclarer trop crée des graphiques vides. Ensuite utilise set_races (courses, priorité A/B/C), set_cycle (cycle et phases) et set_indicators (FTP, seuils, zones).
 
 SI JE M'ENTRAÎNE DÉJÀ

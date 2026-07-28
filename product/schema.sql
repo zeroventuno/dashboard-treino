@@ -36,6 +36,7 @@ create table profiles (
   mode        text   not null default 'race',         -- race | cycle
   locale      text   not null default 'pt',
   units       text   not null default 'metric',
+  anatomy     text   not null default 'male',            -- body figure in the strength map: male | female
   updated_at  timestamptz not null default now()
 );
 
