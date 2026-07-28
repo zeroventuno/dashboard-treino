@@ -9,7 +9,7 @@ export function StrengthBlock({ data, locale = DEFAULT_LOCALE }: { data: Dashboa
   const tr = translator(locale);
   return (
     <SectionCard title={tr("block.strength")} subtitle={tr("block.strength.sub")}>
-      <BodyMap sessions={data.strength} />
+      <BodyMap sessions={data.strength} locale={locale} />
     </SectionCard>
   );
 }

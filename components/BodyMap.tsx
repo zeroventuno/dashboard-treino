@@ -4,6 +4,7 @@ import { useState } from "react";
 import Body, { type ExtendedBodyPart, type Slug } from "react-muscle-highlighter";
 import type { MuscleGroup, StrengthSession } from "@/lib/types";
 import { muscleUsage } from "@/lib/utils";
+import { DEFAULT_LOCALE, translator, type Locale, type TKey } from "@/lib/i18n";
 
 // ────────────────────────────────────────────────────────────────────────────
 //  Anatomy from react-muscle-highlighter (MIT, © 2024 My Muscle Contributors).
@@ -33,10 +34,10 @@ const SLUGS: Record<MuscleGroup, Slug[]> = {
   calves: ["calves"],
 };
 
-const LABELS: Record<MuscleGroup, string> = {
-  quadriceps: "Quads", glutes: "Glutes", hamstrings: "Hamstrings",
-  core: "Core", shoulders: "Shoulders", back: "Back", calves: "Calves",
-  chest: "Chest", biceps: "Biceps", triceps: "Triceps",
+const MUSCLE_KEY: Record<MuscleGroup, TKey> = {
+  quadriceps: "muscle.quadriceps", glutes: "muscle.glutes", hamstrings: "muscle.hamstrings",
+  core: "muscle.core", shoulders: "muscle.shoulders", back: "muscle.back", calves: "muscle.calves",
+  chest: "muscle.chest", biceps: "muscle.biceps", triceps: "muscle.triceps",
 };
 
 // Heat is deliberately NOT var(--surge): that variable turns orange on a
@@ -52,7 +53,8 @@ function intensityOf(count: number, max: number): number {
   return Math.max(1, Math.ceil(t * HEAT.length));
 }
 
-export function BodyMap({ sessions }: { sessions: StrengthSession[] }) {
+export function BodyMap({ sessions, locale = DEFAULT_LOCALE }: { sessions: StrengthSession[]; locale?: Locale }) {
+  const tr = translator(locale);
   const usage = muscleUsage(sessions, 7);
   const max = Math.max(1, ...Object.values(usage));
   const [picked, setPicked] = useState<MuscleGroup | null>(null);
@@ -94,7 +96,7 @@ export function BodyMap({ sessions }: { sessions: StrengthSession[] }) {
               />
             </div>
             <figcaption className="mt-1 text-center text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
-              {side === "front" ? "Front" : "Back"}
+              {side === "front" ? tr("strength.front") : tr("strength.back")}
             </figcaption>
           </figure>
         ))}
@@ -102,15 +104,15 @@ export function BodyMap({ sessions }: { sessions: StrengthSession[] }) {
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-faint)]">
-          <span>Less</span>
+          <span>{tr("strength.less")}</span>
           <span className="h-2 w-5 rounded" style={{ background: REST_FILL }} />
           {HEAT.map((c) => (
             <span key={c} className="h-2 w-5 rounded" style={{ background: c }} />
           ))}
-          <span>More · 7 days</span>
+          <span>{tr("strength.more")}</span>
         </div>
         <span className="tnum text-[11px] text-[var(--text-muted)]">
-          {picked ? `${LABELS[picked]}: ${usage[picked] ?? 0}×` : `${worked.length} groups`}
+          {picked ? `${tr(MUSCLE_KEY[picked])}: ${usage[picked] ?? 0}×` : `${worked.length} ${tr("strength.groups")}`}
         </span>
       </div>
 
@@ -118,7 +120,7 @@ export function BodyMap({ sessions }: { sessions: StrengthSession[] }) {
         <div className="mt-2 flex flex-wrap gap-1.5">
           {worked.slice(0, 6).map((g) => (
             <span key={g} className="tnum rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
-              {LABELS[g]} · {usage[g]}×
+              {tr(MUSCLE_KEY[g])} · {usage[g]}×
             </span>
           ))}
         </div>
