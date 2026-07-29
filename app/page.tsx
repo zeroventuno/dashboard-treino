@@ -10,6 +10,7 @@ import { HeroBlock } from "@/components/blocks/HeroBlock";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
 import { SeasonBlock } from "@/components/blocks/SeasonBlock";
+import { MenstrualCycleBlock } from "@/components/blocks/MenstrualCycleBlock";
 import { ZonesBlock } from "@/components/blocks/ZonesBlock";
 import { MealPlanBlock } from "@/components/blocks/MealPlanBlock";
 import { BodyBlock } from "@/components/blocks/BodyBlock";
@@ -31,6 +32,7 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
   fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
   calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
+  menstrual: (p) => <MenstrualCycleBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
   mealplan: (p) => <MealPlanBlock data={p.data} locale={p.locale} />,
   body: (p) => <BodyBlock data={p.data} locale={p.locale} />,
@@ -48,7 +50,10 @@ export default async function DashboardPage() {
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
 
   // Group consecutive "third" blocks into a single responsive row.
-  const enabled = BLOCKS.filter((b) => b.enabled);
+  // The owner's personal dashboard shows every block unconditionally (it has all
+  // the data) — except the menstrual block, which is an opt-in, tenant-scoped
+  // feature that doesn't apply here.
+  const enabled = BLOCKS.filter((b) => b.enabled && b.id !== "menstrual");
   const groups: (BlockDef | BlockDef[])[] = [];
   for (const b of enabled) {
     const last = groups[groups.length - 1];

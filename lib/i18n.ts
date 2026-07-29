@@ -15,6 +15,23 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "pt";
 
 const pt = {
+  // menstrual cycle (opt-in)
+  "block.menstrual": "Ciclo Menstrual",
+  "block.menstrual.sub": "Fase atual, previsão da próxima menstruação e contexto de treino",
+  "menstrual.day": "Dia {n} de {total} do ciclo",
+  "menstrual.nextPeriod": "Próxima menstruação",
+  "menstrual.estimate": "estimativa",
+  "menstrual.today": "hoje",
+  "menstrual.empty": "Aguardando o coach registrar o início do último ciclo.",
+  "menstrual.stale": "O último registro já passou de um ciclo — peça ao coach para atualizar a data da última menstruação.",
+  "menstrual.phase.menstrual": "Menstrual",
+  "menstrual.phase.follicular": "Folicular",
+  "menstrual.phase.ovulatory": "Ovulatória",
+  "menstrual.phase.luteal": "Lútea",
+  "menstrual.hint.menstrual": "Energia pode oscilar; caprichar em sono e ferro. Treino leve a moderado costuma cair bem.",
+  "menstrual.hint.follicular": "Costuma ser a fase de mais energia e tolerância à intensidade — boa para treinos-chave e força.",
+  "menstrual.hint.ovulatory": "Pico de força e disposição; atenção à frouxidão ligamentar — capriche no aquecimento.",
+  "menstrual.hint.luteal": "Percepção de esforço e temperatura basal sobem; recuperação e hidratação ganham peso.",
   // blocks
   "block.fitness": "Condicionamento & Frescor",
   "block.fitness.sub": "Fitness, fadiga e forma ao longo do tempo — toque numa métrica para alternar",
@@ -179,6 +196,23 @@ export type TKey = keyof typeof pt;
 type Dict = Record<TKey, string>;
 
 const en: Dict = {
+  // menstrual cycle (opt-in)
+  "block.menstrual": "Menstrual Cycle",
+  "block.menstrual.sub": "Current phase, next-period prediction and training context",
+  "menstrual.day": "Day {n} of {total}",
+  "menstrual.nextPeriod": "Next period",
+  "menstrual.estimate": "estimate",
+  "menstrual.today": "today",
+  "menstrual.empty": "Waiting for the coach to log the start of the last cycle.",
+  "menstrual.stale": "The last entry is over a cycle old — ask the coach to update your last period date.",
+  "menstrual.phase.menstrual": "Menstrual",
+  "menstrual.phase.follicular": "Follicular",
+  "menstrual.phase.ovulatory": "Ovulatory",
+  "menstrual.phase.luteal": "Luteal",
+  "menstrual.hint.menstrual": "Energy can swing; prioritise sleep and iron. Easy-to-moderate training usually sits well.",
+  "menstrual.hint.follicular": "Often the highest-energy, most intensity-tolerant phase — good for key sessions and strength.",
+  "menstrual.hint.ovulatory": "Peak strength and drive; mind ligament laxity — warm up thoroughly.",
+  "menstrual.hint.luteal": "Perceived effort and core temperature rise; recovery and hydration matter more.",
   "block.fitness": "Fitness & Freshness",
   "block.fitness.sub": "Fitness, fatigue & form over time — tap a metric to toggle it",
   "block.calendar": "Training Calendar",
@@ -318,6 +352,23 @@ const en: Dict = {
 };
 
 const it: Dict = {
+  // menstrual cycle (opt-in)
+  "block.menstrual": "Ciclo Mestruale",
+  "block.menstrual.sub": "Fase attuale, previsione delle prossime mestruazioni e contesto di allenamento",
+  "menstrual.day": "Giorno {n} di {total}",
+  "menstrual.nextPeriod": "Prossime mestruazioni",
+  "menstrual.estimate": "stima",
+  "menstrual.today": "oggi",
+  "menstrual.empty": "In attesa che il coach registri l'inizio dell'ultimo ciclo.",
+  "menstrual.stale": "L'ultimo dato è più vecchio di un ciclo — chiedi al coach di aggiornare la data dell'ultima mestruazione.",
+  "menstrual.phase.menstrual": "Mestruale",
+  "menstrual.phase.follicular": "Follicolare",
+  "menstrual.phase.ovulatory": "Ovulatoria",
+  "menstrual.phase.luteal": "Luteale",
+  "menstrual.hint.menstrual": "L'energia può oscillare; priorità a sonno e ferro. Allenamento da leggero a moderato di solito va bene.",
+  "menstrual.hint.follicular": "Spesso la fase con più energia e tolleranza all'intensità — buona per sedute chiave e forza.",
+  "menstrual.hint.ovulatory": "Picco di forza e spinta; attenzione alla lassità legamentosa — riscaldati bene.",
+  "menstrual.hint.luteal": "Percezione dello sforzo e temperatura basale salgono; recupero e idratazione contano di più.",
   "block.fitness": "Forma & Freschezza",
   "block.fitness.sub": "Forma, fatica e condizione nel tempo — tocca una metrica per attivarla",
   "block.calendar": "Calendario Allenamenti",
@@ -457,6 +508,23 @@ const it: Dict = {
 };
 
 const es: Dict = {
+  // menstrual cycle (opt-in)
+  "block.menstrual": "Ciclo Menstrual",
+  "block.menstrual.sub": "Fase actual, predicción de la próxima menstruación y contexto de entrenamiento",
+  "menstrual.day": "Día {n} de {total}",
+  "menstrual.nextPeriod": "Próxima menstruación",
+  "menstrual.estimate": "estimación",
+  "menstrual.today": "hoy",
+  "menstrual.empty": "Esperando a que el coach registre el inicio del último ciclo.",
+  "menstrual.stale": "El último registro tiene más de un ciclo — pide al coach que actualice la fecha de tu última menstruación.",
+  "menstrual.phase.menstrual": "Menstrual",
+  "menstrual.phase.follicular": "Folicular",
+  "menstrual.phase.ovulatory": "Ovulatoria",
+  "menstrual.phase.luteal": "Lútea",
+  "menstrual.hint.menstrual": "La energía puede variar; prioriza sueño y hierro. El entrenamiento suave a moderado suele sentar bien.",
+  "menstrual.hint.follicular": "Suele ser la fase de más energía y tolerancia a la intensidad — buena para sesiones clave y fuerza.",
+  "menstrual.hint.ovulatory": "Pico de fuerza y empuje; ojo con la laxitud ligamentosa — calienta bien.",
+  "menstrual.hint.luteal": "La percepción del esfuerzo y la temperatura basal suben; la recuperación y la hidratación pesan más.",
   "block.fitness": "Forma & Frescura",
   "block.fitness.sub": "Forma, fatiga y condición en el tiempo — toca una métrica para alternarla",
   "block.calendar": "Calendario de Entrenamientos",
@@ -596,6 +664,23 @@ const es: Dict = {
 };
 
 const fr: Dict = {
+  // menstrual cycle (opt-in)
+  "block.menstrual": "Cycle Menstruel",
+  "block.menstrual.sub": "Phase actuelle, prévision des prochaines règles et contexte d'entraînement",
+  "menstrual.day": "Jour {n} sur {total}",
+  "menstrual.nextPeriod": "Prochaines règles",
+  "menstrual.estimate": "estimation",
+  "menstrual.today": "auj.",
+  "menstrual.empty": "En attente que le coach enregistre le début du dernier cycle.",
+  "menstrual.stale": "Le dernier relevé date de plus d'un cycle — demande au coach de mettre à jour la date de tes dernières règles.",
+  "menstrual.phase.menstrual": "Menstruelle",
+  "menstrual.phase.follicular": "Folliculaire",
+  "menstrual.phase.ovulatory": "Ovulatoire",
+  "menstrual.phase.luteal": "Lutéale",
+  "menstrual.hint.menstrual": "L'énergie peut varier ; priorise le sommeil et le fer. Un entraînement léger à modéré passe souvent bien.",
+  "menstrual.hint.follicular": "Souvent la phase la plus énergique et tolérante à l'intensité — bonne pour les séances clés et la force.",
+  "menstrual.hint.ovulatory": "Pic de force et d'allant ; attention à la laxité ligamentaire — échauffe-toi bien.",
+  "menstrual.hint.luteal": "L'effort perçu et la température basale montent ; récupération et hydratation comptent davantage.",
   "block.fitness": "Forme & Fraîcheur",
   "block.fitness.sub": "Forme, fatigue et condition dans le temps — touchez une métrique pour l'activer",
   "block.calendar": "Calendrier d'Entraînement",

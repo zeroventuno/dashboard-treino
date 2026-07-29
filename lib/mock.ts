@@ -297,5 +297,13 @@ export function getMockData(): DashboardData {
     bodyComposition,
     mealPlan,
     nutritionRules,
+    // Anchored to the real "now" (not the mock's fixed TODAY) so the /demo always
+    // renders a fresh mid-cycle state (~day 9, follicular) whenever it's viewed.
+    menstrualCycle: {
+      last_period_start: toISO(addDays(new Date(), -8)),
+      cycle_length: 28,
+      period_length: 5,
+      notes: "Ciclo regular de ~28 dias. Evitamos testes de FTP na fase lútea tardia e priorizamos os treinos-chave na folicular.",
+    },
   };
 }

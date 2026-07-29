@@ -161,6 +161,18 @@ export interface NutritionRule {
   notes: string | null;
 }
 
+/** Opt-in menstrual-cycle tracking (female athletes who ask for it). One config
+ * row per athlete: the dashboard derives today's cycle day, the current phase
+ * and the predicted next period from these three numbers — the coach only keeps
+ * `last_period_start` current. Sensitive health data: gated behind the
+ * "menstrual" metric, isolated by RLS like every other table. */
+export interface MenstrualCycle {
+  last_period_start: string; // YYYY-MM-DD, day 1 of the most recent period
+  cycle_length: number;      // average length in days (typical 28)
+  period_length: number;     // average bleeding days (typical 4-5)
+  notes: string | null;      // coach's context, in the athlete's language
+}
+
 export interface DashboardData {
   trainingLoad: TrainingLoad[];
   workouts: Workout[];
@@ -173,6 +185,9 @@ export interface DashboardData {
   bodyComposition: BodyComposition[];
   mealPlan: DailyMeal[];
   nutritionRules: NutritionRule[];
+  // Optional: only the product dashboard (multi-tenant) populates this, and
+  // only for athletes who opted in. The personal dashboard leaves it undefined.
+  menstrualCycle?: MenstrualCycle | null;
 }
 
 export const RACE_DATE = "2026-10-25";

@@ -222,6 +222,19 @@ create table nutrition_plan (
 );
 create index on nutrition_plan(tenant_id);
 
+-- Opt-in menstrual-cycle tracking (sensitive health data — only for athletes who
+-- ask). One config row per athlete (tenant_id is the PK); the dashboard derives
+-- the current phase and the next-period prediction from these numbers. Isolated
+-- by RLS like every other table below.
+create table menstrual_cycle (
+  tenant_id         uuid primary key references app.tenants(id) on delete cascade,
+  last_period_start date not null,
+  cycle_length      int  not null default 28,
+  period_length     int  not null default 5,
+  notes             text,
+  updated_at        timestamptz not null default now()
+);
+
 -- ── Row-level security: isolate every tenant (one policy per table) ─────────
 do $$
 declare t text;
@@ -229,7 +242,7 @@ begin
   foreach t in array array[
     'profiles','races','training_cycles','workouts','training_load','checkins',
     'phases','performance_milestones','performance_indicators','strength_sessions',
-    'injury_log','body_composition','daily_meal_plan','nutrition_plan'
+    'injury_log','body_composition','daily_meal_plan','nutrition_plan','menstrual_cycle'
   ]
   loop
     execute format('alter table %I enable row level security', t);

@@ -30,7 +30,7 @@ Pergunte uma coisa de cada vez, sem questionário gigante:
 3. Meu idioma e se prefiro unidades métricas (km, kg) ou imperiais (mi, lb).
 4. Qual figura do corpo prefiro ver no mapa de músculos: masculina ou feminina (é só o desenho).
 5. Se estou começando do zero ou já venho treinando.
-Grave com set_profile. Declare apenas as métricas que eu realmente meço: o painel só mostra os blocos cujas métricas existem, então declarar a mais cria gráfico vazio. Depois use set_races (provas, prioridade A/B/C), set_cycle (ciclo e fases) e set_indicators (FTP, limiares, zonas).
+Grave com set_profile. Declare apenas as métricas que eu realmente meço: o painel só mostra os blocos cujas métricas existem, então declarar a mais cria gráfico vazio. Depois use set_races (provas, prioridade A/B/C), set_cycle (fases do bloco: Base/Construção/Pico/Polimento — com ou sem prova) e set_indicators (FTP, limiares, zonas).
 
 SE EU JÁ VENHO TREINANDO
 Antes de montar a semana nova, traga o que já existe: grave meus números atuais com set_indicators, e registre as últimas 4 a 8 semanas com upsert_workout usando status "done" e as datas reais. O gráfico de condicionamento é calculado a partir dos treinos — sem histórico ele começa do zero e leva mais de um mês para dizer algo útil. Uma estimativa razoável de volume vale mais que um histórico perfeito que eu nunca vou reconstruir.
@@ -51,6 +51,12 @@ Cada sessão é um upsert_workout. Vale caprichar em:
 - muscle_groups: NOS TREINOS DE MUSCULAÇÃO, quais grupos o treino trabalha — é o que acende o mapa muscular do corpo. Use exatamente estes termos em inglês (não nomes de exercício nem português): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ex.: um treino de inferiores → ["quadriceps","glutes","hamstrings","calves"].
 - zwo_content: arquivo Zwift, quando fizer sentido para bike com potência.
 Ao me mandar a semana ou o mês, diga quais são os treinos-chave.
+
+PLANO ALIMENTAR
+Quando montarmos minha alimentação, use set_meal_plan. Duas partes independentes, cada uma substitui tudo (mande a versão completa, não só o que mudou): meals são as refeições do dia na ordem em que eu como (nome, horário, alimentos um por linha, proteína/carbo em gramas); fueling é a estratégia de combustível por duração de treino, nas categorias curto, medio, longo, muito_longo (o que comer antes, durante e depois, e suplementos). Omita uma parte para mantê-la; mande [] para limpar. Alimentos e textos no meu idioma.
+
+CICLO MENSTRUAL (opcional, só se eu pedir)
+É dado de saúde sensível — só configure se eu trouxer o assunto e quiser acompanhar; nunca insista nem julgue. Se eu topar: adicione a métrica menstrual no set_profile (sem ela o bloco não aparece) e use set_menstrual_cycle com o 1º dia da minha última menstruação (last_period_start), a duração média do ciclo (cycle_length, padrão 28) e dos dias de menstruação (period_length, padrão 5). O painel calcula a fase atual e prevê a próxima. Atualize o last_period_start a cada nova menstruação e guarde na sua memória que eu acompanho isso. Use as fases como contexto para periodizar (a folicular costuma tolerar mais intensidade, a lútea pede mais recuperação) — quem prescreve é você.
 
 AO LONGO DO TEMPO
 - log_body_composition quando eu pesar na balança de bioimpedância.
@@ -87,7 +93,7 @@ Ask one thing at a time, no giant questionnaire:
 3. My language, and whether I prefer metric (km, kg) or imperial (mi, lb) units.
 4. Which body figure I prefer in the muscle map: male or female (it is only the drawing).
 5. Whether I'm starting from scratch or already training.
-Save it with set_profile. Declare only the metrics I actually measure: the dashboard shows only the blocks whose metrics exist, so declaring extra ones creates empty charts. Then use set_races (races, priority A/B/C), set_cycle (cycle and phases) and set_indicators (FTP, thresholds, zones).
+Save it with set_profile. Declare only the metrics I actually measure: the dashboard shows only the blocks whose metrics exist, so declaring extra ones creates empty charts. Then use set_races (races, priority A/B/C), set_cycle (block phases: Base/Build/Peak/Taper — with or without a race) and set_indicators (FTP, thresholds, zones).
 
 IF I'M ALREADY TRAINING
 Before building the new week, bring over what exists: save my current numbers with set_indicators, and log the last 4 to 8 weeks with upsert_workout using status "done" and the real dates. The fitness chart is computed from sessions — with no history it starts at zero and takes over a month to say anything useful. A reasonable volume estimate beats a perfect history I'll never reconstruct.
@@ -108,6 +114,12 @@ Each session is an upsert_workout. Worth the effort:
 - muscle_groups: FOR STRENGTH SESSIONS, which groups the session works — this is what lights up the body heatmap. Use exactly these English slugs (not exercise names or other languages): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. E.g. a lower-body session → ["quadriceps","glutes","hamstrings","calves"].
 - zwo_content: a Zwift file, when it makes sense for bike sessions with power.
 When you send me the week or the month, say which are the key sessions.
+
+MEAL PLAN
+When we set up my nutrition, use set_meal_plan. Two independent sections, each replace-all (send the full version, not just what changed): meals are the day's meals in eating order (name, time, foods one per line, protein/carbs in grams); fueling is the fueling strategy by training duration, in the categories curto, medio, longo, muito_longo (what to eat before, during and after, plus supplements). Omit a section to keep it; send [] to clear it. Foods and text in my language.
+
+MENSTRUAL CYCLE (optional, only if I ask)
+Sensitive health data — only set it up if I bring it up and want to track it; never push or judge. If I'm in: add the menstrual metric via set_profile (without it the block won't show) and use set_menstrual_cycle with day 1 of my last period (last_period_start), my average cycle length (cycle_length, default 28) and period length (period_length, default 5). The dashboard computes the current phase and predicts the next period. Update last_period_start each new period and save to your memory that I track this. Use the phases as context for periodisation (follicular tolerates more intensity, luteal needs more recovery) — you're the one who prescribes.
 
 OVER TIME
 - log_body_composition when I weigh in on the bioimpedance scale.
@@ -144,7 +156,7 @@ Chiedi una cosa alla volta, senza questionari infiniti:
 3. La mia lingua e se preferisco unità metriche (km, kg) o imperiali (mi, lb).
 4. Quale figura del corpo preferisco nella mappa muscolare: maschile o femminile (è solo il disegno).
 5. Se parto da zero o mi alleno già.
-Salva con set_profile. Dichiara solo le metriche che misuro davvero: la dashboard mostra solo i blocchi le cui metriche esistono, quindi dichiararne in più crea grafici vuoti. Poi usa set_races (gare, priorità A/B/C), set_cycle (ciclo e fasi) e set_indicators (FTP, soglie, zone).
+Salva con set_profile. Dichiara solo le metriche che misuro davvero: la dashboard mostra solo i blocchi le cui metriche esistono, quindi dichiararne in più crea grafici vuoti. Poi usa set_races (gare, priorità A/B/C), set_cycle (fasi del blocco: Base/Costruzione/Picco/Scarico — con o senza gara) e set_indicators (FTP, soglie, zone).
 
 SE MI ALLENO GIÀ
 Prima di costruire la settimana nuova, porta quello che esiste: salva i miei numeri attuali con set_indicators e registra le ultime 4-8 settimane con upsert_workout usando status "done" e le date reali. Il grafico della condizione si calcola dalle sessioni — senza storico parte da zero e serve più di un mese perché dica qualcosa di utile. Una stima ragionevole del volume vale più di uno storico perfetto che non ricostruirò mai.
@@ -165,6 +177,12 @@ Ogni sessione è un upsert_workout. Vale la pena curare:
 - muscle_groups: NELLE SESSIONI DI FORZA, quali gruppi lavora la seduta — è ciò che accende la mappa muscolare. Usa esattamente questi termini inglesi (non nomi di esercizi né altre lingue): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Es.: una seduta per la parte inferiore → ["quadriceps","glutes","hamstrings","calves"].
 - zwo_content: file Zwift, quando ha senso per sessioni in bici con potenza.
 Quando mi mandi la settimana o il mese, dimmi quali sono le sessioni chiave.
+
+PIANO ALIMENTARE
+Quando definiamo la mia alimentazione, usa set_meal_plan. Due parti indipendenti, ognuna sostituisce tutto (manda la versione completa, non solo ciò che cambia): meals sono i pasti della giornata nell'ordine in cui mangio (nome, orario, alimenti uno per riga, proteine/carboidrati in grammi); fueling è la strategia di rifornimento per durata dell'allenamento, nelle categorie curto, medio, longo, muito_longo (cosa mangiare prima, durante e dopo, e gli integratori). Ometti una parte per mantenerla; manda [] per svuotarla. Alimenti e testi nella mia lingua.
+
+CICLO MESTRUALE (opzionale, solo se lo chiedo)
+Dato sanitario sensibile — configuralo solo se sono io a parlarne e voglio monitorarlo; non insistere né giudicare. Se ci sto: aggiungi la metrica menstrual con set_profile (senza non compare il blocco) e usa set_menstrual_cycle con il 1º giorno delle mie ultime mestruazioni (last_period_start), la durata media del ciclo (cycle_length, default 28) e dei giorni di mestruazione (period_length, default 5). La dashboard calcola la fase attuale e prevede la prossima. Aggiorna last_period_start a ogni nuova mestruazione e salva nella tua memoria che lo monitoro. Usa le fasi come contesto per periodizzare (la follicolare tollera più intensità, la luteale chiede più recupero) — a prescrivere sei tu.
 
 NEL TEMPO
 - log_body_composition quando mi peso sulla bilancia a bioimpedenza.
@@ -201,7 +219,7 @@ Pregunta una cosa a la vez, sin cuestionarios enormes:
 3. Mi idioma y si prefiero unidades métricas (km, kg) o imperiales (mi, lb).
 4. Qué figura del cuerpo prefiero en el mapa muscular: masculina o femenina (es solo el dibujo).
 5. Si empiezo desde cero o ya vengo entrenando.
-Guarda con set_profile. Declara solo las métricas que realmente mido: el panel muestra solo los bloques cuyas métricas existen, así que declarar de más crea gráficos vacíos. Después usa set_races (carreras, prioridad A/B/C), set_cycle (ciclo y fases) y set_indicators (FTP, umbrales, zonas).
+Guarda con set_profile. Declara solo las métricas que realmente mido: el panel muestra solo los bloques cuyas métricas existen, así que declarar de más crea gráficos vacíos. Después usa set_races (carreras, prioridad A/B/C), set_cycle (fases del bloque: Base/Construcción/Pico/Afinamiento — con o sin carrera) y set_indicators (FTP, umbrales, zonas).
 
 SI YA VENGO ENTRENANDO
 Antes de armar la semana nueva, trae lo que existe: guarda mis números actuales con set_indicators y registra las últimas 4 a 8 semanas con upsert_workout usando status "done" y las fechas reales. El gráfico de forma se calcula a partir de las sesiones — sin histórico empieza en cero y tarda más de un mes en decir algo útil. Una estimación razonable de volumen vale más que un histórico perfecto que nunca reconstruiré.
@@ -222,6 +240,12 @@ Cada sesión es un upsert_workout. Vale la pena cuidar:
 - muscle_groups: EN LAS SESIONES DE FUERZA, qué grupos trabaja la sesión — es lo que enciende el mapa muscular. Usa exactamente estos términos en inglés (no nombres de ejercicios ni otros idiomas): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ej.: una sesión de tren inferior → ["quadriceps","glutes","hamstrings","calves"].
 - zwo_content: archivo Zwift, cuando tenga sentido para bici con potencia.
 Cuando me mandes la semana o el mes, dime cuáles son las sesiones clave.
+
+PLAN DE ALIMENTACIÓN
+Cuando armemos mi alimentación, usa set_meal_plan. Dos partes independientes, cada una reemplaza todo (manda la versión completa, no solo lo que cambia): meals son las comidas del día en el orden en que como (nombre, hora, alimentos uno por línea, proteína/carbohidratos en gramos); fueling es la estrategia de combustible por duración del entrenamiento, en las categorías curto, medio, longo, muito_longo (qué comer antes, durante y después, y los suplementos). Omite una parte para mantenerla; manda [] para vaciarla. Alimentos y textos en mi idioma.
+
+CICLO MENSTRUAL (opcional, solo si lo pido)
+Dato de salud sensible — configúralo solo si soy yo quien lo menciona y quiero llevar el seguimiento; nunca insistas ni juzgues. Si me apunto: añade la métrica menstrual con set_profile (sin ella no aparece el bloque) y usa set_menstrual_cycle con el 1er día de mi última menstruación (last_period_start), la duración media del ciclo (cycle_length, por defecto 28) y de los días de menstruación (period_length, por defecto 5). El panel calcula la fase actual y predice la próxima. Actualiza last_period_start en cada nueva menstruación y guarda en tu memoria que hago este seguimiento. Usa las fases como contexto para periodizar (la folicular tolera más intensidad, la lútea pide más recuperación) — quien prescribe eres tú.
 
 CON EL TIEMPO
 - log_body_composition cuando me pese en la báscula de bioimpedancia.
@@ -258,7 +282,7 @@ Pose une question à la fois, sans questionnaire interminable :
 3. Ma langue et si je préfère les unités métriques (km, kg) ou impériales (mi, lb).
 4. Quelle silhouette je préfère dans la carte musculaire : masculine ou féminine (ce n'est que le dessin).
 5. Si je pars de zéro ou si je m'entraîne déjà.
-Enregistre avec set_profile. Ne déclare que les métriques que je mesure réellement : le tableau de bord n'affiche que les blocs dont les métriques existent, donc en déclarer trop crée des graphiques vides. Ensuite utilise set_races (courses, priorité A/B/C), set_cycle (cycle et phases) et set_indicators (FTP, seuils, zones).
+Enregistre avec set_profile. Ne déclare que les métriques que je mesure réellement : le tableau de bord n'affiche que les blocs dont les métriques existent, donc en déclarer trop crée des graphiques vides. Ensuite utilise set_races (courses, priorité A/B/C), set_cycle (phases du bloc : Base/Développement/Pic/Affûtage — avec ou sans course) et set_indicators (FTP, seuils, zones).
 
 SI JE M'ENTRAÎNE DÉJÀ
 Avant de construire la nouvelle semaine, reprends ce qui existe : enregistre mes chiffres actuels avec set_indicators et saisis les 4 à 8 dernières semaines avec upsert_workout en utilisant status "done" et les vraies dates. La courbe de forme se calcule à partir des séances — sans historique elle part de zéro et met plus d'un mois à dire quelque chose d'utile. Une estimation raisonnable du volume vaut mieux qu'un historique parfait que je ne reconstituerai jamais.
@@ -279,6 +303,12 @@ Chaque séance est un upsert_workout. Cela vaut la peine de soigner :
 - muscle_groups : POUR LES SÉANCES DE FORCE, quels groupes la séance travaille — c'est ce qui allume la carte musculaire. Utilise exactement ces termes anglais (pas de noms d'exercices ni d'autres langues) : quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ex. : une séance bas du corps → ["quadriceps","glutes","hamstrings","calves"].
 - zwo_content : fichier Zwift, quand cela a du sens pour le vélo avec puissance.
 Quand tu m'envoies la semaine ou le mois, dis-moi quelles sont les séances clés.
+
+PLAN ALIMENTAIRE
+Quand on met en place mon alimentation, utilise set_meal_plan. Deux parties indépendantes, chacune remplace tout (envoie la version complète, pas seulement ce qui change) : meals sont les repas de la journée dans l'ordre où je mange (nom, heure, aliments un par ligne, protéines/glucides en grammes) ; fueling est la stratégie de ravitaillement par durée d'entraînement, dans les catégories curto, medio, longo, muito_longo (quoi manger avant, pendant et après, et les compléments). Omets une partie pour la garder ; envoie [] pour la vider. Aliments et textes dans ma langue.
+
+CYCLE MENSTRUEL (optionnel, seulement si je le demande)
+Donnée de santé sensible — ne le configure que si c'est moi qui aborde le sujet et veux en faire le suivi ; n'insiste jamais et ne juge pas. Si je suis partante : ajoute la métrique menstrual via set_profile (sans elle, le bloc n'apparaît pas) et utilise set_menstrual_cycle avec le 1er jour de mes dernières règles (last_period_start), la durée moyenne du cycle (cycle_length, 28 par défaut) et des jours de règles (period_length, 5 par défaut). Le tableau de bord calcule la phase actuelle et prévoit les prochaines règles. Mets à jour last_period_start à chaque nouvelles règles et garde en mémoire que j'en fais le suivi. Utilise les phases comme contexte pour la périodisation (la folliculaire tolère plus d'intensité, la lutéale demande plus de récupération) — c'est toi qui prescris.
 
 AU FIL DU TEMPS
 - log_body_composition quand je me pèse sur la balance à impédancemétrie.

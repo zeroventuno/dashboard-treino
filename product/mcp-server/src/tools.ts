@@ -32,7 +32,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
     async () =>
       data(
         await withTenant(tenantId, async (c) => {
-          const [profile, races, cycle, indicators] = await Promise.all([
+          const [profile, races, cycle, indicators, menstrual] = await Promise.all([
             c.query(
               "select athlete, devices, metrics, mode, locale, units, anatomy, updated_at from profiles where tenant_id=$1 limit 1",
               [tenantId],
@@ -43,12 +43,20 @@ export function registerTools(server: McpServer, tenantId: string): void {
               [tenantId],
             ),
             c.query("select * from performance_indicators where tenant_id=$1 limit 1", [tenantId]),
+            // Only meaningful if the athlete opted into the "menstrual" metric;
+            // null otherwise. Lets the coach update last_period_start without
+            // re-asking, and see it before touching set_menstrual_cycle.
+            c.query(
+              "select last_period_start, cycle_length, period_length, notes from menstrual_cycle where tenant_id=$1 limit 1",
+              [tenantId],
+            ),
           ]);
           return {
             profile: profile.rows[0] ?? null,
             races: races.rows,
             active_cycle: cycle.rows[0] ?? null,
             indicators: indicators.rows[0] ?? null,
+            menstrual_cycle: menstrual.rows[0] ?? null,
             configured: profile.rows.length > 0,
           };
         }),
@@ -224,7 +232,8 @@ export function registerTools(server: McpServer, tenantId: string): void {
   server.registerTool(
     "set_cycle",
     {
-      description: "Define the current training cycle (cycle mode — training toward a goal with no target race).",
+      description:
+          "Define the training block and its phases (Base/Build/Peak/Taper). These draw the Season block phase bars for ANY athlete, with or without a race. A race athlete uses this alongside set_races (the cycle gives the phases, the race gives the countdown); a cycle-mode athlete uses it alone. Does not change race|cycle mode; that is set_profile.",
       inputSchema: {
         name: z.string(),
         start_date: z.string(),
@@ -243,6 +252,150 @@ export function registerTools(server: McpServer, tenantId: string): void {
         );
       });
       return ok(`Cycle "${a.name}" (${a.weeks} weeks, ${a.phases.length} phases) saved.`);
+    },
+  );
+
+  server.registerTool(
+    "set_meal_plan",
+    {
+      description:
+        "Fill the Meal Plan block. Two independent sections, each replace-all: `meals` is the daily eating plan (breakfast → dinner, in the order you list them); `fueling` is the pre/during/post-training strategy bucketed by session length. Omit a section to keep what's there; pass [] to clear it. Write meal names, foods and all text in the athlete's language — the block only translates its own structural labels.",
+      inputSchema: {
+        meals: z
+          .array(
+            z.object({
+              meal_name: z.string().describe("e.g. Breakfast, Pre-ride snack, Recovery shake"),
+              time_suggestion: z.string().optional().describe("HH:MM, or a phrase like 'on waking'"),
+              // Rendered with newlines preserved, so a multi-item meal reads as a list.
+              foods: z.string().optional().describe("the foods; separate items with newlines"),
+              protein_g: z.number().optional().describe("grams of protein for this meal"),
+              carbs_g: z.number().optional().describe("grams of carbs for this meal"),
+              notes: z.string().optional(),
+            }),
+          )
+          .optional()
+          .describe("daily meals, in eating order; omit to keep, [] to clear"),
+        fueling: z
+          .array(
+            z.object({
+              // These four slugs are load-bearing: the block maps them to labels
+              // (Curto/Médio/Longo/Muito longo). Any other value renders raw.
+              duration_category: z
+                .enum(["curto", "medio", "longo", "muito_longo"])
+                .describe("session-length bucket — use exactly these slugs"),
+              duration_range: z.string().optional().describe("e.g. '< 1h', '1–3h', '> 3h'"),
+              discipline_context: z.string().optional().describe("e.g. 'bike/run', 'long swim'"),
+              before_training: z.string().optional(),
+              during_training: z.string().optional(),
+              after_training: z.string().optional(),
+              supplements_used: z.array(z.string()).optional().describe("e.g. ['gel','caffeine']"),
+              notes: z.string().optional(),
+            }),
+          )
+          .optional()
+          .describe("fueling rules by training duration; omit to keep, [] to clear"),
+      },
+    },
+    async (a) => {
+      // Replace-all per section (same shape as set_races): a meal plan is a
+      // cohesive whole, and per-row upsert would leave orphan rows behind when
+      // a new plan has fewer meals than the old one. Both run in one
+      // transaction (withTenant), so a failure rolls the whole thing back.
+      // meal_order is the array index, not a coach-supplied field — the order
+      // you list the meals IS the order they eat.
+      let mealsN = -1;
+      let fuelN = -1;
+      await withTenant(tenantId, async (c) => {
+        if (a.meals !== undefined) {
+          await c.query("delete from daily_meal_plan where tenant_id=$1", [tenantId]);
+          for (let i = 0; i < a.meals.length; i++) {
+            const m = a.meals[i];
+            await c.query(
+              `insert into daily_meal_plan
+                 (tenant_id, meal_order, meal_name, time_suggestion, foods, protein_g, carbs_g, notes)
+               values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+              [
+                tenantId, i + 1, m.meal_name, m.time_suggestion ?? null, m.foods ?? null,
+                m.protein_g ?? null, m.carbs_g ?? null, m.notes ?? null,
+              ],
+            );
+          }
+          mealsN = a.meals.length;
+        }
+        if (a.fueling !== undefined) {
+          await c.query("delete from nutrition_plan where tenant_id=$1", [tenantId]);
+          for (const r of a.fueling) {
+            await c.query(
+              // ::text[] cast for the same reason set_profile needs it — keeps a
+              // null or an array from being inferred as plain text.
+              `insert into nutrition_plan
+                 (tenant_id, duration_category, duration_range, discipline_context,
+                  before_training, during_training, after_training, supplements_used, notes)
+               values ($1,$2,$3,$4,$5,$6,$7,$8::text[],$9)`,
+              [
+                tenantId, r.duration_category, r.duration_range ?? null, r.discipline_context ?? null,
+                r.before_training ?? null, r.during_training ?? null, r.after_training ?? null,
+                r.supplements_used ?? null, r.notes ?? null,
+              ],
+            );
+          }
+          fuelN = a.fueling.length;
+        }
+      });
+      const parts = [
+        mealsN >= 0 && `${mealsN} meal(s)`,
+        fuelN >= 0 && `${fuelN} fueling rule(s)`,
+      ].filter(Boolean);
+      return ok(
+        parts.length > 0
+          ? `Meal plan saved — ${parts.join(", ")}.`
+          : "Nothing to change — pass `meals` and/or `fueling`.",
+      );
+    },
+  );
+
+  server.registerTool(
+    "set_menstrual_cycle",
+    {
+      description:
+        "Opt-in menstrual-cycle tracking — set up ONLY if the athlete asked for it (sensitive health data). One row per athlete: the dashboard derives today's phase and predicts the next period from these numbers. Update `last_period_start` each time a new period begins to keep the prediction accurate. The block only shows if the athlete also has the `menstrual` metric (add it via set_profile). Store the athlete's preference in your memory and don't re-ask.",
+      inputSchema: {
+        last_period_start: z.string().describe("day 1 of the most recent period, YYYY-MM-DD"),
+        cycle_length: z
+          .number()
+          .int()
+          .min(15)
+          .max(60)
+          .optional()
+          .describe("average cycle length in days (omit to keep; default 28 on first set)"),
+        period_length: z
+          .number()
+          .int()
+          .min(1)
+          .max(14)
+          .optional()
+          .describe("average bleeding days (omit to keep; default 5 on first set)"),
+        notes: z.string().optional().describe("context in the athlete's language; omit to keep"),
+      },
+    },
+    async (a) => {
+      // Upsert on tenant_id (the PK — one row per athlete). last_period_start is
+      // always provided, so it's always refreshed; the rest coalesce so omitting
+      // them keeps the stored value (same "omit ≠ clear" rule as set_profile).
+      await withTenant(tenantId, (c) =>
+        c.query(
+          `insert into menstrual_cycle (tenant_id, last_period_start, cycle_length, period_length, notes, updated_at)
+           values ($1, $2, coalesce($3::int, 28), coalesce($4::int, 5), $5, now())
+           on conflict (tenant_id) do update set
+             last_period_start = excluded.last_period_start,
+             cycle_length      = coalesce($3::int, menstrual_cycle.cycle_length),
+             period_length     = coalesce($4::int, menstrual_cycle.period_length),
+             notes             = coalesce($5, menstrual_cycle.notes),
+             updated_at        = now()`,
+          [tenantId, a.last_period_start, a.cycle_length ?? null, a.period_length ?? null, a.notes ?? null],
+        ),
+      );
+      return ok(`Menstrual cycle updated — last period ${a.last_period_start}.`);
     },
   );
 

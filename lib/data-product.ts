@@ -11,7 +11,7 @@ import { hasProductDb, withTenant } from "./product-db";
 import { addDays, parseDate, toISO } from "./utils";
 import { RACE_DATE, RACE_NAME } from "./types";
 import type {
-  BodyComposition, Checkin, DailyMeal, DashboardData, InjuryEntry, NutritionRule,
+  BodyComposition, Checkin, DailyMeal, DashboardData, InjuryEntry, MenstrualCycle, NutritionRule,
   PerformanceIndicators, PerformanceMilestone, Phase, StrengthSession, TrainingLoad, Workout,
 } from "./types";
 
@@ -275,6 +275,11 @@ export async function getProductDashboardData(
       const nutritionRules = await q<NutritionRule>(
         "select * from nutrition_plan where tenant_id=$1 order by duration_category",
       );
+      // Opt-in, one row per athlete. Null when never set — the block shows an
+      // empty state, and it's gated behind the "menstrual" metric anyway.
+      const menstrualRows = await q<MenstrualCycle>(
+        "select last_period_start, cycle_length, period_length, notes from menstrual_cycle where tenant_id=$1 limit 1",
+      );
 
       const data: DashboardData = {
         trainingLoad: extendTrainingLoad(trainingLoad, workouts, toISO(new Date())),
@@ -290,6 +295,7 @@ export async function getProductDashboardData(
         bodyComposition,
         mealPlan,
         nutritionRules,
+        menstrualCycle: menstrualRows[0] ?? null,
       };
       return { data, locale, tenant };
     });

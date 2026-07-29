@@ -26,7 +26,8 @@ export type Metric =
   | "nutrition"      // meal plan / fueling guidance
   | "strength"       // logs strength sessions
   | "hydration"
-  | "protein";
+  | "protein"
+  | "menstrual";     // opt-in menstrual-cycle tracking (sensitive; ask first)
 
 export interface RaceTarget {
   name: string;
@@ -84,7 +85,8 @@ export const DEMO_PROFILES: Record<string, TenantConfig> = {
     device: "Amazfit GTR (FC + sono, sem potência/bioimpedância)",
     mode: "cycle",
     // No HRV, no power, no bioimpedance, no nutrition/strength tracking.
-    metrics: ["sleep", "readiness", "zones", "hydration"],
+    // Opted into menstrual-cycle tracking — showcases that block on /demo.
+    metrics: ["sleep", "readiness", "zones", "hydration", "menstrual"],
     cycle: {
       name: "Ciclo de base — 16 semanas",
       startDate: "2026-05-25",

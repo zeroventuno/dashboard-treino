@@ -79,7 +79,10 @@ os blocos cujas métricas eu tenho**, então não declare métrica que eu não m
 
 Depois, conforme o caso:
 - `set_races` — as provas-alvo, com prioridade A/B/C.
-- `set_cycle` — o ciclo e suas fases, quando não há prova marcada.
+- `set_cycle` — o bloco de treino e suas fases (Base/Construção/Pico/Polimento).
+  Serve para **qualquer** atleta: com prova marcada, use junto do `set_races` (a
+  prova dá a contagem regressiva no topo, o ciclo desenha as fases na Temporada);
+  sem prova, use sozinho. Não muda o modo `race`/`cycle` — isso é o `set_profile`.
 - `set_indicators` — FTP, limiares e zonas, se eu tiver esses números.
 
 **Uma pergunta que muda tudo o que vem depois:** eu estou começando do zero ou
@@ -137,6 +140,42 @@ Cada sessão é um `upsert_workout`. Alguns campos mudam bastante a experiência
   potência.
 
 Ao me mandar a semana ou o mês, **diga quais são os treinos-chave** e marque-os.
+
+### Plano alimentar
+
+Quando montarmos minha alimentação, use `set_meal_plan`. São duas partes
+independentes, cada uma substitui tudo o que estava lá (mande a versão completa,
+não só o que mudou):
+
+- `meals` — as refeições do dia, **na ordem em que eu como** (café → ceia). Cada
+  uma com nome, horário sugerido, alimentos (uma linha por item), e proteína/carbo
+  em gramas se você calcular. A ordem da lista é a ordem no painel; não existe
+  campo de "número da refeição".
+- `fueling` — a estratégia de combustível **por duração de treino**. Use exatamente
+  estes rótulos de categoria: `curto`, `medio`, `longo`, `muito_longo`. Cada um com
+  o que comer antes, durante e depois, e os suplementos.
+
+Omita uma das partes para mantê-la como está; mande `[]` para limpar. Escreva os
+alimentos e textos **no meu idioma**.
+
+### Ciclo menstrual (opcional, só se eu pedir)
+
+É **dado de saúde sensível** — só configure se **eu** trouxer o assunto e quiser
+acompanhar. Não ofereça de forma insistente e não julgue.
+
+Se eu topar:
+1. Adicione a métrica `menstrual` no `set_profile` (é o que faz o bloco aparecer
+   no painel — sem ela, nada é mostrado).
+2. Use `set_menstrual_cycle` com o **1º dia da minha última menstruação**
+   (`last_period_start`), a duração média do ciclo (`cycle_length`, padrão 28) e
+   dos dias de menstruação (`period_length`, padrão 5). O painel calcula sozinho
+   a fase atual (menstrual / folicular / ovulatória / lútea) e prevê a próxima.
+3. **Atualize o `last_period_start` a cada nova menstruação** — é o que mantém a
+   previsão certa. Guarde na sua memória que eu acompanho isso.
+
+Use as fases como **contexto** para periodizar (a folicular costuma tolerar mais
+intensidade; a lútea pede mais recuperação), mas quem prescreve é você — o painel
+só informa.
 
 ### Ao longo do tempo
 

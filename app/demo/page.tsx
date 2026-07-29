@@ -19,6 +19,7 @@ import { DemoHero, cycleToPhases } from "@/components/DemoHero";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
 import { SeasonBlock } from "@/components/blocks/SeasonBlock";
+import { MenstrualCycleBlock } from "@/components/blocks/MenstrualCycleBlock";
 import { ZonesBlock } from "@/components/blocks/ZonesBlock";
 import { MealPlanBlock } from "@/components/blocks/MealPlanBlock";
 import { BodyBlock } from "@/components/blocks/BodyBlock";
@@ -36,6 +37,7 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
   fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
   calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
+  menstrual: (p) => <MenstrualCycleBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
   mealplan: (p) => <MealPlanBlock data={p.data} locale={p.locale} />,
   body: (p) => <BodyBlock data={p.data} locale={p.locale} />,
@@ -59,6 +61,12 @@ function demoData(config: TenantConfig): DashboardData {
     protein_grams_estimate: config.metrics.includes("protein") ? c.protein_grams_estimate : null,
   }));
 
+  // Anchored to DEMO_TODAY (not real "now") so the phase math lines up with the
+  // rest of the demo: 8 days before 2026-07-11 → day 9, the follicular phase.
+  const menstrualCycle = config.metrics.includes("menstrual")
+    ? { last_period_start: "2026-07-03", cycle_length: 28, period_length: 5, notes: base.menstrualCycle?.notes ?? null }
+    : null;
+
   if (config.mode === "cycle") {
     return {
       ...base,
@@ -69,9 +77,10 @@ function demoData(config: TenantConfig): DashboardData {
       mealPlan: config.metrics.includes("nutrition") ? base.mealPlan : [],
       nutritionRules: config.metrics.includes("nutrition") ? base.nutritionRules : [],
       strength: config.metrics.includes("strength") ? base.strength : [],
+      menstrualCycle,
     };
   }
-  return { ...base, checkins };
+  return { ...base, checkins, menstrualCycle };
 }
 
 const METRIC_LABEL: Record<string, string> = {

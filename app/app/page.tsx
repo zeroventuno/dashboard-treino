@@ -33,6 +33,7 @@ import { HeroBlock } from "@/components/blocks/HeroBlock";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
 import { SeasonBlock } from "@/components/blocks/SeasonBlock";
+import { MenstrualCycleBlock } from "@/components/blocks/MenstrualCycleBlock";
 import { ZonesBlock } from "@/components/blocks/ZonesBlock";
 import { MealPlanBlock } from "@/components/blocks/MealPlanBlock";
 import { BodyBlock } from "@/components/blocks/BodyBlock";
@@ -73,6 +74,7 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
   fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
   calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} units={p.tenant.units} />,
   season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
+  menstrual: (p) => <MenstrualCycleBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
   mealplan: (p) => <MealPlanBlock data={p.data} locale={p.locale} />,
   body: (p) => <BodyBlock data={p.data} locale={p.locale} units={p.tenant.units} />,

@@ -11,6 +11,7 @@ export type BlockId =
   | "fitness"     // PMC chart (CTL/ATL/TSB)
   | "calendar"    // monthly training calendar
   | "season"      // season phases + milestones timeline
+  | "menstrual"   // menstrual-cycle phases + prediction (opt-in, female)
   | "zones"       // performance zones (bike/run/swim)
   | "mealplan"    // daily meal plan + nutrition rules by training duration
   | "body"        // body composition (bioimpedance) trends
@@ -35,6 +36,7 @@ export const BLOCKS: BlockDef[] = [
   { id: "fitness",     enabled: true, width: "full" },
   { id: "calendar",    enabled: true, width: "full" },
   { id: "season",      enabled: true, width: "full" },
+  { id: "menstrual",   enabled: true, width: "full",  requires: ["menstrual"] },
   { id: "zones",       enabled: true, width: "full",  requires: ["zones"] },
   { id: "mealplan",    enabled: true, width: "full",  requires: ["nutrition"] },
   { id: "body",        enabled: true, width: "full",  requires: ["bioimpedance"] },
