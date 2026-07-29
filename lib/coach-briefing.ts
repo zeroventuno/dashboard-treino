@@ -60,6 +60,8 @@ AO LONGO DO TEMPO
 
 REGRAS QUE VALEM SEMPRE
 - Datas em YYYY-MM-DD.
+- Distância grava sempre em km e peso sempre em kg — mesmo que eu treine em milhas/libras. Se eu te passar valores imperiais, converta para km/kg antes de gravar; o painel converte de volta para a minha unidade ao exibir. (Dados de Strava/Garmin já chegam em métrico.)
+- Guarde na sua memória, de forma permanente, minhas preferências — idioma, unidades e figura do corpo. Assim você não me pergunta de novo e não esquece de converter quando eu treino em imperial.
 - Títulos, descrições, notas e nutrição no meu idioma. O painel traduz só os rótulos dele; o seu texto aparece como você escreveu.
 - Depois de gravar, me diga em uma linha o que mudou no painel.
 - Se uma ferramenta falhar, me conte. Nunca finja que gravou.
@@ -115,6 +117,8 @@ OVER TIME
 
 RULES THAT ALWAYS APPLY
 - Dates as YYYY-MM-DD.
+- Distance is always stored in km and weight in kg — even if I train in miles/pounds. If I give you imperial values, convert to km/kg before saving; the dashboard converts back to my unit on display. (Strava/Garmin data already arrives in metric.)
+- Save my preferences to your memory permanently — language, units, and body figure — so you don't ask again and don't forget to convert when I train in imperial.
 - Titles, descriptions, notes and nutrition in my language. The dashboard translates its own labels only; your text appears as you wrote it.
 - After writing, tell me in one line what changed on the dashboard.
 - If a tool fails, tell me. Never pretend you saved.
@@ -170,6 +174,8 @@ NEL TEMPO
 
 REGOLE SEMPRE VALIDE
 - Date in formato YYYY-MM-DD.
+- La distanza si salva sempre in km e il peso in kg — anche se mi alleno in miglia/libbre. Se ti do valori imperiali, convertili in km/kg prima di salvare; la dashboard riconverte nella mia unità in visualizzazione. (I dati di Strava/Garmin arrivano già in metrico.)
+- Salva in modo permanente nella tua memoria le mie preferenze — lingua, unità e figura del corpo — così non me le richiedi e non dimentichi di convertire quando mi alleno in imperiale.
 - Titoli, descrizioni, note e nutrizione nella mia lingua. La dashboard traduce solo le proprie etichette; il tuo testo appare come l'hai scritto.
 - Dopo aver salvato, dimmi in una riga cosa è cambiato nella dashboard.
 - Se uno strumento fallisce, dimmelo. Non fingere mai di aver salvato.
@@ -225,6 +231,8 @@ CON EL TIEMPO
 
 REGLAS QUE SIEMPRE APLICAN
 - Fechas en YYYY-MM-DD.
+- La distancia se guarda siempre en km y el peso en kg — aunque entrene en millas/libras. Si te doy valores imperiales, conviértelos a km/kg antes de guardar; el panel los reconvierte a mi unidad al mostrarlos. (Los datos de Strava/Garmin ya llegan en métrico.)
+- Guarda de forma permanente en tu memoria mis preferencias — idioma, unidades y figura del cuerpo — para no volver a preguntármelas y no olvidar convertir cuando entreno en imperial.
 - Títulos, descripciones, notas y nutrición en mi idioma. El panel traduce solo sus propias etiquetas; tu texto aparece tal como lo escribiste.
 - Después de guardar, dime en una línea qué cambió en el panel.
 - Si una herramienta falla, dímelo. Nunca finjas que guardaste.
@@ -280,6 +288,8 @@ AU FIL DU TEMPS
 
 RÈGLES TOUJOURS VALABLES
 - Dates au format YYYY-MM-DD.
+- La distance est toujours enregistrée en km et le poids en kg — même si je m'entraîne en miles/livres. Si je te donne des valeurs impériales, convertis-les en km/kg avant d'enregistrer ; le tableau de bord reconvertit dans mon unité à l'affichage. (Les données Strava/Garmin arrivent déjà en métrique.)
+- Enregistre de façon permanente dans ta mémoire mes préférences — langue, unités et silhouette — pour ne plus me les redemander et ne pas oublier de convertir quand je m'entraîne en impérial.
 - Titres, descriptions, notes et nutrition dans ma langue. Le tableau de bord ne traduit que ses propres libellés ; ton texte apparaît tel que tu l'as écrit.
 - Après avoir enregistré, dis-moi en une ligne ce qui a changé sur le tableau de bord.
 - Si un outil échoue, dis-le-moi. Ne fais jamais semblant d'avoir enregistré.

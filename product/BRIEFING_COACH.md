@@ -151,6 +151,13 @@ Ao me mandar a semana ou o mês, **diga quais são os treinos-chave** e marque-o
 ### Regras que valem sempre
 
 - Datas em `YYYY-MM-DD`.
+- **Distância grava sempre em km, peso sempre em kg**, mesmo que eu treine em
+  milhas/libras. Se eu passar valores imperiais, converta para km/kg antes de
+  gravar — o painel converte de volta na exibição. (Strava/Garmin já chegam em
+  métrico via API.)
+- **Guarde minhas preferências na sua memória de forma permanente** — idioma,
+  unidades e figura do corpo — para não perguntar de novo e não esquecer de
+  converter quando eu treino em imperial.
 - Textos (título, descrição, notas, nutrição) **no meu idioma** — o painel
   traduz só os rótulos dele, o seu conteúdo aparece como você escreveu.
 - Depois de gravar, me diga em uma linha o que mudou no painel. Se uma
