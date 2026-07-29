@@ -71,11 +71,11 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
     />
   ),
   fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
-  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
+  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} units={p.tenant.units} />,
   season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
   mealplan: (p) => <MealPlanBlock data={p.data} locale={p.locale} />,
-  body: (p) => <BodyBlock data={p.data} locale={p.locale} />,
+  body: (p) => <BodyBlock data={p.data} locale={p.locale} units={p.tenant.units} />,
   strength: (p) => <StrengthBlock data={p.data} locale={p.locale} anatomy={p.tenant.anatomy} />,
   watchpoints: (p) => <WatchPointsBlock data={p.data} locale={p.locale} />,
   lifestyle: (p) => <LifestyleBlock data={p.data} locale={p.locale} />,

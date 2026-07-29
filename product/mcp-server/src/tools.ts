@@ -119,13 +119,12 @@ export function registerTools(server: McpServer, tenantId: string): void {
         metrics: z.array(z.string()).optional().describe("omit to keep; [] to clear"),
         mode: z.enum(["race", "cycle"]).optional(),
         locale: z.string().optional(),
-        // Recorded, but the dashboard renders metric regardless — every chart
-        // and formatter assumes km/kg today. Say so rather than let an athlete
-        // ask for miles, see the value accepted, and wonder why nothing changed.
+        // Drives distance (km↔mi) and weight (kg↔lb) across the dashboard. Pace
+        // still renders metric for now.
         units: z
-          .string()
+          .enum(["metric", "imperial"])
           .optional()
-          .describe("stored for later; the dashboard currently displays metric only"),
+          .describe("distance & weight display; imperial = mi/lb"),
         // The body figure drawn in the strength/muscle map. It's the drawing,
         // not gender identity — ask which figure the athlete prefers to see.
         anatomy: z

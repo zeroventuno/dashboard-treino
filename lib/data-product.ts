@@ -34,6 +34,8 @@ export interface TenantView {
   cycleName: string | null;
   /** Body figure for the strength map. */
   anatomy: "male" | "female";
+  /** Distance/weight display; anything but "imperial" renders metric. */
+  units: "metric" | "imperial";
   /** Full cycle, for the hero's week-of-N progress and the season timeline.
    * Null when the athlete is training toward a race instead. */
   cycle: { name: string; startISO: string; weeks: number; phases: CyclePhase[] } | null;
@@ -83,6 +85,7 @@ const MOCK_TENANT: TenantView = {
   cycleName: null,
   cycle: null,
   anatomy: "male",
+  units: "metric",
 };
 
 /** A tenant the coach has never configured: no metrics declared and nothing
@@ -178,7 +181,8 @@ export async function getProductDashboardData(
         mode: string | null;
         athlete: string | null;
         anatomy: string | null;
-      }>("select locale, metrics, mode, athlete, anatomy from profiles where tenant_id=$1 limit 1");
+        units: string | null;
+      }>("select locale, metrics, mode, athlete, anatomy, units from profiles where tenant_id=$1 limit 1");
       const locale = isLocale(profile[0]?.locale) ? profile[0].locale : DEFAULT_LOCALE;
 
       // Next A race, else the soonest upcoming, else the most recent past one.
@@ -211,6 +215,7 @@ export async function getProductDashboardData(
         cycleName: cycle?.name ?? null,
         cycle,
         anatomy: profile[0]?.anatomy === "female" ? "female" : "male",
+        units: profile[0]?.units === "imperial" ? "imperial" : "metric",
       };
 
       const trainingLoad = await q<TrainingLoad>(

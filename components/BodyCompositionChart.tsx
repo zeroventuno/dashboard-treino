@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { BodyComposition } from "@/lib/types";
-import { fmtDayMonth } from "@/lib/utils";
+import { fmtDayMonth, toWeight, weightUnit, type Units } from "@/lib/utils";
 
 type Key = "weight_kg" | "body_fat_pct" | "muscle_mass_kg" | "lean_mass_kg" | "visceral_fat" | "metabolic_age";
 
@@ -42,26 +42,48 @@ function niceScale(vals: number[], minStep: number): { domain: [number, number];
   return { domain: [lo, hi], ticks };
 }
 
-export function BodyCompositionChart({ entries }: { entries: BodyComposition[] }) {
+const WEIGHT_KEYS: Key[] = ["weight_kg", "muscle_mass_kg", "lean_mass_kg"];
+
+export function BodyCompositionChart({ entries, units = "metric" }: { entries: BodyComposition[]; units?: Units }) {
   const [sel, setSel] = useState<Key>("weight_kg");
-  const active = METRICS.find((m) => m.key === sel)!;
+
+  // Weight-based metrics are stored in kg; convert both the values and the label
+  // for imperial. The chart plots these numbers directly, so the data itself has
+  // to change, not just the unit shown.
+  const metrics = useMemo(
+    () => (units === "imperial" ? METRICS.map((m) => (WEIGHT_KEYS.includes(m.key) ? { ...m, unit: weightUnit(units) } : m)) : METRICS),
+    [units],
+  );
+  const data = useMemo(
+    () =>
+      units === "imperial"
+        ? entries.map((e) => ({
+            ...e,
+            weight_kg: e.weight_kg == null ? e.weight_kg : toWeight(e.weight_kg, units),
+            muscle_mass_kg: e.muscle_mass_kg == null ? e.muscle_mass_kg : toWeight(e.muscle_mass_kg, units),
+            lean_mass_kg: e.lean_mass_kg == null ? e.lean_mass_kg : toWeight(e.lean_mass_kg, units),
+          }))
+        : entries,
+    [entries, units],
+  );
+  const active = metrics.find((m) => m.key === sel)!;
 
   const stats = useMemo(() => {
     const out: Record<string, { current: number | null; delta: number | null }> = {};
-    for (const m of METRICS) {
-      const vals = entries.map((e) => e[m.key]).filter((v): v is number => v != null);
+    for (const m of metrics) {
+      const vals = data.map((e) => e[m.key]).filter((v): v is number => v != null);
       const current = vals.length ? vals[vals.length - 1] : null;
       const delta = vals.length > 1 ? vals[vals.length - 1] - vals[0] : null;
       out[m.key] = { current, delta };
     }
     return out;
-  }, [entries]);
+  }, [data, metrics]);
 
   // round Y scale for the *selected* metric (auto domain gave illegible ticks)
   const scale = useMemo(() => {
-    const vals = entries.map((e) => e[sel]).filter((v): v is number => v != null);
+    const vals = data.map((e) => e[sel]).filter((v): v is number => v != null);
     return niceScale(vals, active.decimals === 0 ? 1 : 0);
-  }, [entries, sel, active.decimals]);
+  }, [data, sel, active.decimals]);
 
   if (entries.length === 0) {
     return (
@@ -74,7 +96,7 @@ export function BodyCompositionChart({ entries }: { entries: BodyComposition[] }
   return (
     <div>
       <div className="mb-5 flex flex-wrap gap-2">
-        {METRICS.map((m) => {
+        {metrics.map((m) => {
           const s = stats[m.key];
           const on = m.key === sel;
           const good = s.delta != null && (m.lowerIsBetter ? s.delta < 0 : s.delta > 0);
@@ -115,7 +137,7 @@ export function BodyCompositionChart({ entries }: { entries: BodyComposition[] }
               ("63.4"), and pulling the axis out of the container clipped the
               leading digit — a weight chart that reads "3.4" is worse than a
               slightly wider gutter. */}
-          <LineChart data={entries} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="var(--border-soft)" vertical={false} />
             <XAxis dataKey="date" tickFormatter={(iso) => fmtDayMonth(String(iso))} tickLine={false} axisLine={false} minTickGap={24} />
             <YAxis

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Workout, Discipline } from "@/lib/types";
-import { DISCIPLINE_META, disciplineMeta, fmtDuration, parseDate, startOfWeek, addDays, toISO } from "@/lib/utils";
+import { DISCIPLINE_META, disciplineMeta, fmtDuration, parseDate, startOfWeek, addDays, toISO, toDistance, distanceUnit, type Units } from "@/lib/utils";
 import { DisciplineIcon } from "./Icons";
 import { WorkoutModal } from "./WorkoutModal";
 import { DEFAULT_LOCALE, translator, type Locale, type T } from "@/lib/i18n";
@@ -25,8 +25,9 @@ function isoWeek(d: Date): number {
   return 1 + Math.round(((t.getTime() - first.getTime()) / 86_400_000 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
 }
 
-function fmtKm(km: number): string {
-  return `${km % 1 === 0 ? km : km.toFixed(1)} km`;
+function fmtKm(km: number, units: Units): string {
+  const v = toDistance(km, units);
+  return `${v % 1 === 0 ? v : v.toFixed(1)} ${distanceUnit(units)}`;
 }
 
 interface WeekData {
@@ -45,10 +46,12 @@ export function CalendarBoard({
   todayISO,
   ftpWatts = null,
   locale = DEFAULT_LOCALE,
+  units = "metric",
 }: {
   workouts: Workout[];
   todayISO: string;
   locale?: Locale;
+  units?: Units;
   /** Athlete's threshold power — converts .zwo power fractions into watts. */
   ftpWatts?: number | null;
 }) {
@@ -130,21 +133,22 @@ export function CalendarBoard({
             <div className="px-1 pb-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("calendar.week")}</div>
 
             {weeks.map((week) => (
-              <WeekRow key={week.days[0].iso} week={week} todayISO={todayISO} tr={tr} onOpen={setOpen} />
+              <WeekRow key={week.days[0].iso} week={week} todayISO={todayISO} tr={tr} units={units} onOpen={setOpen} />
             ))}
           </div>
         </div>
       </div>
 
-      {open && <WorkoutModal w={open} ftpWatts={ftpWatts} locale={locale} onClose={() => setOpen(null)} />}
+      {open && <WorkoutModal w={open} ftpWatts={ftpWatts} locale={locale} units={units} onClose={() => setOpen(null)} />}
     </>
   );
 }
 
-function WeekRow({ week, todayISO, tr, onOpen }: {
+function WeekRow({ week, todayISO, tr, units, onOpen }: {
   week: WeekData;
   todayISO: string;
   tr: T;
+  units: Units;
   onOpen: (w: Workout) => void;
 }) {
   return (
@@ -237,7 +241,7 @@ function WeekRow({ week, todayISO, tr, onOpen }: {
               <div key={d} className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: DISCIPLINE_META[d].color }} />
                 <span className="tnum text-[11px] text-[var(--text-muted)]">
-                  {fmtKm(week.km[d])} {tr(DISCIPLINE_META[d].i18nKey).toLowerCase()}
+                  {fmtKm(week.km[d], units)} {tr(DISCIPLINE_META[d].i18nKey).toLowerCase()}
                 </span>
               </div>
             ))}

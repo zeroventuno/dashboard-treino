@@ -1,5 +1,6 @@
 import type { DashboardData } from "@/lib/types";
 import { DEFAULT_LOCALE, translator, type Locale } from "@/lib/i18n";
+import type { Units } from "@/lib/utils";
 import { SectionCard } from "../SectionCard";
 import { CalendarBoard } from "../CalendarBoard";
 
@@ -7,10 +8,12 @@ export function CalendarBlock({
   data,
   todayISO,
   locale = DEFAULT_LOCALE,
+  units = "metric",
 }: {
   data: DashboardData;
   todayISO: string;
   locale?: Locale;
+  units?: Units;
 }) {
   const tr = translator(locale);
   return (
@@ -20,6 +23,7 @@ export function CalendarBlock({
         workouts={data.workouts}
         todayISO={todayISO}
         locale={locale}
+        units={units}
         ftpWatts={data.indicators?.ftp_watts ?? null}
       />
     </SectionCard>

@@ -9,6 +9,35 @@ export function parseDate(iso: string): Date {
 }
 
 /** Whole days from one ISO date to another; negative when `toISOstr` is past. */
+// ── Units ────────────────────────────────────────────────────────────────────
+// Distance and weight only, for now; pace and temperature stay metric. Anything
+// that isn't exactly "imperial" is treated as metric, so a bad value degrades to
+// km/kg rather than breaking. The stored numbers are always metric — conversion
+// happens at render, never in the database.
+export type Units = "metric" | "imperial";
+
+const KM_TO_MI = 0.621371;
+const KG_TO_LB = 2.204623;
+
+export function toDistance(km: number, units: Units): number {
+  return units === "imperial" ? km * KM_TO_MI : km;
+}
+export function distanceUnit(units: Units): string {
+  return units === "imperial" ? "mi" : "km";
+}
+export function toWeight(kg: number, units: Units): number {
+  return units === "imperial" ? kg * KG_TO_LB : kg;
+}
+export function weightUnit(units: Units): string {
+  return units === "imperial" ? "lb" : "kg";
+}
+export function toSpeed(kmh: number, units: Units): number {
+  return units === "imperial" ? kmh * KM_TO_MI : kmh;
+}
+export function speedUnit(units: Units): string {
+  return units === "imperial" ? "mph" : "km/h";
+}
+
 export function daysBetween(fromISO: string, toISOstr: string): number {
   return Math.round((parseDate(toISOstr).getTime() - parseDate(fromISO).getTime()) / 86_400_000);
 }

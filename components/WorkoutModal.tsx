@@ -3,7 +3,7 @@
 import { Fragment, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
-import { disciplineMeta, fmtDuration } from "@/lib/utils";
+import { disciplineMeta, fmtDuration, toDistance, distanceUnit, toSpeed, speedUnit, type Units } from "@/lib/utils";
 import { getWorkoutBlocks } from "@/lib/workout-structure";
 import { DEFAULT_LOCALE, translator, type Locale, type T, type TKey } from "@/lib/i18n";
 import { DisciplineIcon, DownloadIcon, CloseIcon } from "./Icons";
@@ -72,8 +72,9 @@ function SubSection({ label, text }: { label: string; text: string }) {
   );
 }
 
-function fmtKm(km: number): string {
-  return `${km % 1 === 0 ? km : km.toFixed(1)} km`;
+function fmtKm(km: number, units: Units): string {
+  const v = toDistance(km, units);
+  return `${v % 1 === 0 ? v : v.toFixed(1)} ${distanceUnit(units)}`;
 }
 
 function fmtMinSec(minutes: number): string {
@@ -86,11 +87,14 @@ function fmtMinSec(minutes: number): string {
 /** Derived average pace fallback (run min/km, bike km/h) when no stored pace
  * exists. Swim is intentionally excluded: session duration includes interval
  * rests, so the derived number misrepresents swim pace — swims only show the
- * stored Garmin value. */
-function fmtPace(discipline: Discipline, durationMin: number | null, distanceKm: number | null): string | null {
+ * stored Garmin value.
+ *
+ * Bike speed converts to mph for imperial; run pace stays min/km for now (pace
+ * conversion was deliberately out of the distance+weight scope). */
+function fmtPace(discipline: Discipline, durationMin: number | null, distanceKm: number | null, units: Units): string | null {
   if (!durationMin || !distanceKm || distanceKm <= 0 || durationMin <= 0) return null;
   if (discipline === "run") return `${fmtMinSec(durationMin / distanceKm)}/km`;
-  if (discipline === "bike") return `${(distanceKm / (durationMin / 60)).toFixed(1)} km/h`;
+  if (discipline === "bike") return `${toSpeed(distanceKm / (durationMin / 60), units).toFixed(1)} ${speedUnit(units)}`;
   return null;
 }
 
@@ -98,7 +102,7 @@ function fmtPace(discipline: Discipline, durationMin: number | null, distanceKm:
  * Pace prefers the stored Garmin value (actual_pace/planned_pace) and only
  * falls back to duration÷distance — the derived number overstates swim pace
  * because elapsed duration includes interval rests. */
-function ComparisonTable({ w, tr }: { w: Workout; tr: T }) {
+function ComparisonTable({ w, tr, units }: { w: Workout; tr: T; units: Units }) {
   const rows = [
     {
       label: tr("modal.time"),
@@ -107,13 +111,13 @@ function ComparisonTable({ w, tr }: { w: Workout; tr: T }) {
     },
     {
       label: tr("modal.distance"),
-      planned: w.planned_distance_km != null ? fmtKm(Number(w.planned_distance_km)) : null,
-      actual: w.actual_distance_km != null ? fmtKm(Number(w.actual_distance_km)) : null,
+      planned: w.planned_distance_km != null ? fmtKm(Number(w.planned_distance_km), units) : null,
+      actual: w.actual_distance_km != null ? fmtKm(Number(w.actual_distance_km), units) : null,
     },
     {
       label: tr("modal.pace"),
-      planned: w.planned_pace ?? fmtPace(w.discipline, w.planned_duration_min, w.planned_distance_km),
-      actual: w.actual_pace ?? fmtPace(w.discipline, w.actual_duration_min, w.actual_distance_km),
+      planned: w.planned_pace ?? fmtPace(w.discipline, w.planned_duration_min, w.planned_distance_km, units),
+      actual: w.actual_pace ?? fmtPace(w.discipline, w.actual_duration_min, w.actual_distance_km, units),
     },
     {
       label: tr("modal.power"),
@@ -148,10 +152,11 @@ function ComparisonTable({ w, tr }: { w: Workout; tr: T }) {
 }
 
 export function WorkoutModal({
-  w, ftpWatts = null, locale = DEFAULT_LOCALE, onClose,
+  w, ftpWatts = null, locale = DEFAULT_LOCALE, units = "metric", onClose,
 }: {
   w: Workout;
   locale?: Locale;
+  units?: Units;
   /** Athlete's threshold power — .zwo stores power as a fraction of it. */
   ftpWatts?: number | null;
   onClose: () => void;
@@ -202,7 +207,7 @@ export function WorkoutModal({
           </button>
         </div>
 
-        <ComparisonTable w={w} tr={tr} />
+        <ComparisonTable w={w} tr={tr} units={units} />
 
         <div className="space-y-5 p-5">
           {w.description && (
