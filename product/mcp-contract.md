@@ -96,6 +96,14 @@ garmin_instructions?, zwo_content?, notes?, nutrition_notes?, match_id?`
 `date, weight_kg?, body_fat_pct?, muscle_mass_kg?, lean_mass_kg?, visceral_fat?, metabolic_age?`
 → upsert `body_composition` by `(tenant_id, date)`.
 
+### `log_injury` — Watch Points block
+`date, area, severity? (1-5), notes?` → upsert `injury_log` by `(tenant_id, date, area)`.
+
+### `log_milestone` — Season timeline marker
+`date, metric, value?, unit?, notes?` → upsert `performance_milestones` by
+`(tenant_id, date, metric)`. Metric slugs the dashboard labels: `FTP`,
+`swim_pace_100m`, `run_pace_threshold` (others display as-is). Races use `set_races`.
+
 ### `set_indicators` — performance zones (metric: zones)
 `ftp_watts?, hr_zones?, bike_zones?, run_pace_zones?, swim_pace_zones?, thresholds…`
 → upsert `performance_indicators` (one row per tenant).

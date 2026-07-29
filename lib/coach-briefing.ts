@@ -54,6 +54,8 @@ Ao me mandar a semana ou o mês, diga quais são os treinos-chave.
 
 AO LONGO DO TEMPO
 - log_body_composition quando eu pesar na balança de bioimpedância.
+- log_injury quando eu relatar uma dor ou lesão (área + severidade 1-5). Aparece nos Pontos de Atenção; re-registre a mesma área/data para atualizar conforme melhora.
+- log_milestone quando eu fizer um teste (FTP, pace de limiar, CSS). Aparece como marcador na Temporada. Use os slugs: FTP, swim_pace_100m, run_pace_threshold.
 - Remarquei ou pulei um treino? Atualize o status (planned, done, skipped, modified) em vez de criar sessão nova.
 
 REGRAS QUE VALEM SEMPRE
@@ -107,6 +109,8 @@ When you send me the week or the month, say which are the key sessions.
 
 OVER TIME
 - log_body_composition when I weigh in on the bioimpedance scale.
+- log_injury when I report a niggle or injury (area + severity 1-5). It shows in Watch Points; re-log the same area/date to update as it heals.
+- log_milestone when I do a test (FTP, threshold pace, CSS). It marks the Season timeline. Use slugs: FTP, swim_pace_100m, run_pace_threshold.
 - Rescheduled or skipped a session? Update its status (planned, done, skipped, modified) instead of creating a new one.
 
 RULES THAT ALWAYS APPLY
@@ -160,6 +164,8 @@ Quando mi mandi la settimana o il mese, dimmi quali sono le sessioni chiave.
 
 NEL TEMPO
 - log_body_composition quando mi peso sulla bilancia a bioimpedenza.
+- log_injury quando segnalo un fastidio o un infortunio (area + gravità 1-5). Compare nei Punti di Attenzione; ri-registra stessa area/data per aggiornare mentre migliora.
+- log_milestone quando faccio un test (FTP, passo soglia, CSS). Segna la timeline Stagione. Usa gli slug: FTP, swim_pace_100m, run_pace_threshold.
 - Ho spostato o saltato una sessione? Aggiorna lo status (planned, done, skipped, modified) invece di crearne una nuova.
 
 REGOLE SEMPRE VALIDE
@@ -213,6 +219,8 @@ Cuando me mandes la semana o el mes, dime cuáles son las sesiones clave.
 
 CON EL TIEMPO
 - log_body_composition cuando me pese en la báscula de bioimpedancia.
+- log_injury cuando reporto una molestia o lesión (área + severidad 1-5). Aparece en Puntos de Atención; vuelve a registrar la misma área/fecha para actualizar según mejora.
+- log_milestone cuando hago un test (FTP, ritmo de umbral, CSS). Marca la línea de Temporada. Usa los slugs: FTP, swim_pace_100m, run_pace_threshold.
 - ¿Moví o salté una sesión? Actualiza su status (planned, done, skipped, modified) en vez de crear una nueva.
 
 REGLAS QUE SIEMPRE APLICAN
@@ -266,6 +274,8 @@ Quand tu m'envoies la semaine ou le mois, dis-moi quelles sont les séances clé
 
 AU FIL DU TEMPS
 - log_body_composition quand je me pèse sur la balance à impédancemétrie.
+- log_injury quand je signale une gêne ou une blessure (zone + gravité 1-5). Elle apparaît dans les Points de Vigilance ; ré-enregistre la même zone/date pour la mettre à jour au fil de la guérison.
+- log_milestone quand je fais un test (FTP, allure au seuil, CSS). Elle marque la frise Saison. Utilise les slugs : FTP, swim_pace_100m, run_pace_threshold.
 - Séance déplacée ou sautée ? Mets à jour son status (planned, done, skipped, modified) au lieu d'en créer une nouvelle.
 
 RÈGLES TOUJOURS VALABLES

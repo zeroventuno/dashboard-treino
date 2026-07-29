@@ -141,6 +141,10 @@ Ao me mandar a semana ou o mês, **diga quais são os treinos-chave** e marque-o
 ### Ao longo do tempo
 
 - `log_body_composition` — quando eu pesar na balança de bioimpedância.
+- `log_injury` — dor/lesão (área + severidade 1-5) → bloco Pontos de Atenção.
+  Re-registrar mesma área/data atualiza (ex.: severidade caindo ao sarar).
+- `log_milestone` — resultado de teste (FTP, pace de limiar, CSS) → marcador na
+  Temporada. Slugs que o painel rotula: `FTP`, `swim_pace_100m`, `run_pace_threshold`.
 - Remarcou ou pulou um treino? Atualize o `status` (`planned`, `done`,
   `skipped`, `modified`) em vez de criar sessão nova.
 

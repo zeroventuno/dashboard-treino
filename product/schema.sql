@@ -177,7 +177,8 @@ create table injury_log (
   date       date not null,
   area       text not null,
   severity   int,
-  notes      text
+  notes      text,
+  unique (tenant_id, date, area)                          -- log_injury upserts on this
 );
 create index on injury_log(tenant_id, date);
 

@@ -446,6 +446,62 @@ export function registerTools(server: McpServer, tenantId: string): void {
   );
 
   server.registerTool(
+    "log_injury",
+    {
+      description:
+        "Record or update an injury / niggle for the Watch Points block. Without this the coach had no way to log one, so that block read 'all clear' even when it wasn't. Re-logging the same date+area updates it (e.g. severity dropping as it heals).",
+      inputSchema: {
+        date: z.string().describe("YYYY-MM-DD"),
+        area: z.string().describe("body area, e.g. 'left knee', 'lower back'"),
+        severity: z.number().int().min(1).max(5).optional().describe("1 mild … 5 severe"),
+        notes: z.string().optional(),
+      },
+    },
+    async (a) => {
+      await withTenant(tenantId, (c) =>
+        c.query(
+          `insert into injury_log (tenant_id,date,area,severity,notes)
+           values ($1,$2,$3,$4,$5)
+           on conflict (tenant_id,date,area) do update set
+             severity=coalesce(excluded.severity, injury_log.severity),
+             notes=coalesce(excluded.notes, injury_log.notes)`,
+          [tenantId, a.date, a.area, a.severity ?? null, a.notes ?? null],
+        ),
+      );
+      return ok(`Injury logged: ${a.area} (${a.date}).`);
+    },
+  );
+
+  server.registerTool(
+    "log_milestone",
+    {
+      description:
+        "Record a performance test result — it appears as a marker on the Season timeline. Use the metric slugs the dashboard labels: 'FTP' (W), 'swim_pace_100m' (min/100m), 'run_pace_threshold' (min/km). Other slugs display as-is. Races belong in set_races, not here.",
+      inputSchema: {
+        date: z.string().describe("YYYY-MM-DD"),
+        metric: z.string().describe("e.g. FTP, swim_pace_100m, run_pace_threshold"),
+        value: z.number().optional(),
+        unit: z.string().optional().describe("e.g. W, min/km"),
+        notes: z.string().optional(),
+      },
+    },
+    async (a) => {
+      await withTenant(tenantId, (c) =>
+        c.query(
+          `insert into performance_milestones (tenant_id,date,metric,value,unit,notes)
+           values ($1,$2,$3,$4,$5,$6)
+           on conflict (tenant_id,date,metric) do update set
+             value=coalesce(excluded.value, performance_milestones.value),
+             unit=coalesce(excluded.unit, performance_milestones.unit),
+             notes=coalesce(excluded.notes, performance_milestones.notes)`,
+          [tenantId, a.date, a.metric, a.value ?? null, a.unit ?? null, a.notes ?? null],
+        ),
+      );
+      return ok(`Milestone logged: ${a.metric}${a.value != null ? ` ${a.value}${a.unit ?? ""}` : ""} (${a.date}).`);
+    },
+  );
+
+  server.registerTool(
     "set_indicators",
     {
       description: "Performance zones / thresholds (metric: 'zones'). Zone objects are free-form JSON.",
