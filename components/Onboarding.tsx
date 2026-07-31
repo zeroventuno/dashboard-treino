@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { translator, type Locale, type TKey } from "@/lib/i18n";
 import { coachBriefing } from "@/lib/coach-briefing";
 
@@ -106,8 +107,27 @@ export function Onboarding({
   connectorUrl: string;
 }) {
   const tr = translator(locale);
+  const router = useRouter();
   const [client, setClient] = useState<(typeof CLIENTS)[number]["id"]>("claude");
+  const [checking, setChecking] = useState(false);
   const active = CLIENTS.find((c) => c.id === client) ?? CLIENTS[0];
+
+  // The whole point of this screen is to leave it: the moment the coach writes
+  // anything, /app re-renders into the real dashboard. The athlete used to have
+  // to guess that and refresh by hand — the worst moment to feel lost is right
+  // after doing the fiddly connector setup. So poll softly: refetch the server
+  // component every 12s, and it swaps itself to the dashboard on its own. Soft
+  // refresh keeps this component's state (chosen client, copied fields) intact.
+  useEffect(() => {
+    const id = setInterval(() => router.refresh(), 12_000);
+    return () => clearInterval(id);
+  }, [router]);
+
+  function checkNow() {
+    setChecking(true);
+    router.refresh();
+    setTimeout(() => setChecking(false), 1500);
+  }
 
   // Claude Code takes the URL as a terminal argument, not pasted into a field.
   const codeCommand = `claude mcp add --transport http mytrakr-coach "${connectorUrl}"`;
@@ -213,7 +233,27 @@ export function Onboarding({
           </div>
         </div>
 
-        <p className="mt-7 border-t border-[var(--border)] pt-5 text-[12.5px] leading-relaxed text-[var(--text-faint)]">
+        {/* Live status: this screen watches for the coach and swaps itself out
+            the instant the first data lands. Removes the "did it work?" limbo. */}
+        <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-[var(--border)] pt-5">
+          <span className="flex items-center gap-2 text-[12.5px] font-medium text-[var(--text-muted)]">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--lime)] opacity-60" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--lime)]" />
+            </span>
+            {tr("onboarding.waiting")}
+          </span>
+          <button
+            type="button"
+            onClick={checkNow}
+            disabled={checking}
+            className="rounded-full border border-[var(--border)] px-3 py-1 text-[11.5px] font-semibold text-[var(--text-muted)] transition-colors hover:border-[var(--text)] hover:text-[var(--text)] disabled:opacity-50"
+          >
+            {tr("onboarding.checkNow")}
+          </button>
+        </div>
+
+        <p className="mt-3 text-[12.5px] leading-relaxed text-[var(--text-faint)]">
           {tr("onboarding.footer")}
         </p>
       </div>
