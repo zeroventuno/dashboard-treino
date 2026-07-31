@@ -5,8 +5,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { resolveTenant } from "../src/auth.js";
+import { resolveTenant, resolveStaff } from "../src/auth.js";
 import { registerTools } from "../src/tools.js";
+import { registerStaffTools } from "../src/staff-tools.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   // CORS preflight. Clients that reach us from a browser context (ChatGPT's
@@ -40,8 +41,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const headerKey = typeof auth === "string" && auth.startsWith("Bearer ") ? auth.slice(7) : null;
   const queryKey = typeof req.query?.key === "string" ? req.query.key : null;
   const key = headerKey ?? queryKey;
-  const tenantId = key ? await resolveTenant(key) : null;
-  if (!tenantId) {
+
+  // Two kinds of key. An athlete key (trak_) binds to one tenant — the original
+  // single-athlete path, untouched. A professional key (trakc_) binds to a staff
+  // member who acts across their agency roster. Route by prefix, then resolve;
+  // `bind` defers the tool registration until the server exists below.
+  let bind: ((s: McpServer) => void) | null = null;
+  if (key) {
+    if (key.startsWith("trakc_")) {
+      const staff = await resolveStaff(key);
+      if (staff) bind = (s) => registerStaffTools(s, staff);
+    } else {
+      const tenantId = await resolveTenant(key);
+      if (tenantId) bind = (s) => registerTools(s, tenantId);
+    }
+  }
+  if (!bind) {
     res.status(401).json({ error: "invalid or missing account key" });
     return;
   }
@@ -70,9 +85,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     if (!patched) raw.push("accept", NEEDED);
   }
 
-  // Stateless: one MCP server + transport per request, tools bound to this tenant.
+  // Stateless: one MCP server + transport per request, tools bound to whoever
+  // the key resolved to (a single athlete, or a professional and their roster).
   const server = new McpServer({ name: "mytrakr-coach", version: "0.1.0" });
-  registerTools(server, tenantId);
+  bind(server);
   // enableJsonResponse: plain JSON instead of an SSE frame. Simple HTTP clients
   // can parse the reply directly; compliant clients handle either.
   const transport = new StreamableHTTPServerTransport({

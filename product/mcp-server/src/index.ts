@@ -1,8 +1,9 @@
 import { createServer, type IncomingMessage } from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { resolveTenant } from "./auth.js";
+import { resolveTenant, resolveStaff } from "./auth.js";
 import { registerTools } from "./tools.js";
+import { registerStaffTools } from "./staff-tools.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 
@@ -27,8 +28,19 @@ const httpServer = createServer(async (req, res) => {
   const headerKey = typeof auth === "string" && auth.startsWith("Bearer ") ? auth.slice(7) : null;
   const queryKey = new URL(req.url ?? "", "http://localhost").searchParams.get("key");
   const key = headerKey ?? queryKey;
-  const tenantId = key ? await resolveTenant(key) : null;
-  if (!tenantId) {
+
+  // Athlete key (trak_) → one tenant; professional key (trakc_) → staff + roster.
+  let bind: ((s: McpServer) => void) | null = null;
+  if (key) {
+    if (key.startsWith("trakc_")) {
+      const staff = await resolveStaff(key);
+      if (staff) bind = (s) => registerStaffTools(s, staff);
+    } else {
+      const tenantId = await resolveTenant(key);
+      if (tenantId) bind = (s) => registerTools(s, tenantId);
+    }
+  }
+  if (!bind) {
     res.writeHead(401, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: "invalid or missing account key" }));
     return;
@@ -44,9 +56,10 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
-  // Stateless: one MCP server + transport per request, tools bound to this tenant.
+  // Stateless: one MCP server + transport per request, tools bound to whoever
+  // the key resolved to (a single athlete, or a professional and their roster).
   const server = new McpServer({ name: "mytrakr-coach", version: "0.1.0" });
-  registerTools(server, tenantId);
+  bind(server);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   res.on("close", () => {
     transport.close();

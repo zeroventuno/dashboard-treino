@@ -1,6 +1,9 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withTenant } from "./db.js";
+import {
+  workoutSchema, runWorkout, mealPlanSchema, runMealPlan, injurySchema, runInjury,
+} from "./writes.js";
 
 const ok = (text: string) => ({ content: [{ type: "text" as const, text }] });
 const j = (v: unknown) => (v == null ? null : JSON.stringify(v));
@@ -260,98 +263,9 @@ export function registerTools(server: McpServer, tenantId: string): void {
     {
       description:
         "Fill the Meal Plan block. Two independent sections, each replace-all: `meals` is the daily eating plan (breakfast → dinner, in the order you list them); `fueling` is the pre/during/post-training strategy bucketed by session length. Omit a section to keep what's there; pass [] to clear it. Write meal names, foods and all text in the athlete's language — the block only translates its own structural labels.",
-      inputSchema: {
-        meals: z
-          .array(
-            z.object({
-              meal_name: z.string().describe("e.g. Breakfast, Pre-ride snack, Recovery shake"),
-              time_suggestion: z.string().optional().describe("HH:MM, or a phrase like 'on waking'"),
-              // Rendered with newlines preserved, so a multi-item meal reads as a list.
-              foods: z.string().optional().describe("the foods; separate items with newlines"),
-              protein_g: z.number().optional().describe("grams of protein for this meal"),
-              carbs_g: z.number().optional().describe("grams of carbs for this meal"),
-              notes: z.string().optional(),
-            }),
-          )
-          .optional()
-          .describe("daily meals, in eating order; omit to keep, [] to clear"),
-        fueling: z
-          .array(
-            z.object({
-              // These four slugs are load-bearing: the block maps them to labels
-              // (Curto/Médio/Longo/Muito longo). Any other value renders raw.
-              duration_category: z
-                .enum(["curto", "medio", "longo", "muito_longo"])
-                .describe("session-length bucket — use exactly these slugs"),
-              duration_range: z.string().optional().describe("e.g. '< 1h', '1–3h', '> 3h'"),
-              discipline_context: z.string().optional().describe("e.g. 'bike/run', 'long swim'"),
-              before_training: z.string().optional(),
-              during_training: z.string().optional(),
-              after_training: z.string().optional(),
-              supplements_used: z.array(z.string()).optional().describe("e.g. ['gel','caffeine']"),
-              notes: z.string().optional(),
-            }),
-          )
-          .optional()
-          .describe("fueling rules by training duration; omit to keep, [] to clear"),
-      },
+      inputSchema: mealPlanSchema,
     },
-    async (a) => {
-      // Replace-all per section (same shape as set_races): a meal plan is a
-      // cohesive whole, and per-row upsert would leave orphan rows behind when
-      // a new plan has fewer meals than the old one. Both run in one
-      // transaction (withTenant), so a failure rolls the whole thing back.
-      // meal_order is the array index, not a coach-supplied field — the order
-      // you list the meals IS the order they eat.
-      let mealsN = -1;
-      let fuelN = -1;
-      await withTenant(tenantId, async (c) => {
-        if (a.meals !== undefined) {
-          await c.query("delete from daily_meal_plan where tenant_id=$1", [tenantId]);
-          for (let i = 0; i < a.meals.length; i++) {
-            const m = a.meals[i];
-            await c.query(
-              `insert into daily_meal_plan
-                 (tenant_id, meal_order, meal_name, time_suggestion, foods, protein_g, carbs_g, notes)
-               values ($1,$2,$3,$4,$5,$6,$7,$8)`,
-              [
-                tenantId, i + 1, m.meal_name, m.time_suggestion ?? null, m.foods ?? null,
-                m.protein_g ?? null, m.carbs_g ?? null, m.notes ?? null,
-              ],
-            );
-          }
-          mealsN = a.meals.length;
-        }
-        if (a.fueling !== undefined) {
-          await c.query("delete from nutrition_plan where tenant_id=$1", [tenantId]);
-          for (const r of a.fueling) {
-            await c.query(
-              // ::text[] cast for the same reason set_profile needs it — keeps a
-              // null or an array from being inferred as plain text.
-              `insert into nutrition_plan
-                 (tenant_id, duration_category, duration_range, discipline_context,
-                  before_training, during_training, after_training, supplements_used, notes)
-               values ($1,$2,$3,$4,$5,$6,$7,$8::text[],$9)`,
-              [
-                tenantId, r.duration_category, r.duration_range ?? null, r.discipline_context ?? null,
-                r.before_training ?? null, r.during_training ?? null, r.after_training ?? null,
-                r.supplements_used ?? null, r.notes ?? null,
-              ],
-            );
-          }
-          fuelN = a.fueling.length;
-        }
-      });
-      const parts = [
-        mealsN >= 0 && `${mealsN} meal(s)`,
-        fuelN >= 0 && `${fuelN} fueling rule(s)`,
-      ].filter(Boolean);
-      return ok(
-        parts.length > 0
-          ? `Meal plan saved — ${parts.join(", ")}.`
-          : "Nothing to change — pass `meals` and/or `fueling`.",
-      );
-    },
+    async (a) => ok(await withTenant(tenantId, (c) => runMealPlan(c, tenantId, a))),
   );
 
   server.registerTool(
@@ -447,116 +361,9 @@ export function registerTools(server: McpServer, tenantId: string): void {
     {
       description:
         "Create or UPDATE one session. When logging a result, update the existing planned row (same date+discipline+title) — never insert a duplicate.",
-      inputSchema: {
-        date: z.string(),
-        // Was z.string(), and the dashboard indexes its colour table by this
-        // value — so one session written as "cycling" or "ciclismo" resolved to
-        // undefined and blanked the whole page at render time. The enum makes
-        // the coach fail loudly here instead of the athlete failing silently
-        // there, and the error names the accepted values.
-        discipline: z
-          .enum(["swim", "bike", "run", "strength", "rest"])
-          .describe("one of: swim, bike, run, strength, rest — never a translated or free-form name"),
-        title: z.string(),
-        status: z.enum(["planned", "done", "skipped", "modified"]).default("planned"),
-        description: z.string().optional(),
-        garmin_instructions: z.string().optional(),
-        zwo_content: z.string().optional(),
-        planned_duration_min: z.number().optional(),
-        actual_duration_min: z.number().optional(),
-        planned_distance_km: z.number().optional(),
-        actual_distance_km: z.number().optional(),
-        planned_tss: z.number().optional(),
-        actual_tss: z.number().optional(),
-        planned_pace: z.string().optional(),
-        actual_pace: z.string().optional(),
-        planned_power_watts: z.string().optional(),
-        actual_power_watts: z.string().optional(),
-        notes: z.string().optional(),
-        nutrition_notes: z.string().optional(),
-
-        /** One of the week's priority sessions — starred in the calendar. */
-        key_workout: z.boolean().optional(),
-        /** Interval blocks — rendered as a profile chart + list in the app.
-         *  duration_min accepts decimals; intensity is % of threshold (it only
-         *  scales the chart); target is the text the athlete reads. */
-        structure: z
-          .array(
-            z.object({
-              label: z.string(),
-              duration_min: z.number(),
-              intensity: z.number().optional(),
-              target: z.string().optional(),
-              note: z.string().optional(),
-            }),
-          )
-          .optional(),
-        /** Pre-workout */
-        activation: z.string().optional(),
-        nutrition_pre: z.string().optional(),
-        /** Post-workout */
-        mobility: z.string().optional(),
-        nutrition_post: z.string().optional(),
-        /** For strength sessions: which muscle groups it works, so the body
-         *  heatmap lights up. Use the fixed English slugs below, never exercise
-         *  names or other languages — the map keys on these exact values and a
-         *  "leg press" or "quadríceps" would light nothing. */
-        muscle_groups: z
-          .array(z.enum([
-            "quadriceps", "glutes", "hamstrings", "core", "shoulders",
-            "back", "calves", "chest", "biceps", "triceps",
-          ]))
-          .optional()
-          .describe("strength only; fixed English slugs, e.g. [\"quadriceps\",\"glutes\",\"core\"]"),
-      },
+      inputSchema: workoutSchema,
     },
-    async (a) => {
-      await withTenant(tenantId, (c) =>
-        c.query(
-          `insert into workouts (tenant_id,date,discipline,title,status,description,garmin_instructions,zwo_content,
-             planned_duration_min,actual_duration_min,planned_distance_km,actual_distance_km,planned_tss,actual_tss,
-             planned_pace,actual_pace,planned_power_watts,actual_power_watts,notes,nutrition_notes,
-             key_workout,structure,activation,nutrition_pre,mobility,nutrition_post,muscle_groups)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-             coalesce($21,false),$22::jsonb,$23,$24,$25,$26,coalesce($27::text[],'{}'::text[]))
-           on conflict (tenant_id,date,discipline,title) do update set
-             status=excluded.status,
-             description=coalesce(excluded.description,workouts.description),
-             garmin_instructions=coalesce(excluded.garmin_instructions,workouts.garmin_instructions),
-             zwo_content=coalesce(excluded.zwo_content,workouts.zwo_content),
-             planned_duration_min=coalesce(excluded.planned_duration_min,workouts.planned_duration_min),
-             actual_duration_min=coalesce(excluded.actual_duration_min,workouts.actual_duration_min),
-             planned_distance_km=coalesce(excluded.planned_distance_km,workouts.planned_distance_km),
-             actual_distance_km=coalesce(excluded.actual_distance_km,workouts.actual_distance_km),
-             planned_tss=coalesce(excluded.planned_tss,workouts.planned_tss),
-             actual_tss=coalesce(excluded.actual_tss,workouts.actual_tss),
-             planned_pace=coalesce(excluded.planned_pace,workouts.planned_pace),
-             actual_pace=coalesce(excluded.actual_pace,workouts.actual_pace),
-             planned_power_watts=coalesce(excluded.planned_power_watts,workouts.planned_power_watts),
-             actual_power_watts=coalesce(excluded.actual_power_watts,workouts.actual_power_watts),
-             notes=coalesce(excluded.notes,workouts.notes),
-             nutrition_notes=coalesce(excluded.nutrition_notes,workouts.nutrition_notes),
-             key_workout=coalesce($21,workouts.key_workout),
-             structure=coalesce(excluded.structure,workouts.structure),
-             activation=coalesce(excluded.activation,workouts.activation),
-             nutrition_pre=coalesce(excluded.nutrition_pre,workouts.nutrition_pre),
-             mobility=coalesce(excluded.mobility,workouts.mobility),
-             nutrition_post=coalesce(excluded.nutrition_post,workouts.nutrition_post),
-             muscle_groups=coalesce($27::text[],workouts.muscle_groups)`,
-          [
-            tenantId, a.date, a.discipline, a.title, a.status, a.description ?? null, a.garmin_instructions ?? null,
-            a.zwo_content ?? null, a.planned_duration_min ?? null, a.actual_duration_min ?? null,
-            a.planned_distance_km ?? null, a.actual_distance_km ?? null, a.planned_tss ?? null, a.actual_tss ?? null,
-            a.planned_pace ?? null, a.actual_pace ?? null, a.planned_power_watts ?? null, a.actual_power_watts ?? null,
-            a.notes ?? null, a.nutrition_notes ?? null,
-            a.key_workout ?? null, a.structure ? JSON.stringify(a.structure) : null,
-            a.activation ?? null, a.nutrition_pre ?? null, a.mobility ?? null, a.nutrition_post ?? null,
-            a.muscle_groups ?? null,
-          ],
-        ),
-      );
-      return ok(`Workout "${a.title}" (${a.date}) → ${a.status}${a.key_workout ? " ★" : ""}.`);
-    },
+    async (a) => ok(await withTenant(tenantId, (c) => runWorkout(c, tenantId, a))),
   );
 
   server.registerTool(
@@ -602,26 +409,9 @@ export function registerTools(server: McpServer, tenantId: string): void {
     {
       description:
         "Record or update an injury / niggle for the Watch Points block. Without this the coach had no way to log one, so that block read 'all clear' even when it wasn't. Re-logging the same date+area updates it (e.g. severity dropping as it heals).",
-      inputSchema: {
-        date: z.string().describe("YYYY-MM-DD"),
-        area: z.string().describe("body area, e.g. 'left knee', 'lower back'"),
-        severity: z.number().int().min(1).max(5).optional().describe("1 mild … 5 severe"),
-        notes: z.string().optional(),
-      },
+      inputSchema: injurySchema,
     },
-    async (a) => {
-      await withTenant(tenantId, (c) =>
-        c.query(
-          `insert into injury_log (tenant_id,date,area,severity,notes)
-           values ($1,$2,$3,$4,$5)
-           on conflict (tenant_id,date,area) do update set
-             severity=coalesce(excluded.severity, injury_log.severity),
-             notes=coalesce(excluded.notes, injury_log.notes)`,
-          [tenantId, a.date, a.area, a.severity ?? null, a.notes ?? null],
-        ),
-      );
-      return ok(`Injury logged: ${a.area} (${a.date}).`);
-    },
+    async (a) => ok(await withTenant(tenantId, (c) => runInjury(c, tenantId, a))),
   );
 
   server.registerTool(
