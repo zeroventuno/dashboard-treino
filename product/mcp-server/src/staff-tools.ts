@@ -9,6 +9,9 @@ import {
   mealPlanSchema, runMealPlan,
   injurySchema, runInjury,
 } from "./writes.js";
+import {
+  readProfile, readWorkouts, workoutsRangeSchema, readCheckins, checkinsSchema,
+} from "./reads.js";
 
 const data = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(v, null, 2) }] });
 const ok = (text: string) => ({ content: [{ type: "text" as const, text }] });
@@ -29,6 +32,20 @@ async function forAthlete(
   }
   const msg = await withTenant(found.tenantId, (c) => run(c, found.tenantId));
   return ok(`[${found.name}] ${msg}`);
+}
+
+/** Read variant of forAthlete: resolve + authorize, then return the read as
+ * JSON (or a fail if the athlete isn't on this staff member's roster). */
+async function readForAthlete(
+  staff: StaffAuth,
+  athlete: string,
+  read: (c: PoolClient, tenantId: string) => Promise<unknown>,
+) {
+  const found = await resolveRosterAthlete(staff.id, athlete);
+  if (!found) {
+    return fail(`No athlete "${athlete}" on your roster. Call list_athletes for the exact names.`);
+  }
+  return data(await withTenant(found.tenantId, (c) => read(c, found.tenantId)));
 }
 
 const athleteArg = z.string().describe("athlete name exactly as shown by list_athletes");
@@ -63,6 +80,37 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
           return { role: staff.role, count: rows.length, athletes: rows };
         })(),
       ),
+  );
+
+  // ── Reads (every role — a professional reads context before acting) ──────
+  server.registerTool(
+    "get_profile",
+    {
+      description:
+        "Read a named athlete's config: devices, metrics, race|cycle mode, language, units, target races, active cycle, zones, and (if opted in) menstrual cycle. Read before writing so you don't re-ask or overwrite what you can't see.",
+      inputSchema: { athlete: athleteArg },
+    },
+    async (a) => readForAthlete(staff, a.athlete, (c, tid) => readProfile(c, tid)),
+  );
+
+  server.registerTool(
+    "get_workouts",
+    {
+      description:
+        "Read a named athlete's planned/completed sessions in a date range — build on what's already scheduled instead of duplicating it, and see what they actually did.",
+      inputSchema: { ...workoutsRangeSchema, athlete: athleteArg },
+    },
+    async (a) => readForAthlete(staff, a.athlete, (c, tid) => readWorkouts(c, tid, a.from, a.to)),
+  );
+
+  server.registerTool(
+    "get_checkins",
+    {
+      description:
+        "Read a named athlete's recent daily check-ins (readiness, HRV, sleep, body battery, the traffic-light). See the trend before prescribing.",
+      inputSchema: { ...checkinsSchema, athlete: athleteArg },
+    },
+    async (a) => readForAthlete(staff, a.athlete, (c, tid) => readCheckins(c, tid, a.days)),
   );
 
   // ── Role-scoped writes (concrete schemas → the SDK infers args precisely) ─

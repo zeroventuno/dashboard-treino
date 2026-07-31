@@ -4,6 +4,9 @@ import { withTenant } from "./db.js";
 import {
   workoutSchema, runWorkout, mealPlanSchema, runMealPlan, injurySchema, runInjury,
 } from "./writes.js";
+import {
+  readProfile, readWorkouts, workoutsRangeSchema, readCheckins, checkinsSchema,
+} from "./reads.js";
 
 const ok = (text: string) => ({ content: [{ type: "text" as const, text }] });
 const j = (v: unknown) => (v == null ? null : JSON.stringify(v));
@@ -32,38 +35,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
         "Read everything already configured for this athlete: devices, available metrics, race|cycle mode, language, target races, active cycle and performance zones. Call this FIRST in a new conversation — it tells you what you already know, so you don't ask again or overwrite settings you can't see.",
       inputSchema: {},
     },
-    async () =>
-      data(
-        await withTenant(tenantId, async (c) => {
-          const [profile, races, cycle, indicators, menstrual] = await Promise.all([
-            c.query(
-              "select athlete, devices, metrics, mode, locale, units, anatomy, updated_at from profiles where tenant_id=$1 limit 1",
-              [tenantId],
-            ),
-            c.query("select name, date, priority from races where tenant_id=$1 order by date", [tenantId]),
-            c.query(
-              "select name, start_date, weeks, phases from training_cycles where tenant_id=$1 and active order by start_date desc limit 1",
-              [tenantId],
-            ),
-            c.query("select * from performance_indicators where tenant_id=$1 limit 1", [tenantId]),
-            // Only meaningful if the athlete opted into the "menstrual" metric;
-            // null otherwise. Lets the coach update last_period_start without
-            // re-asking, and see it before touching set_menstrual_cycle.
-            c.query(
-              "select last_period_start, cycle_length, period_length, notes from menstrual_cycle where tenant_id=$1 limit 1",
-              [tenantId],
-            ),
-          ]);
-          return {
-            profile: profile.rows[0] ?? null,
-            races: races.rows,
-            active_cycle: cycle.rows[0] ?? null,
-            indicators: indicators.rows[0] ?? null,
-            menstrual_cycle: menstrual.rows[0] ?? null,
-            configured: profile.rows.length > 0,
-          };
-        }),
-      ),
+    async () => data(await withTenant(tenantId, (c) => readProfile(c, tenantId))),
   );
 
   server.registerTool(
@@ -71,25 +43,9 @@ export function registerTools(server: McpServer, tenantId: string): void {
     {
       description:
         "Read planned/completed sessions in a date range. Use before writing a week so you build on what's already scheduled instead of duplicating or clobbering it, and to see what the athlete actually did.",
-      inputSchema: {
-        from: z.string().describe("start date, YYYY-MM-DD"),
-        to: z.string().describe("end date, YYYY-MM-DD"),
-      },
+      inputSchema: workoutsRangeSchema,
     },
-    async (a) =>
-      data(
-        await withTenant(tenantId, async (c) => {
-          const { rows } = await c.query(
-            `select date, discipline, title, status, key_workout, muscle_groups,
-                    planned_duration_min, planned_tss, actual_duration_min, actual_tss, notes
-               from workouts
-              where tenant_id=$1 and date between $2 and $3
-              order by date`,
-            [tenantId, a.from, a.to],
-          );
-          return { from: a.from, to: a.to, count: rows.length, workouts: rows };
-        }),
-      ),
+    async (a) => data(await withTenant(tenantId, (c) => readWorkouts(c, tenantId, a.from, a.to))),
   );
 
   server.registerTool(
@@ -97,24 +53,9 @@ export function registerTools(server: McpServer, tenantId: string): void {
     {
       description:
         "Read recent daily check-ins (readiness, HRV, sleep, body battery and the traffic-light you set). Use to see the trend before prescribing — yesterday's number alone doesn't show whether the athlete is climbing out of fatigue or sliding into it.",
-      inputSchema: {
-        days: z.number().int().min(1).max(90).default(14).describe("how many days back"),
-      },
+      inputSchema: checkinsSchema,
     },
-    async (a) =>
-      data(
-        await withTenant(tenantId, async (c) => {
-          const { rows } = await c.query(
-            `select date, readiness_score, hrv, sleep_hours, body_battery, resting_hr,
-                    recommendation, hydration_liters, notes
-               from checkins
-              where tenant_id=$1 and date >= current_date - $2::int
-              order by date desc`,
-            [tenantId, a.days],
-          );
-          return { days: a.days, count: rows.length, checkins: rows };
-        }),
-      ),
+    async (a) => data(await withTenant(tenantId, (c) => readCheckins(c, tenantId, a.days))),
   );
 
   // ── Write tools ───────────────────────────────────────────────────────────
