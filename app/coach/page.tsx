@@ -134,6 +134,14 @@ export default async function CoachPanelPage() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo-trakr.svg" alt="MY TRAKR" className="h-[26px] w-auto" />
         <div className="flex items-center gap-2">
+          {staff.role === "coach" && (
+            <Link
+              href="/coach/bank"
+              className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-[5px] text-[11.5px] font-semibold text-[var(--text-muted)] transition-colors hover:border-[var(--text)] hover:text-[var(--text)]"
+            >
+              {tr("coach.bank.link")}
+            </Link>
+          )}
           <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--text-muted)]">
             {staff.name ? `${staff.name} · ${roleLabel}` : roleLabel}
           </span>

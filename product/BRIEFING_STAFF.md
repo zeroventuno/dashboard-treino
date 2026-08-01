@@ -35,10 +35,10 @@ Não escreva aluno por aluno do zero. Trabalhe **por cohort de fase**:
 2. **Tire da fila quem precisa de olhar individual:** farol **vermelho**, lesão
    recente, ou sem check-in há dias. Para esses, leia antes (`get_checkins`,
    `get_workouts`) e trate à parte.
-3. **Rascunhe UMA semana do cohort** na minha metodologia (do meu banco, se eu
-   tiver). Depois **adapte na margem por atleta**: dias da semana conforme a
-   preferência de cada um, zonas/paces do atleta (`get_profile`), e ajuste por
-   prontidão/lesão.
+3. **Rascunhe UMA semana do cohort** na minha metodologia, **puxando do meu banco
+   de workouts** (`list_bank` por esporte + fase — use só os `validated`). Depois
+   **adapte na margem por atleta**: dias da semana conforme a preferência de cada
+   um, zonas/paces do atleta (`get_profile`), e ajuste por prontidão/lesão.
 4. **Me mostre o lote para eu revisar.** Liste, por atleta, o que você vai
    gravar. **Espere minha confirmação explícita.**
 5. Só depois de eu confirmar, grave a semana de cada um com `upsert_workout`
@@ -62,9 +62,19 @@ complementar o que já está agendado, não duplicar nem sobrescrever.
 ## Ferramentas por papel
 - **Todos:** `list_athletes`, `get_methodology`, `set_methodology`,
   `get_profile`, `get_workouts`, `get_checkins` (sempre nomeando o `athlete`).
-- **Treinador (coach):** `upsert_workout`.
+- **Treinador (coach):** `upsert_workout`; e o **banco de workouts** —
+  `list_bank` (puxar da biblioteca), `add_bank_workout` (guardar um workout na
+  biblioteca) e `set_bank_status` (validar/arquivar). Só `validated` é usado na
+  prescrição.
 - **Nutricionista:** `set_meal_plan`.
 - **Fisioterapeuta:** `log_injury`.
+
+## Banco de workouts (biblioteca da assessoria)
+Monte a biblioteca uma vez, reuse pra sempre. Formas de preencher: (a) eu peço e
+você cria com `add_bank_workout`; (b) importo de fora; (c) a página `/coach/bank`
+gera em lote via IAs especializadas por modalidade. Tudo entra como `draft` até
+eu **validar**. Ao prescrever, você **puxa do banco** (`list_bank`) em vez de
+inventar do zero — mais consistente e mais rápido.
 
 O profissional só enxerga e escreve nos atletas do **próprio roster** — a
 autorização é do servidor, não da IA.

@@ -150,3 +150,47 @@ export async function staffCanAccess(staffId: string, tenantId: string): Promise
   );
   return rows.length > 0;
 }
+
+// ── Workout bank (agency library) ───────────────────────────────────────────
+
+export interface BankWorkout {
+  id: string;
+  sport: string;
+  phase: string | null;
+  title: string;
+  structure: unknown;
+  duration_min: number | null;
+  tss: number | null;
+  description: string | null;
+  source: string;
+  status: "draft" | "validated" | "archived";
+  tags: string[];
+  created_at: string;
+}
+
+/** The agency's library (excluding archived by default), for the /coach/bank view. */
+export async function getBank(agencyId: string): Promise<BankWorkout[]> {
+  if (!hasProductDb()) return [];
+  const { rows } = await getPool().query<BankWorkout>(
+    `select id, sport, phase, title, structure, duration_min, tss, description, source, status, tags, created_at
+       from app.workout_bank
+      where agency_id = $1 and status <> 'archived'
+      order by sport, phase nulls last, status desc, title`,
+    [agencyId],
+  );
+  return rows;
+}
+
+/** Validate/archive one library item — scoped to the agency (authorization). */
+export async function setBankStatus(
+  agencyId: string,
+  id: string,
+  status: "draft" | "validated" | "archived",
+): Promise<boolean> {
+  if (!hasProductDb()) return false;
+  const { rowCount } = await getPool().query(
+    "update app.workout_bank set status = $3 where id = $1 and agency_id = $2",
+    [id, agencyId, status],
+  );
+  return (rowCount ?? 0) > 0;
+}

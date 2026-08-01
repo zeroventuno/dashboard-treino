@@ -15,6 +15,21 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "pt";
 
 const pt = {
+  // workout bank (B2B)
+  "coach.bank.title": "Banco de workouts",
+  "coach.bank.sub": "A biblioteca da assessoria — valide os rascunhos; só os validados entram na prescrição.",
+  "coach.bank.link": "Banco",
+  "coach.bank.generate": "Gerar workouts",
+  "coach.bank.generateHint": "Escolha as modalidades e quantos por fase. IAs especializadas geram os rascunhos.",
+  "coach.bank.perPhase": "por fase",
+  "coach.bank.generating": "Gerando… as IAs vão preencher o banco. Recarregue a página em instantes.",
+  "coach.bank.genOff": "Geração automática ainda não configurada (n8n).",
+  "coach.bank.genError": "Não foi possível iniciar a geração.",
+  "coach.bank.validate": "Validar",
+  "coach.bank.archive": "Arquivar",
+  "coach.bank.status.draft": "rascunho",
+  "coach.bank.status.validated": "validado",
+  "coach.bank.empty": "Banco vazio. Gere workouts acima, ou peça ao seu copiloto de IA para adicionar.",
   // coach panel (B2B)
   "coach.login.title": "Painel do profissional",
   "coach.login.hint": "Cole a sua chave de profissional (começa com {prefix}).",
@@ -215,6 +230,21 @@ export type TKey = keyof typeof pt;
 type Dict = Record<TKey, string>;
 
 const en: Dict = {
+  // workout bank (B2B)
+  "coach.bank.title": "Workout bank",
+  "coach.bank.sub": "The agency library — validate drafts; only validated ones are used when prescribing.",
+  "coach.bank.link": "Bank",
+  "coach.bank.generate": "Generate workouts",
+  "coach.bank.generateHint": "Pick the sports and how many per phase. Specialist AIs draft them.",
+  "coach.bank.perPhase": "per phase",
+  "coach.bank.generating": "Generating… the AIs will fill the bank. Reload the page shortly.",
+  "coach.bank.genOff": "Automatic generation isn't set up yet (n8n).",
+  "coach.bank.genError": "Couldn't start the generation.",
+  "coach.bank.validate": "Validate",
+  "coach.bank.archive": "Archive",
+  "coach.bank.status.draft": "draft",
+  "coach.bank.status.validated": "validated",
+  "coach.bank.empty": "Bank is empty. Generate workouts above, or ask your AI copilot to add some.",
   // coach panel (B2B)
   "coach.login.title": "Professional panel",
   "coach.login.hint": "Paste your professional key (starts with {prefix}).",
@@ -390,6 +420,21 @@ const en: Dict = {
 };
 
 const it: Dict = {
+  // workout bank (B2B)
+  "coach.bank.title": "Banca dei workout",
+  "coach.bank.sub": "La libreria dell'agenzia — valida le bozze; solo i validati entrano nella prescrizione.",
+  "coach.bank.link": "Banca",
+  "coach.bank.generate": "Genera workout",
+  "coach.bank.generateHint": "Scegli le discipline e quanti per fase. IA specializzate creano le bozze.",
+  "coach.bank.perPhase": "per fase",
+  "coach.bank.generating": "Generazione in corso… le IA riempiranno la banca. Ricarica la pagina tra poco.",
+  "coach.bank.genOff": "Generazione automatica non ancora configurata (n8n).",
+  "coach.bank.genError": "Impossibile avviare la generazione.",
+  "coach.bank.validate": "Valida",
+  "coach.bank.archive": "Archivia",
+  "coach.bank.status.draft": "bozza",
+  "coach.bank.status.validated": "validato",
+  "coach.bank.empty": "Banca vuota. Genera workout sopra, o chiedi al tuo copilota IA di aggiungerne.",
   // coach panel (B2B)
   "coach.login.title": "Pannello del professionista",
   "coach.login.hint": "Incolla la tua chiave professionale (inizia con {prefix}).",
@@ -565,6 +610,21 @@ const it: Dict = {
 };
 
 const es: Dict = {
+  // workout bank (B2B)
+  "coach.bank.title": "Banco de workouts",
+  "coach.bank.sub": "La biblioteca de la asesoría — valida los borradores; solo los validados entran en la prescripción.",
+  "coach.bank.link": "Banco",
+  "coach.bank.generate": "Generar workouts",
+  "coach.bank.generateHint": "Elige las modalidades y cuántos por fase. IAs especializadas crean los borradores.",
+  "coach.bank.perPhase": "por fase",
+  "coach.bank.generating": "Generando… las IAs llenarán el banco. Recarga la página en un momento.",
+  "coach.bank.genOff": "La generación automática aún no está configurada (n8n).",
+  "coach.bank.genError": "No se pudo iniciar la generación.",
+  "coach.bank.validate": "Validar",
+  "coach.bank.archive": "Archivar",
+  "coach.bank.status.draft": "borrador",
+  "coach.bank.status.validated": "validado",
+  "coach.bank.empty": "Banco vacío. Genera workouts arriba, o pide a tu copiloto de IA que agregue.",
   // coach panel (B2B)
   "coach.login.title": "Panel del profesional",
   "coach.login.hint": "Pega tu clave de profesional (empieza con {prefix}).",
@@ -740,6 +800,21 @@ const es: Dict = {
 };
 
 const fr: Dict = {
+  // workout bank (B2B)
+  "coach.bank.title": "Banque de séances",
+  "coach.bank.sub": "La bibliothèque de l'agence — valide les brouillons ; seuls les validés servent à la prescription.",
+  "coach.bank.link": "Banque",
+  "coach.bank.generate": "Générer des séances",
+  "coach.bank.generateHint": "Choisis les sports et combien par phase. Des IA spécialisées rédigent les brouillons.",
+  "coach.bank.perPhase": "par phase",
+  "coach.bank.generating": "Génération… les IA vont remplir la banque. Recharge la page dans un instant.",
+  "coach.bank.genOff": "Génération automatique pas encore configurée (n8n).",
+  "coach.bank.genError": "Impossible de lancer la génération.",
+  "coach.bank.validate": "Valider",
+  "coach.bank.archive": "Archiver",
+  "coach.bank.status.draft": "brouillon",
+  "coach.bank.status.validated": "validé",
+  "coach.bank.empty": "Banque vide. Génère des séances ci-dessus, ou demande à ton copilote IA d'en ajouter.",
   // coach panel (B2B)
   "coach.login.title": "Espace professionnel",
   "coach.login.hint": "Colle ta clé professionnelle (commence par {prefix}).",

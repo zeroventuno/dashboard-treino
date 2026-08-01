@@ -15,7 +15,8 @@ const PUBLIC = [
   "/app", "/api/app-login",
   // The coach panel has its own per-professional key auth (trakc_ in an httpOnly
   // cookie), same reasoning as /app — don't sit it behind the shared password.
-  "/coach", "/api/coach-login",
+  // /api/coach/* (bank generate/status) authenticate via the coach cookie too.
+  "/coach", "/api/coach-login", "/api/coach/",
 ];
 
 // Next 16 renamed the "middleware" convention to "proxy".

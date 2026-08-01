@@ -172,6 +172,97 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
       },
       async (a) => forAthlete(staff, a.athlete, (c, tid) => runWorkout(c, tid, a)),
     );
+
+    // ── Workout bank (agency library) — build once, reuse when prescribing ──
+    server.registerTool(
+      "list_bank",
+      {
+        description:
+          "Read the agency's workout library. Filter by sport/phase/status. When prescribing, draw from status='validated'; 'draft' items are pending your review. Reuse a library workout by copying its `structure` into upsert_workout for the athlete.",
+        inputSchema: {
+          sport: z.enum(["swim", "bike", "run", "strength"]).optional(),
+          phase: z.string().optional().describe("e.g. Base, Build, Peak, Taper"),
+          status: z.enum(["draft", "validated", "archived", "all"]).default("validated"),
+        },
+      },
+      async (a) =>
+        data(
+          await (async () => {
+            const conds = ["agency_id = $1"];
+            const params: unknown[] = [staff.agencyId];
+            if (a.sport) { params.push(a.sport); conds.push(`sport = $${params.length}`); }
+            if (a.phase) { params.push(a.phase); conds.push(`phase = $${params.length}`); }
+            if (a.status !== "all") { params.push(a.status); conds.push(`status = $${params.length}`); }
+            const { rows } = await pool.query(
+              `select id, sport, phase, title, structure, duration_min, tss, description, source, status, tags
+                 from app.workout_bank where ${conds.join(" and ")} order by sport, phase, title`,
+              params,
+            );
+            return { count: rows.length, workouts: rows };
+          })(),
+        ),
+    );
+
+    server.registerTool(
+      "add_bank_workout",
+      {
+        description:
+          "Add a workout to the agency library for reuse. Saves as 'draft' by default — you validate it before it's used in prescription. Same `structure` shape as upsert_workout.",
+        inputSchema: {
+          sport: z.enum(["swim", "bike", "run", "strength"]),
+          title: z.string(),
+          phase: z.string().optional().describe("Base | Build | Peak | Taper"),
+          structure: z
+            .array(
+              z.object({
+                label: z.string(),
+                duration_min: z.number(),
+                intensity: z.number().optional(),
+                target: z.string().optional(),
+                note: z.string().optional(),
+              }),
+            )
+            .optional(),
+          duration_min: z.number().optional(),
+          tss: z.number().optional(),
+          description: z.string().optional(),
+          tags: z.array(z.string()).optional(),
+          validated: z.boolean().optional().describe("true = save straight as validated (you're approving it now)"),
+        },
+      },
+      async (a) => {
+        await pool.query(
+          `insert into app.workout_bank
+             (agency_id, created_by, sport, phase, title, structure, duration_min, tss, description, source, status, tags)
+           values ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,'ai',$10,coalesce($11::text[],'{}'::text[]))`,
+          [
+            staff.agencyId, staff.id, a.sport, a.phase ?? null, a.title,
+            a.structure ? JSON.stringify(a.structure) : null,
+            a.duration_min ?? null, a.tss ?? null, a.description ?? null,
+            a.validated ? "validated" : "draft", a.tags ?? null,
+          ],
+        );
+        return ok(`Added "${a.title}" (${a.sport}${a.phase ? "/" + a.phase : ""}) to the bank as ${a.validated ? "validated" : "draft"}.`);
+      },
+    );
+
+    server.registerTool(
+      "set_bank_status",
+      {
+        description: "Validate or archive a library workout by id. Only 'validated' items are used when prescribing.",
+        inputSchema: {
+          id: z.string().describe("workout id from list_bank"),
+          status: z.enum(["draft", "validated", "archived"]),
+        },
+      },
+      async (a) => {
+        const { rowCount } = await pool.query(
+          "update app.workout_bank set status = $3 where id = $1 and agency_id = $2",
+          [a.id, staff.agencyId, a.status],
+        );
+        return rowCount ? ok(`Library workout ${a.id} → ${a.status}.`) : fail(`No library workout ${a.id} in your agency.`);
+      },
+    );
   }
 
   if (staff.role === "nutritionist") {
