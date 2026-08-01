@@ -19,6 +19,7 @@ returns table (
   athlete         text,
   mode            text,
   current_phase   text,
+  sports          text[],
   next_race_name  text,
   next_race_date  date,
   today_reco      text,
@@ -54,6 +55,13 @@ as $$
       order by e.cum_start
       limit 1
     )                                               as current_phase,
+    -- Which disciplines this athlete actually trains (for the modality icons).
+    coalesce(
+      (select array_agg(distinct discipline order by discipline)
+         from public.workouts
+        where tenant_id = t.id and discipline is not null and discipline <> 'rest'),
+      '{}'
+    )                                               as sports,
     r.name                                          as next_race_name,
     r.date                                          as next_race_date,
     ci.recommendation                               as today_reco,

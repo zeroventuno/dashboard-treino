@@ -1,19 +1,27 @@
 // The team roster grid — cohort sections by phase, each attention-sorted. Shared
-// by the real /coach panel and the /coach/demo preview so they look identical;
-// the only difference is where a card links (real drill-in vs the athlete demo).
+// by the real /coach panel and the /coach/demo preview so they look identical.
+// Dense cards for big squads: name prominent, modality icons (lit for what the
+// athlete trains), and the readiness light carried by the card's border + glow
+// rather than a fill, so a red athlete quietly draws the eye.
 import Link from "next/link";
 import { translator, type Locale, type TKey } from "@/lib/i18n";
 import { daysBetween } from "@/lib/utils";
 import type { RosterAthlete } from "@/lib/product-db";
 
-const RECO_COLOR: Record<string, string> = {
+const FAROL: Record<string, string> = {
   green: "var(--good)",
   yellow: "var(--warn)",
   red: "var(--bad)",
 };
 
-/** Athletes needing attention float to the top: red first, then a stale/no
- * check-in or a recent injury, then everyone else. */
+const MODS: { key: string; icon: string }[] = [
+  { key: "swim", icon: "🏊" },
+  { key: "bike", icon: "🚴" },
+  { key: "run", icon: "🏃" },
+  { key: "strength", icon: "💪" },
+];
+
+/** Attention: red first, then a stale/no check-in or a recent injury, then the rest. */
 function attentionRank(a: RosterAthlete, todayISO: string): number {
   if (a.today_reco === "red") return 0;
   const stale = a.last_checkin ? daysBetween(a.last_checkin, todayISO) > 3 : true;
@@ -33,44 +41,52 @@ function phaseRank(phase: string): number {
   return 4;
 }
 
-const CARD_CLASS =
-  "rise tcard flex flex-col gap-3 rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] p-4 shadow-[var(--shadow)] transition-colors hover:border-[var(--border)]";
-
-function CardBody({ a, todayISO, tr }: { a: RosterAthlete; todayISO: string; tr: (k: TKey) => string }) {
-  const reco = a.today_reco ? RECO_COLOR[a.today_reco] : null;
+function Card({ a, todayISO, tr, href }: { a: RosterAthlete; todayISO: string; tr: (k: TKey) => string; href: string | null }) {
+  const farol = a.today_reco ? FAROL[a.today_reco] : null;
   const raceIn = a.next_race_date ? daysBetween(todayISO, a.next_race_date) : null;
   const checkinAgo = a.last_checkin ? daysBetween(a.last_checkin, todayISO) : null;
   const stale = checkinAgo === null || checkinAgo > 3;
+  const sports = a.sports ?? [];
 
-  return (
+  const cls =
+    "flex flex-col gap-1 rounded-[12px] border bg-[var(--surface)] px-3 py-2.5 transition-colors hover:bg-[var(--surface-2)]";
+  // The readiness light lives in the border + a faint outer glow, not a fill.
+  const style: React.CSSProperties = {
+    borderColor: farol ?? "var(--border-soft)",
+    boxShadow: farol ? `0 0 16px -9px ${farol}` : undefined,
+  };
+
+  const body = (
     <>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-[15px] font-bold text-[var(--text)]">{a.athlete ?? a.name}</p>
-          <p className="mt-0.5 truncate text-[12px] text-[var(--text-faint)]">
-            {a.next_race_name ?? tr("coach.noRace")}
-          </p>
-        </div>
-        <span
-          className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-          style={{ background: reco ?? "var(--border)" }}
-          title={a.today_reco ?? "—"}
-        />
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-[14px] font-bold leading-tight text-[var(--text)]">{a.athlete ?? a.name}</p>
+        <span className="flex shrink-0 items-center gap-[3px] text-[12.5px] leading-none">
+          {MODS.map((m) => {
+            const on = sports.includes(m.key);
+            return (
+              <span
+                key={m.key}
+                title={m.key}
+                style={{ opacity: on ? 1 : 0.22, filter: on ? "none" : "grayscale(1)" }}
+              >
+                {m.icon}
+              </span>
+            );
+          })}
+        </span>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex items-baseline gap-1.5 text-[11px] leading-tight text-[var(--text-faint)]">
+        <span className="min-w-0 truncate">{a.next_race_name ?? tr("coach.noRace")}</span>
         {raceIn !== null && raceIn >= 0 && (
-          <span className="rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-semibold text-[var(--text-muted)]">
-            {raceIn === 0 ? tr("coach.today") : tr("coach.inDays").replace("{n}", String(raceIn))}
+          <span className="shrink-0 font-semibold text-[var(--text-muted)]">
+            · {raceIn === 0 ? tr("coach.today") : tr("coach.inDays").replace("{n}", String(raceIn))}
           </span>
         )}
-        <span
-          className="rounded-full border px-2 py-0.5 text-[11px] font-medium"
-          style={{
-            borderColor: stale ? "var(--warn)" : "var(--border)",
-            color: stale ? "var(--warn)" : "var(--text-faint)",
-          }}
-        >
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10.5px] font-medium" style={{ color: stale ? "var(--warn)" : "var(--text-faint)" }}>
           {checkinAgo === null
             ? tr("coach.noCheckin")
             : checkinAgo === 0
@@ -78,12 +94,22 @@ function CardBody({ a, todayISO, tr }: { a: RosterAthlete; todayISO: string; tr:
               : tr("coach.checkinAgo").replace("{n}", String(checkinAgo))}
         </span>
         {a.recent_injuries > 0 && (
-          <span className="rounded-full border border-[var(--bad)] px-2 py-0.5 text-[11px] font-semibold text-[var(--bad)]">
+          <span className="rounded-full border border-[var(--bad)] px-1.5 text-[9px] font-bold uppercase leading-[15px] text-[var(--bad)]">
             {tr("coach.injury")}
           </span>
         )}
       </div>
     </>
+  );
+
+  return href ? (
+    <Link href={href} className={cls} style={style}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cls} style={style}>
+      {body}
+    </div>
   );
 }
 
@@ -118,28 +144,19 @@ export function RosterBoard({
     }));
 
   return (
-    <div className="flex flex-col gap-7">
+    <div className="flex flex-col gap-6">
       {groups.map(({ phase, list }) => (
         <section key={phase || "none"}>
-          <div className="mb-2.5 flex items-baseline gap-2 px-1">
-            <h2 className="text-[13px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+          <div className="mb-2 flex items-baseline gap-2 px-1">
+            <h2 className="text-[12.5px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
               {phase || tr("coach.noPhase")}
             </h2>
-            <span className="tnum text-[12px] text-[var(--text-faint)]">{list.length}</span>
+            <span className="tnum text-[11.5px] text-[var(--text-faint)]">{list.length}</span>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {list.map((a) => {
-              const href = hrefFor(a);
-              return href ? (
-                <Link key={a.tenant_id} href={href} className={CARD_CLASS}>
-                  <CardBody a={a} todayISO={todayISO} tr={tr} />
-                </Link>
-              ) : (
-                <div key={a.tenant_id} className={CARD_CLASS}>
-                  <CardBody a={a} todayISO={todayISO} tr={tr} />
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {list.map((a) => (
+              <Card key={a.tenant_id} a={a} todayISO={todayISO} tr={tr} href={hrefFor(a)} />
+            ))}
           </div>
         </section>
       ))}

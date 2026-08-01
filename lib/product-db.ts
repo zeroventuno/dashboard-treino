@@ -122,6 +122,9 @@ export interface RosterAthlete {
   /** Current phase of the active cycle (Base/Build/…) — the cohort a coach
    * batches by. Null when there's no active cycle. */
   current_phase: string | null;
+  /** Disciplines the athlete actually trains (distinct workout disciplines,
+   * minus rest): the swim/bike/run/strength icons the card lights up. */
+  sports: string[];
   next_race_name: string | null;
   next_race_date: string | null;
   today_reco: "green" | "yellow" | "red" | null;

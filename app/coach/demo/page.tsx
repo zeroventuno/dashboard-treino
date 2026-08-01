@@ -28,6 +28,7 @@ function mockRoster(): RosterAthlete[] {
     athlete,
     mode: "race",
     current_phase,
+    sports: ["run"],
     next_race_name: null,
     next_race_date: null,
     today_reco,
@@ -37,15 +38,15 @@ function mockRoster(): RosterAthlete[] {
   });
 
   return [
-    a("d1", "Marina", "Base", "green", { next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(96) }),
-    a("d2", "João", "Base", "yellow", { next_race_name: "Maratona do Porto", next_race_date: race(96), last_checkin: ago(1) }),
-    a("d3", "Lucas", "Base", "red", { last_checkin: ago(1), recent_injuries: 1 }),
-    a("d4", "Ana", "Build", "green", { next_race_name: "Triatlo de Aveiro", next_race_date: race(42) }),
-    a("d5", "Pedro", "Build", null, { last_checkin: ago(5) }),
-    a("d6", "Carla", "Build", "yellow", { next_race_name: "Triatlo de Aveiro", next_race_date: race(42), last_checkin: ago(2), recent_injuries: 1 }),
-    a("d7", "Rafael", "Pico", "green", { next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(13) }),
-    a("d8", "Bia", "Taper", "green", { next_race_name: "Meia de Lisboa", next_race_date: race(5) }),
-    a("d9", "Diego", null, null, { last_checkin: ago(8) }),
+    a("d1", "Marina", "Base", "green", { sports: ["swim", "bike", "run"], next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(96) }),
+    a("d2", "João", "Base", "yellow", { sports: ["run", "strength"], next_race_name: "Maratona do Porto", next_race_date: race(96), last_checkin: ago(1) }),
+    a("d3", "Lucas", "Base", "red", { sports: ["run"], last_checkin: ago(1), recent_injuries: 1 }),
+    a("d4", "Ana", "Build", "green", { sports: ["swim", "bike", "run", "strength"], next_race_name: "Triatlo de Aveiro", next_race_date: race(42) }),
+    a("d5", "Pedro", "Build", null, { sports: ["bike", "run"], last_checkin: ago(5) }),
+    a("d6", "Carla", "Build", "yellow", { sports: ["swim", "bike", "run"], next_race_name: "Triatlo de Aveiro", next_race_date: race(42), last_checkin: ago(2), recent_injuries: 1 }),
+    a("d7", "Rafael", "Pico", "green", { sports: ["swim", "bike", "run"], next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(13) }),
+    a("d8", "Bia", "Taper", "green", { sports: ["run"], next_race_name: "Meia de Lisboa", next_race_date: race(5) }),
+    a("d9", "Diego", null, null, { sports: ["bike"], last_checkin: ago(8) }),
   ];
 }
 
