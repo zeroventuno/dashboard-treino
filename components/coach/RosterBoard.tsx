@@ -7,6 +7,7 @@ import Link from "next/link";
 import { translator, type Locale, type TKey } from "@/lib/i18n";
 import { daysBetween } from "@/lib/utils";
 import type { RosterAthlete } from "@/lib/product-db";
+import { SportIcon } from "./SportIcons";
 
 const FAROL: Record<string, string> = {
   green: "var(--good)",
@@ -14,12 +15,7 @@ const FAROL: Record<string, string> = {
   red: "var(--bad)",
 };
 
-const MODS: { key: string; icon: string }[] = [
-  { key: "swim", icon: "🏊" },
-  { key: "bike", icon: "🚴" },
-  { key: "run", icon: "🏃" },
-  { key: "strength", icon: "💪" },
-];
+const MODS = ["swim", "bike", "run", "strength"];
 
 /** Attention: red first, then a stale/no check-in or a recent injury, then the rest. */
 function attentionRank(a: RosterAthlete, todayISO: string): number {
@@ -60,17 +56,15 @@ function Card({ a, todayISO, tr, href }: { a: RosterAthlete; todayISO: string; t
     <>
       <div className="flex items-center justify-between gap-2">
         <p className="truncate text-[14px] font-bold leading-tight text-[var(--text)]">{a.athlete ?? a.name}</p>
-        <span className="flex shrink-0 items-center gap-[3px] text-[12.5px] leading-none">
+        <span className="flex shrink-0 items-center gap-[3px]">
           {MODS.map((m) => {
-            const on = sports.includes(m.key);
+            const on = sports.includes(m);
             return (
-              <span
-                key={m.key}
-                title={m.key}
-                style={{ opacity: on ? 1 : 0.22, filter: on ? "none" : "grayscale(1)" }}
-              >
-                {m.icon}
-              </span>
+              <SportIcon
+                key={m}
+                sport={m}
+                style={{ color: on ? "var(--text)" : "var(--text-faint)", opacity: on ? 1 : 0.32 }}
+              />
             );
           })}
         </span>
