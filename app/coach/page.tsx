@@ -26,6 +26,18 @@ function attentionRank(a: RosterAthlete, todayISO: string): number {
   return 3;
 }
 
+/** Order cohort sections along the training arc. Phase names are free-form (the
+ * coach names them, in any language), so match fuzzily; no-cycle lands last. */
+function phaseRank(phase: string): number {
+  if (!phase) return 5;
+  const s = phase.toLowerCase();
+  if (s.includes("base")) return 0;
+  if (s.includes("build") || s.includes("constru")) return 1;
+  if (s.includes("peak") || s.includes("pico") || s.includes("picco")) return 2;
+  if (s.includes("taper") || s.includes("polim") || s.includes("afila") || s.includes("scarico") || s.includes("affût")) return 3;
+  return 4;
+}
+
 function RosterCard({ a, todayISO, tr }: { a: RosterAthlete; todayISO: string; tr: (k: TKey) => string }) {
   const reco = a.today_reco ? RECO_COLOR[a.today_reco] : null;
   const raceIn = a.next_race_date ? daysBetween(todayISO, a.next_race_date) : null;
@@ -94,9 +106,25 @@ export default async function CoachPanelPage() {
   const tr = translator(locale);
   const todayISO = toISO(new Date());
 
-  const roster = (await getRoster(staff.id)).sort(
-    (x, y) => attentionRank(x, todayISO) - attentionRank(y, todayISO) || x.name.localeCompare(y.name),
-  );
+  const roster = await getRoster(staff.id);
+
+  // Group into cohorts by training phase (the unit of batch prescription), each
+  // cohort attention-sorted; phase sections follow the training arc.
+  const byPhase = new Map<string, RosterAthlete[]>();
+  for (const a of roster) {
+    const key = a.current_phase ?? "";
+    const arr = byPhase.get(key);
+    if (arr) arr.push(a);
+    else byPhase.set(key, [a]);
+  }
+  const groups = [...byPhase.entries()]
+    .sort(([x], [y]) => phaseRank(x) - phaseRank(y) || x.localeCompare(y))
+    .map(([phase, list]) => ({
+      phase,
+      list: list.sort(
+        (m, n) => attentionRank(m, todayISO) - attentionRank(n, todayISO) || m.name.localeCompare(n.name),
+      ),
+    }));
 
   const roleLabel = tr(`coach.role.${staff.role}` as TKey);
 
@@ -123,9 +151,21 @@ export default async function CoachPanelPage() {
           {tr("coach.empty")}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {roster.map((a) => (
-            <RosterCard key={a.tenant_id} a={a} todayISO={todayISO} tr={tr} />
+        <div className="flex flex-col gap-7">
+          {groups.map(({ phase, list }) => (
+            <section key={phase || "none"}>
+              <div className="mb-2.5 flex items-baseline gap-2 px-1">
+                <h2 className="text-[13px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+                  {phase || tr("coach.noPhase")}
+                </h2>
+                <span className="tnum text-[12px] text-[var(--text-faint)]">{list.length}</span>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {list.map((a) => (
+                  <RosterCard key={a.tenant_id} a={a} todayISO={todayISO} tr={tr} />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}

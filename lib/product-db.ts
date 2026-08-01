@@ -119,6 +119,9 @@ export interface RosterAthlete {
   name: string;
   athlete: string | null;
   mode: string | null;
+  /** Current phase of the active cycle (Base/Build/…) — the cohort a coach
+   * batches by. Null when there's no active cycle. */
+  current_phase: string | null;
   next_race_name: string | null;
   next_race_date: string | null;
   today_reco: "green" | "yellow" | "red" | null;

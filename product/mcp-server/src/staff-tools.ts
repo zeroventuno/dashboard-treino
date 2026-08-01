@@ -63,23 +63,71 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
     "list_athletes",
     {
       description:
-        "List the athletes on YOUR roster (the clients you were given access to). Call this FIRST — every write tool takes an `athlete`, and you identify them by the exact name shown here. You can only ever act on athletes in this list.",
+        "List the athletes on YOUR roster with a summary of each: current training phase (the cohort to batch by), next race, today's readiness traffic-light, last check-in, recent injuries. Call this FIRST — every write tool takes an `athlete`, and you identify them by the exact `name` shown here. You can only ever act on athletes in this list. To prescribe for many at once, group by `current_phase` and skip anyone flagged red or injured until you've read their check-ins.",
       inputSchema: {},
     },
     async () =>
       data(
         await (async () => {
-          const { rows } = await pool.query<{ id: string; name: string; email: string }>(
-            `select t.id, coalesce(t.athlete_name, t.email) as name, t.email
-               from app.staff_athletes sa
-               join app.tenants t on t.id = sa.tenant_id
-              where sa.staff_id = $1
-              order by name`,
+          // Same summary the coach panel shows — the SECURITY DEFINER function is
+          // scoped to this staff member, so it only ever returns their roster.
+          const { rows } = await pool.query(
+            "select * from app.roster_summary($1)",
             [staff.id],
           );
           return { role: staff.role, count: rows.length, athletes: rows };
         })(),
       ),
+  );
+
+  // ── Methodology (every role) — the professional's working method, saved once
+  //    so drafts come out on-brand and the assistant stops re-asking. ─────────
+  server.registerTool(
+    "get_methodology",
+    {
+      description:
+        "Read YOUR saved training philosophy / working method. Call at the start of a session so anything you draft matches how this professional actually works.",
+      inputSchema: {},
+    },
+    async () =>
+      data(
+        await (async () => {
+          const { rows } = await pool.query<{ methodology: unknown }>(
+            "select methodology from app.staff where id = $1",
+            [staff.id],
+          );
+          return { methodology: rows[0]?.methodology ?? {} };
+        })(),
+      ),
+  );
+
+  server.registerTool(
+    "set_methodology",
+    {
+      description:
+        "Save/update YOUR training philosophy so future drafts are on-brand and you stop re-answering the same questions. Run once during setup, update anytime. Only the fields you pass are changed; the rest are kept.",
+      inputSchema: {
+        philosophy: z.string().optional().describe("your overall approach in a sentence or two"),
+        sports: z.array(z.string()).optional().describe("modalities you program, e.g. ['swim','bike','run','strength']"),
+        periodization: z.string().optional().describe("e.g. 'linear', 'block', 'reverse'"),
+        intensity_distribution: z.string().optional().describe("e.g. '80/20 polarized', 'threshold-heavy'"),
+        has_workout_bank: z.boolean().optional().describe("do you have a validated workout library to draw from?"),
+        defaults: z.string().optional().describe("default weekly structure / rules of thumb"),
+        notes: z.string().optional().describe("anything else that shapes how you write plans"),
+      },
+    },
+    async (a) => {
+      // Only the provided keys, shallow-merged into the stored jsonb (`||`), so
+      // omitting a field keeps it — same "omit ≠ clear" rule as set_profile.
+      const provided: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(a)) if (v !== undefined) provided[k] = v;
+      if (Object.keys(provided).length === 0) return ok("Nothing to change.");
+      await pool.query(
+        "update app.staff set methodology = methodology || $2::jsonb where id = $1",
+        [staff.id, JSON.stringify(provided)],
+      );
+      return ok(`Methodology saved (${Object.keys(provided).join(", ")}).`);
+    },
   );
 
   // ── Reads (every role — a professional reads context before acting) ──────
