@@ -15,6 +15,22 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "pt";
 
 const pt = {
+  // coach panel (B2B)
+  "coach.login.title": "Painel do profissional",
+  "coach.login.hint": "Cole a sua chave de profissional (começa com {prefix}).",
+  "coach.team": "Sua equipe",
+  "coach.teamSub": "Toque num atleta para abrir o painel dele",
+  "coach.empty": "Nenhum atleta no seu roster ainda. Peça ao admin para vincular seus alunos.",
+  "coach.noRace": "Sem prova marcada",
+  "coach.today": "hoje",
+  "coach.inDays": "em {n}d",
+  "coach.checkinToday": "check-in hoje",
+  "coach.checkinAgo": "check-in há {n}d",
+  "coach.noCheckin": "sem check-in",
+  "coach.injury": "lesão recente",
+  "coach.role.coach": "Treinador",
+  "coach.role.nutritionist": "Nutricionista",
+  "coach.role.physio": "Fisioterapeuta",
   // menstrual cycle (opt-in)
   "block.menstrual": "Ciclo Menstrual",
   "block.menstrual.sub": "Fase atual, previsão da próxima menstruação e contexto de treino",
@@ -198,6 +214,22 @@ export type TKey = keyof typeof pt;
 type Dict = Record<TKey, string>;
 
 const en: Dict = {
+  // coach panel (B2B)
+  "coach.login.title": "Professional panel",
+  "coach.login.hint": "Paste your professional key (starts with {prefix}).",
+  "coach.team": "Your team",
+  "coach.teamSub": "Tap an athlete to open their dashboard",
+  "coach.empty": "No athletes on your roster yet. Ask the admin to link your clients.",
+  "coach.noRace": "No race set",
+  "coach.today": "today",
+  "coach.inDays": "in {n}d",
+  "coach.checkinToday": "checked in today",
+  "coach.checkinAgo": "check-in {n}d ago",
+  "coach.noCheckin": "no check-in",
+  "coach.injury": "recent injury",
+  "coach.role.coach": "Coach",
+  "coach.role.nutritionist": "Nutritionist",
+  "coach.role.physio": "Physiotherapist",
   // menstrual cycle (opt-in)
   "block.menstrual": "Menstrual Cycle",
   "block.menstrual.sub": "Current phase, next-period prediction and training context",
@@ -356,6 +388,22 @@ const en: Dict = {
 };
 
 const it: Dict = {
+  // coach panel (B2B)
+  "coach.login.title": "Pannello del professionista",
+  "coach.login.hint": "Incolla la tua chiave professionale (inizia con {prefix}).",
+  "coach.team": "La tua squadra",
+  "coach.teamSub": "Tocca un atleta per aprire il suo pannello",
+  "coach.empty": "Nessun atleta nel tuo roster. Chiedi all'admin di collegare i tuoi clienti.",
+  "coach.noRace": "Nessuna gara",
+  "coach.today": "oggi",
+  "coach.inDays": "tra {n}g",
+  "coach.checkinToday": "check-in oggi",
+  "coach.checkinAgo": "check-in {n}g fa",
+  "coach.noCheckin": "nessun check-in",
+  "coach.injury": "infortunio recente",
+  "coach.role.coach": "Allenatore",
+  "coach.role.nutritionist": "Nutrizionista",
+  "coach.role.physio": "Fisioterapista",
   // menstrual cycle (opt-in)
   "block.menstrual": "Ciclo Mestruale",
   "block.menstrual.sub": "Fase attuale, previsione delle prossime mestruazioni e contesto di allenamento",
@@ -514,6 +562,22 @@ const it: Dict = {
 };
 
 const es: Dict = {
+  // coach panel (B2B)
+  "coach.login.title": "Panel del profesional",
+  "coach.login.hint": "Pega tu clave de profesional (empieza con {prefix}).",
+  "coach.team": "Tu equipo",
+  "coach.teamSub": "Toca un atleta para abrir su panel",
+  "coach.empty": "Aún no hay atletas en tu roster. Pide al admin que vincule a tus clientes.",
+  "coach.noRace": "Sin carrera",
+  "coach.today": "hoy",
+  "coach.inDays": "en {n}d",
+  "coach.checkinToday": "check-in hoy",
+  "coach.checkinAgo": "check-in hace {n}d",
+  "coach.noCheckin": "sin check-in",
+  "coach.injury": "lesión reciente",
+  "coach.role.coach": "Entrenador",
+  "coach.role.nutritionist": "Nutricionista",
+  "coach.role.physio": "Fisioterapeuta",
   // menstrual cycle (opt-in)
   "block.menstrual": "Ciclo Menstrual",
   "block.menstrual.sub": "Fase actual, predicción de la próxima menstruación y contexto de entrenamiento",
@@ -672,6 +736,22 @@ const es: Dict = {
 };
 
 const fr: Dict = {
+  // coach panel (B2B)
+  "coach.login.title": "Espace professionnel",
+  "coach.login.hint": "Colle ta clé professionnelle (commence par {prefix}).",
+  "coach.team": "Ton équipe",
+  "coach.teamSub": "Touche un athlète pour ouvrir son tableau de bord",
+  "coach.empty": "Aucun athlète dans ton roster. Demande à l'admin de lier tes clients.",
+  "coach.noRace": "Pas de course",
+  "coach.today": "aujourd'hui",
+  "coach.inDays": "dans {n}j",
+  "coach.checkinToday": "check-in aujourd'hui",
+  "coach.checkinAgo": "check-in il y a {n}j",
+  "coach.noCheckin": "pas de check-in",
+  "coach.injury": "blessure récente",
+  "coach.role.coach": "Coach",
+  "coach.role.nutritionist": "Nutritionniste",
+  "coach.role.physio": "Kinésithérapeute",
   // menstrual cycle (opt-in)
   "block.menstrual": "Cycle Menstruel",
   "block.menstrual.sub": "Phase actuelle, prévision des prochaines règles et contexte d'entraînement",

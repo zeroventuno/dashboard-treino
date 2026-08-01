@@ -85,3 +85,65 @@ export async function resolveTenantId(accountKey: string): Promise<string | null
   );
   return rows[0]?.id ?? null;
 }
+
+// ── B2B: professional (coach/nutritionist/physio) auth + roster ─────────────
+
+export interface StaffIdentity {
+  id: string;
+  agencyId: string;
+  role: string;
+  name: string | null;
+}
+
+/** professional key (trakc_…) → staff identity, or null if unknown/inactive.
+ * The agency must be active too. Mirrors resolveTenantId; app.staff is private
+ * and app_writer has SELECT on it. */
+export async function resolveStaffId(staffKey: string): Promise<StaffIdentity | null> {
+  if (!hasProductDb()) return null;
+  const hash = createHash("sha256").update(staffKey).digest("hex");
+  const { rows } = await getPool().query<{ id: string; agency_id: string; role: string; name: string | null }>(
+    `select s.id, s.agency_id, s.role, s.name
+       from app.staff s
+       join app.agencies a on a.id = s.agency_id
+      where s.api_key_hash = $1 and s.status = 'active' and a.status = 'active'
+      limit 1`,
+    [hash],
+  );
+  const r = rows[0];
+  return r ? { id: r.id, agencyId: r.agency_id, role: r.role, name: r.name } : null;
+}
+
+/** One summary row per athlete on a staff member's roster, for the team view. */
+export interface RosterAthlete {
+  tenant_id: string;
+  name: string;
+  athlete: string | null;
+  mode: string | null;
+  next_race_name: string | null;
+  next_race_date: string | null;
+  today_reco: "green" | "yellow" | "red" | null;
+  last_checkin: string | null;
+  recent_injuries: number;
+}
+
+/** The whole roster in one query, via the app.roster_summary SECURITY DEFINER
+ * function — which is itself scoped to this staff member (see the migration). */
+export async function getRoster(staffId: string): Promise<RosterAthlete[]> {
+  if (!hasProductDb()) return [];
+  const { rows } = await getPool().query<RosterAthlete>(
+    "select * from app.roster_summary($1)",
+    [staffId],
+  );
+  return rows;
+}
+
+/** Is this athlete on this staff member's roster? The authorization gate for the
+ * drill-in: a professional may only open an athlete assigned to them. */
+export async function staffCanAccess(staffId: string, tenantId: string): Promise<boolean> {
+  if (!hasProductDb()) return false;
+  const { rows } = await getPool().query(
+    "select 1 from app.staff_athletes where staff_id = $1 and tenant_id = $2 limit 1",
+    [staffId, tenantId],
+  );
+  return rows.length > 0;
+}

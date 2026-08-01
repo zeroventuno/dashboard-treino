@@ -9,7 +9,6 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { cookies, headers } from "next/headers";
-import { BlockBoundary } from "@/components/BlockBoundary";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import {
@@ -17,29 +16,15 @@ import {
   getProductDashboardData,
   isUnconfigured,
   resolveTenantId,
-  type TenantView,
 } from "@/lib/data-product";
-import { blockAvailable } from "@/lib/tenant-config";
 import { Onboarding } from "@/components/Onboarding";
 import { LogoutButton } from "@/components/LogoutButton";
+import { DashboardBlocks } from "@/components/DashboardBlocks";
 import { hasProductDb } from "@/lib/product-db";
 import { APP_COOKIE } from "@/app/api/app-login/route";
 import { toISO } from "@/lib/utils";
 import { Tagline } from "@/components/Tagline";
-import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
-import type { DashboardData } from "@/lib/types";
-import { pickLocale, translator, type Locale, type TKey } from "@/lib/i18n";
-import { HeroBlock } from "@/components/blocks/HeroBlock";
-import { FitnessBlock } from "@/components/blocks/FitnessBlock";
-import { CalendarBlock } from "@/components/blocks/CalendarBlock";
-import { SeasonBlock } from "@/components/blocks/SeasonBlock";
-import { MenstrualCycleBlock } from "@/components/blocks/MenstrualCycleBlock";
-import { ZonesBlock } from "@/components/blocks/ZonesBlock";
-import { MealPlanBlock } from "@/components/blocks/MealPlanBlock";
-import { BodyBlock } from "@/components/blocks/BodyBlock";
-import { StrengthBlock } from "@/components/blocks/StrengthBlock";
-import { WatchPointsBlock } from "@/components/blocks/WatchPointsBlock";
-import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
+import { pickLocale, translator, type TKey } from "@/lib/i18n";
 
 export const revalidate = 60;
 
@@ -54,34 +39,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: subject ? `MY TRAKR · ${subject}` : "MY TRAKR" };
 }
 
-type BlockProps = { data: DashboardData; todayISO: string; locale: Locale; tenant: TenantView };
-
-const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
-  hero: (p) => (
-    <HeroBlock
-      data={p.data}
-      locale={p.locale}
-      target={{
-        // Race, else the cycle's name, else nothing scheduled — never the repo
-        // owner's race, which is what this used to fall back to.
-        raceName: p.tenant.raceName ?? p.tenant.cycleName ?? "",
-        raceISO: p.tenant.raceName ? p.tenant.raceISO : null,
-        cycle: p.tenant.raceName ? null : p.tenant.cycle,
-        races: p.tenant.races,
-      }}
-    />
-  ),
-  fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
-  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} units={p.tenant.units} />,
-  season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
-  menstrual: (p) => <MenstrualCycleBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
-  zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
-  mealplan: (p) => <MealPlanBlock data={p.data} locale={p.locale} />,
-  body: (p) => <BodyBlock data={p.data} locale={p.locale} units={p.tenant.units} />,
-  strength: (p) => <StrengthBlock data={p.data} locale={p.locale} anatomy={p.tenant.anatomy} />,
-  watchpoints: (p) => <WatchPointsBlock data={p.data} locale={p.locale} />,
-  lifestyle: (p) => <LifestyleBlock data={p.data} locale={p.locale} />,
-};
 
 export default async function ProductDashboardPage({
   searchParams,
@@ -142,21 +99,8 @@ export default async function ProductDashboardPage({
     : !dbConfigured
       ? "app.reason.noDb"
       : "app.reason.empty";
-  const props: BlockProps = { data, todayISO: toISO(new Date()), locale, tenant };
-
+  const todayISO = toISO(new Date());
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
-
-  // Only blocks this athlete can actually feed. The product used to render
-  // every block to everyone -- so an athlete with no scale still got an empty
-  // body-composition panel. /demo has always gated on this; /app never did.
-  const enabled = BLOCKS.filter((b) => b.enabled && blockAvailable(b.requires, tenant.metrics));
-  const groups: (BlockDef | BlockDef[])[] = [];
-  for (const b of enabled) {
-    const last = groups[groups.length - 1];
-    if (b.width === "third" && Array.isArray(last)) last.push(b);
-    else if (b.width === "third") groups.push([b]);
-    else groups.push(b);
-  }
 
   return (
     <div data-readiness={readiness} className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
@@ -179,23 +123,7 @@ export default async function ProductDashboardPage({
         </div>
       )}
 
-      <div className="flex flex-col gap-[22px]">
-        {groups.map((g, i) =>
-          Array.isArray(g) ? (
-            <div key={i} className="grid grid-cols-1 gap-[22px] md:grid-cols-2 lg:grid-cols-3">
-              {g.map((b) => (
-                <BlockBoundary key={b.id} id={b.id} locale={props.locale}>
-                  {REGISTRY[b.id](props)}
-                </BlockBoundary>
-              ))}
-            </div>
-          ) : (
-            <BlockBoundary key={g.id} id={g.id} locale={props.locale}>
-              {REGISTRY[g.id](props)}
-            </BlockBoundary>
-          ),
-        )}
-      </div>
+      <DashboardBlocks data={data} tenant={tenant} locale={locale} todayISO={todayISO} />
 
       <footer className="mt-9 text-center">
         <Tagline />

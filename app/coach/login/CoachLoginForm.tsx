@@ -1,0 +1,89 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { translator, type Locale } from "@/lib/i18n";
+
+/** The professional key always starts with this. */
+const KEY_PREFIX = "trakc_";
+
+export type LoginErrorCode = "not_found" | "unavailable";
+
+export function CoachLoginForm({
+  locale,
+  initialError = null,
+}: {
+  locale: Locale;
+  initialError?: LoginErrorCode | null;
+}) {
+  const tr = translator(locale);
+  const router = useRouter();
+  const [key, setKey] = useState("");
+  const [error, setError] = useState<string | null>(
+    initialError ? tr(initialError === "not_found" ? "login.error" : "login.unavailable") : null,
+  );
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/coach-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: key.trim() }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(tr(body.code === "not_found" ? "login.error" : "login.unavailable"));
+        return;
+      }
+      router.push("/coach");
+      router.refresh();
+    } catch {
+      setError(tr("login.networkError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const [introBefore, introAfter] = tr("coach.login.hint").split("{prefix}");
+
+  return (
+    <div className="grid min-h-screen place-items-center px-4">
+      <div className="w-full max-w-[400px] rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] p-7 shadow-[var(--shadow)]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-trakr.svg" alt="MY TRAKR" className="mb-6 h-[26px] w-auto" />
+
+        <h1 className="dsp text-[22px] font-extrabold text-[var(--text)]">{tr("coach.login.title")}</h1>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--text-muted)]">
+          {introBefore}
+          <code className="text-[var(--lime)]">{KEY_PREFIX}</code>
+          {introAfter}
+        </p>
+
+        <form onSubmit={submit} className="mt-5">
+          <input
+            type="password"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder={`${KEY_PREFIX}…`}
+            autoComplete="off"
+            className="w-full rounded-[12px] border border-[var(--border)] bg-[var(--bg-soft)] px-3.5 py-3 font-mono text-[13px] text-[var(--text)] outline-none transition-colors focus:border-[var(--lime)]"
+          />
+
+          {error && <p className="mt-2.5 text-[12.5px] font-medium text-[var(--bad)]">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={busy || key.trim().length === 0}
+            className="mt-4 w-full rounded-[12px] bg-[var(--lime)] px-4 py-3 text-[14px] font-bold text-[#0a0b0d] transition-opacity disabled:opacity-40"
+          >
+            {busy ? tr("login.submitting") : tr("login.submit")}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

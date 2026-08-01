@@ -10,7 +10,13 @@ import { AUTH_COOKIE, tokenFor } from "@/lib/auth";
 // /api/health is public on purpose: it's what you reach for when logging in is
 // the thing that's broken, so it can't sit behind the login. It exposes only
 // up/down + an error code.
-const PUBLIC = ["/login", "/api/login", "/app", "/api/app-login", "/api/health"];
+const PUBLIC = [
+  "/login", "/api/login", "/api/health",
+  "/app", "/api/app-login",
+  // The coach panel has its own per-professional key auth (trakc_ in an httpOnly
+  // cookie), same reasoning as /app — don't sit it behind the shared password.
+  "/coach", "/api/coach-login",
+];
 
 // Next 16 renamed the "middleware" convention to "proxy".
 export async function proxy(req: NextRequest) {
