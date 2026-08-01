@@ -15,6 +15,27 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "pt";
 
 const pt = {
+  // coach nav / settings / notifications
+  "coach.nav.team": "Equipe",
+  "coach.settings.title": "Configurações",
+  "coach.settings.teamTitle": "Equipe & profissionais",
+  "coach.settings.teamSub": "Vincule treinadores, nutricionistas e fisios à assessoria.",
+  "coach.settings.add": "Adicionar profissional",
+  "coach.settings.name": "Nome",
+  "coach.settings.email": "E-mail (opcional)",
+  "coach.settings.role": "Papel",
+  "coach.settings.create": "Criar",
+  "coach.settings.createError": "Não foi possível criar. Tente de novo.",
+  "coach.settings.keyTitle": "Chave do profissional",
+  "coach.settings.keyOnce": "Copie agora — ela só aparece uma vez. Entregue ao profissional para conectar o copiloto.",
+  "coach.settings.athletes": "atletas",
+  "coach.settings.noStaff": "Nenhum profissional ainda.",
+  "coach.notifications.title": "Notificações",
+  "coach.notifications.empty": "Tudo em dia — nada pra revisar.",
+  "coach.notif.red": "no vermelho hoje",
+  "coach.notif.stale": "sem check-in há {n} dias",
+  "coach.notif.injury": "lesão recente",
+  "coach.notif.drafts": "{n} workout(s) no banco aguardando validação",
   // workout bank (B2B)
   "coach.bank.title": "Banco de workouts",
   "coach.bank.sub": "A biblioteca da assessoria — valide os rascunhos; só os validados entram na prescrição.",
@@ -230,6 +251,27 @@ export type TKey = keyof typeof pt;
 type Dict = Record<TKey, string>;
 
 const en: Dict = {
+  // coach nav / settings / notifications
+  "coach.nav.team": "Team",
+  "coach.settings.title": "Settings",
+  "coach.settings.teamTitle": "Team & professionals",
+  "coach.settings.teamSub": "Link coaches, nutritionists and physios to the agency.",
+  "coach.settings.add": "Add professional",
+  "coach.settings.name": "Name",
+  "coach.settings.email": "Email (optional)",
+  "coach.settings.role": "Role",
+  "coach.settings.create": "Create",
+  "coach.settings.createError": "Couldn't create. Try again.",
+  "coach.settings.keyTitle": "Professional key",
+  "coach.settings.keyOnce": "Copy it now — it's shown only once. Give it to the professional to connect their copilot.",
+  "coach.settings.athletes": "athletes",
+  "coach.settings.noStaff": "No professionals yet.",
+  "coach.notifications.title": "Notifications",
+  "coach.notifications.empty": "All caught up — nothing to review.",
+  "coach.notif.red": "red today",
+  "coach.notif.stale": "no check-in for {n} days",
+  "coach.notif.injury": "recent injury",
+  "coach.notif.drafts": "{n} workout(s) in the bank awaiting validation",
   // workout bank (B2B)
   "coach.bank.title": "Workout bank",
   "coach.bank.sub": "The agency library — validate drafts; only validated ones are used when prescribing.",
@@ -420,6 +462,27 @@ const en: Dict = {
 };
 
 const it: Dict = {
+  // coach nav / settings / notifications
+  "coach.nav.team": "Squadra",
+  "coach.settings.title": "Impostazioni",
+  "coach.settings.teamTitle": "Squadra & professionisti",
+  "coach.settings.teamSub": "Collega allenatori, nutrizionisti e fisioterapisti all'agenzia.",
+  "coach.settings.add": "Aggiungi professionista",
+  "coach.settings.name": "Nome",
+  "coach.settings.email": "E-mail (opzionale)",
+  "coach.settings.role": "Ruolo",
+  "coach.settings.create": "Crea",
+  "coach.settings.createError": "Impossibile creare. Riprova.",
+  "coach.settings.keyTitle": "Chiave del professionista",
+  "coach.settings.keyOnce": "Copiala ora — appare una volta sola. Consegnala al professionista per collegare il copilota.",
+  "coach.settings.athletes": "atleti",
+  "coach.settings.noStaff": "Ancora nessun professionista.",
+  "coach.notifications.title": "Notifiche",
+  "coach.notifications.empty": "Tutto in ordine — niente da rivedere.",
+  "coach.notif.red": "in rosso oggi",
+  "coach.notif.stale": "nessun check-in da {n} giorni",
+  "coach.notif.injury": "infortunio recente",
+  "coach.notif.drafts": "{n} workout in banca da validare",
   // workout bank (B2B)
   "coach.bank.title": "Banca dei workout",
   "coach.bank.sub": "La libreria dell'agenzia — valida le bozze; solo i validati entrano nella prescrizione.",
@@ -610,6 +673,27 @@ const it: Dict = {
 };
 
 const es: Dict = {
+  // coach nav / settings / notifications
+  "coach.nav.team": "Equipo",
+  "coach.settings.title": "Configuración",
+  "coach.settings.teamTitle": "Equipo & profesionales",
+  "coach.settings.teamSub": "Vincula entrenadores, nutricionistas y fisios a la asesoría.",
+  "coach.settings.add": "Añadir profesional",
+  "coach.settings.name": "Nombre",
+  "coach.settings.email": "Correo (opcional)",
+  "coach.settings.role": "Rol",
+  "coach.settings.create": "Crear",
+  "coach.settings.createError": "No se pudo crear. Inténtalo de nuevo.",
+  "coach.settings.keyTitle": "Clave del profesional",
+  "coach.settings.keyOnce": "Cópiala ahora — solo aparece una vez. Dásela al profesional para conectar su copiloto.",
+  "coach.settings.athletes": "atletas",
+  "coach.settings.noStaff": "Aún no hay profesionales.",
+  "coach.notifications.title": "Notificaciones",
+  "coach.notifications.empty": "Todo al día — nada que revisar.",
+  "coach.notif.red": "en rojo hoy",
+  "coach.notif.stale": "sin check-in hace {n} días",
+  "coach.notif.injury": "lesión reciente",
+  "coach.notif.drafts": "{n} workout(s) en el banco por validar",
   // workout bank (B2B)
   "coach.bank.title": "Banco de workouts",
   "coach.bank.sub": "La biblioteca de la asesoría — valida los borradores; solo los validados entran en la prescripción.",
@@ -800,6 +884,27 @@ const es: Dict = {
 };
 
 const fr: Dict = {
+  // coach nav / settings / notifications
+  "coach.nav.team": "Équipe",
+  "coach.settings.title": "Paramètres",
+  "coach.settings.teamTitle": "Équipe & professionnels",
+  "coach.settings.teamSub": "Relie coachs, nutritionnistes et kinés à l'agence.",
+  "coach.settings.add": "Ajouter un professionnel",
+  "coach.settings.name": "Nom",
+  "coach.settings.email": "E-mail (optionnel)",
+  "coach.settings.role": "Rôle",
+  "coach.settings.create": "Créer",
+  "coach.settings.createError": "Création impossible. Réessaie.",
+  "coach.settings.keyTitle": "Clé du professionnel",
+  "coach.settings.keyOnce": "Copie-la maintenant — elle n'apparaît qu'une fois. Donne-la au professionnel pour connecter son copilote.",
+  "coach.settings.athletes": "athlètes",
+  "coach.settings.noStaff": "Aucun professionnel pour l'instant.",
+  "coach.notifications.title": "Notifications",
+  "coach.notifications.empty": "Tout est à jour — rien à revoir.",
+  "coach.notif.red": "au rouge aujourd'hui",
+  "coach.notif.stale": "pas de check-in depuis {n} jours",
+  "coach.notif.injury": "blessure récente",
+  "coach.notif.drafts": "{n} séance(s) dans la banque à valider",
   // workout bank (B2B)
   "coach.bank.title": "Banque de séances",
   "coach.bank.sub": "La bibliothèque de l'agence — valide les brouillons ; seuls les validés servent à la prescription.",

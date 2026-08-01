@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
 import { toISO, addDays } from "@/lib/utils";
 import type { RosterAthlete } from "@/lib/product-db";
+import { CoachNav } from "@/components/coach/CoachNav";
 import { RosterBoard } from "@/components/coach/RosterBoard";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ function mockRoster(): RosterAthlete[] {
     mode: "race",
     current_phase,
     sports: ["run"],
+    metrics: ["hrv"],
     next_race_name: null,
     next_race_date: null,
     today_reco,
@@ -38,15 +40,15 @@ function mockRoster(): RosterAthlete[] {
   });
 
   return [
-    a("d1", "Marina", "Base", "green", { sports: ["swim", "bike", "run"], next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(96) }),
-    a("d2", "João", "Base", "yellow", { sports: ["run", "strength"], next_race_name: "Maratona do Porto", next_race_date: race(96), last_checkin: ago(1) }),
-    a("d3", "Lucas", "Base", "red", { sports: ["run"], last_checkin: ago(1), recent_injuries: 1 }),
-    a("d4", "Ana", "Build", "green", { sports: ["swim", "bike", "run", "strength"], next_race_name: "Triatlo de Aveiro", next_race_date: race(42) }),
-    a("d5", "Pedro", "Build", null, { sports: ["bike", "run"], last_checkin: ago(5) }),
-    a("d6", "Carla", "Build", "yellow", { sports: ["swim", "bike", "run"], next_race_name: "Triatlo de Aveiro", next_race_date: race(42), last_checkin: ago(2), recent_injuries: 1 }),
-    a("d7", "Rafael", "Pico", "green", { sports: ["swim", "bike", "run"], next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(13) }),
-    a("d8", "Bia", "Taper", "green", { sports: ["run"], next_race_name: "Meia de Lisboa", next_race_date: race(5) }),
-    a("d9", "Diego", null, null, { sports: ["bike"], last_checkin: ago(8) }),
+    a("d1", "Marina", "Base", "green", { sports: ["swim", "bike", "run"], metrics: ["power", "hrv", "bioimpedance"], next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(96) }),
+    a("d2", "João", "Base", "yellow", { sports: ["run", "strength"], metrics: ["hrv"], next_race_name: "Maratona do Porto", next_race_date: race(96), last_checkin: ago(1) }),
+    a("d3", "Lucas", "Base", "red", { sports: ["run"], metrics: [], last_checkin: ago(1), recent_injuries: 1 }),
+    a("d4", "Ana", "Build", "green", { sports: ["swim", "bike", "run", "strength"], metrics: ["power", "hrv", "bioimpedance"], next_race_name: "Triatlo de Aveiro", next_race_date: race(42) }),
+    a("d5", "Pedro", "Build", null, { sports: ["bike", "run"], metrics: ["power", "hrv"], last_checkin: ago(5) }),
+    a("d6", "Carla", "Build", "yellow", { sports: ["swim", "bike", "run"], metrics: ["hrv", "bioimpedance"], next_race_name: "Triatlo de Aveiro", next_race_date: race(42), last_checkin: ago(2), recent_injuries: 1 }),
+    a("d7", "Rafael", "Pico", "green", { sports: ["swim", "bike", "run"], metrics: ["power", "hrv", "bioimpedance"], next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(13) }),
+    a("d8", "Bia", "Taper", "green", { sports: ["run"], metrics: ["hrv"], next_race_name: "Meia de Lisboa", next_race_date: race(5) }),
+    a("d9", "Diego", null, null, { sports: ["bike"], metrics: ["power"], last_checkin: ago(8) }),
   ];
 }
 
@@ -57,13 +59,7 @@ export default async function CoachDemoPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
-      <nav className="sticky top-0 z-40 -mx-4 mb-5 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] bg-[rgba(38,43,52,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-trakr.svg" alt="MY TRAKR" className="h-[26px] w-auto" />
-        <span className="rounded-full border border-[var(--lime)] px-2.5 py-[5px] text-[11px] font-bold uppercase tracking-wide text-[var(--lime)]">
-          Demo
-        </span>
-      </nav>
+      <CoachNav role="coach" locale={locale} demo />
 
       <header className="mb-5 px-1">
         <h1 className="dsp text-[24px] font-extrabold text-[var(--text)]">{tr("coach.team")}</h1>

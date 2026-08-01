@@ -6,7 +6,7 @@
 // and setting app.tenant_id makes the database itself refuse cross-tenant rows.
 import pkg from "pg";
 import type { PoolClient } from "pg";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 const { Pool, types } = pkg;
 
@@ -125,6 +125,9 @@ export interface RosterAthlete {
   /** Disciplines the athlete actually trains (distinct workout disciplines,
    * minus rest): the swim/bike/run/strength icons the card lights up. */
   sports: string[];
+  /** Capability flags the athlete declared (power, hrv, bioimpedance, …) — the
+   * metric icons on the card. */
+  metrics: string[];
   next_race_name: string | null;
   next_race_date: string | null;
   today_reco: "green" | "yellow" | "red" | null;
@@ -196,4 +199,45 @@ export async function setBankStatus(
     [id, agencyId, status],
   );
   return (rowCount ?? 0) > 0;
+}
+
+// ── Staff management (agency team) ──────────────────────────────────────────
+
+export interface StaffMember {
+  id: string;
+  name: string | null;
+  email: string | null;
+  role: string;
+  status: string;
+  athlete_count: number;
+}
+
+/** The agency's professionals, with how many athletes each is assigned. */
+export async function listStaff(agencyId: string): Promise<StaffMember[]> {
+  if (!hasProductDb()) return [];
+  const { rows } = await getPool().query<StaffMember>(
+    `select s.id, s.name, s.email, s.role, s.status,
+            (select count(*)::int from app.staff_athletes sa where sa.staff_id = s.id) as athlete_count
+       from app.staff s
+      where s.agency_id = $1
+      order by s.role, s.name nulls last`,
+    [agencyId],
+  );
+  return rows;
+}
+
+/** Provision a new professional under the agency. Returns the plaintext key ONCE
+ * (only its sha256 hash is stored) — the caller shows it and never sees it again. */
+export async function createStaff(
+  agencyId: string,
+  input: { name?: string; email?: string; role: string },
+): Promise<{ id: string; key: string }> {
+  const key = "trakc_" + randomBytes(24).toString("hex");
+  const hash = createHash("sha256").update(key).digest("hex");
+  const { rows } = await getPool().query<{ id: string }>(
+    `insert into app.staff (agency_id, name, email, role, api_key_hash)
+     values ($1, $2, $3, $4, $5) returning id`,
+    [agencyId, input.name ?? null, input.email ?? null, input.role, hash],
+  );
+  return { id: rows[0].id, key };
 }

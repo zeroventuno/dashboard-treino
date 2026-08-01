@@ -7,7 +7,7 @@ import Link from "next/link";
 import { translator, type Locale, type TKey } from "@/lib/i18n";
 import { daysBetween } from "@/lib/utils";
 import type { RosterAthlete } from "@/lib/product-db";
-import { SportIcon } from "./SportIcons";
+import { Icon, type IconName } from "./icons";
 
 const FAROL: Record<string, string> = {
   green: "var(--good)",
@@ -15,7 +15,14 @@ const FAROL: Record<string, string> = {
   red: "var(--bad)",
 };
 
-const MODS = ["swim", "bike", "run", "strength"];
+const MODS: IconName[] = ["swim", "bike", "run", "strength"];
+
+// Capability flags → icon. The card lights the ones the athlete declared.
+const METRICS: { key: string; icon: IconName }[] = [
+  { key: "power", icon: "power" },
+  { key: "hrv", icon: "hr" },
+  { key: "bioimpedance", icon: "scale" },
+];
 
 /** Attention: red first, then a stale/no check-in or a recent injury, then the rest. */
 function attentionRank(a: RosterAthlete, todayISO: string): number {
@@ -43,6 +50,7 @@ function Card({ a, todayISO, tr, href }: { a: RosterAthlete; todayISO: string; t
   const checkinAgo = a.last_checkin ? daysBetween(a.last_checkin, todayISO) : null;
   const stale = checkinAgo === null || checkinAgo > 3;
   const sports = a.sports ?? [];
+  const metrics = a.metrics ?? [];
 
   const cls =
     "flex flex-col gap-1 rounded-[12px] border bg-[var(--surface)] px-3 py-2.5 transition-colors hover:bg-[var(--surface-2)]";
@@ -60,9 +68,9 @@ function Card({ a, todayISO, tr, href }: { a: RosterAthlete; todayISO: string; t
           {MODS.map((m) => {
             const on = sports.includes(m);
             return (
-              <SportIcon
+              <Icon
                 key={m}
-                sport={m}
+                name={m}
                 // Lit = the discipline's own colour (same as the calendar); dim = faint.
                 style={{ color: on ? `var(--${m})` : "var(--text-faint)", opacity: on ? 1 : 0.32 }}
               />
@@ -80,19 +88,35 @@ function Card({ a, todayISO, tr, href }: { a: RosterAthlete; todayISO: string; t
         )}
       </div>
 
-      <div className="flex items-center gap-1.5">
-        <span className="text-[10.5px] font-medium" style={{ color: stale ? "var(--warn)" : "var(--text-faint)" }}>
-          {checkinAgo === null
-            ? tr("coach.noCheckin")
-            : checkinAgo === 0
-              ? tr("coach.checkinToday")
-              : tr("coach.checkinAgo").replace("{n}", String(checkinAgo))}
-        </span>
-        {a.recent_injuries > 0 && (
-          <span className="rounded-full border border-[var(--bad)] px-1.5 text-[9px] font-bold uppercase leading-[15px] text-[var(--bad)]">
-            {tr("coach.injury")}
+      <div className="flex items-center justify-between gap-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 text-[10.5px] font-medium" style={{ color: stale ? "var(--warn)" : "var(--text-faint)" }}>
+            {checkinAgo === null
+              ? tr("coach.noCheckin")
+              : checkinAgo === 0
+                ? tr("coach.checkinToday")
+                : tr("coach.checkinAgo").replace("{n}", String(checkinAgo))}
           </span>
-        )}
+          {a.recent_injuries > 0 && (
+            <span className="shrink-0 rounded-full border border-[var(--bad)] px-1.5 text-[9px] font-bold uppercase leading-[15px] text-[var(--bad)]">
+              {tr("coach.injury")}
+            </span>
+          )}
+        </div>
+        {/* metric capabilities — lit for what the athlete measures */}
+        <span className="flex shrink-0 items-center gap-[3px]">
+          {METRICS.map(({ key, icon }) => {
+            const on = metrics.includes(key);
+            return (
+              <Icon
+                key={key}
+                name={icon}
+                size={12}
+                style={{ color: on ? "var(--text-muted)" : "var(--text-faint)", opacity: on ? 0.9 : 0.22 }}
+              />
+            );
+          })}
+        </span>
       </div>
     </>
   );

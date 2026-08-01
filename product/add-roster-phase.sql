@@ -20,6 +20,7 @@ returns table (
   mode            text,
   current_phase   text,
   sports          text[],
+  metrics         text[],
   next_race_name  text,
   next_race_date  date,
   today_reco      text,
@@ -62,6 +63,7 @@ as $$
         where tenant_id = t.id and discipline is not null and discipline <> 'rest'),
       '{}'
     )                                               as sports,
+    coalesce(p.metrics, '{}')                       as metrics,
     r.name                                          as next_race_name,
     r.date                                          as next_race_date,
     ci.recommendation                               as today_reco,

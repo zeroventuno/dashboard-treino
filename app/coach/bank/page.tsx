@@ -1,11 +1,11 @@
 // The agency's workout library: generate (via n8n), review drafts, validate.
 // Coach-only. Reused when prescribing (list_bank / add_bank_workout tools).
-import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolveStaffId, getBank } from "@/lib/product-db";
 import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
+import { CoachNav } from "@/components/coach/CoachNav";
 import { BankView } from "@/components/coach/BankView";
 
 export const dynamic = "force-dynamic";
@@ -25,16 +25,7 @@ export default async function CoachBankPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
-      <nav className="sticky top-0 z-40 -mx-4 mb-5 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] bg-[rgba(38,43,52,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
-        <Link
-          href="/coach"
-          className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
-        >
-          <span aria-hidden>←</span> {tr("coach.team")}
-        </Link>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-trakr.svg" alt="MY TRAKR" className="h-[24px] w-auto" />
-      </nav>
+      <CoachNav active="bank" role={staff.role} name={staff.name} locale={locale} />
 
       <header className="mb-5 px-1">
         <h1 className="dsp text-[24px] font-extrabold text-[var(--text)]">{tr("coach.bank.title")}</h1>
