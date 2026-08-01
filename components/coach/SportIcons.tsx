@@ -1,7 +1,7 @@
-// Original, minimal line icons for the four modalities (no third-party art).
-// Monochrome + stroke-based so they inherit `currentColor`: the card lights the
-// trained ones (full colour) and dims the rest. Swap for an open-licensed set
-// (Tabler / Lucide, MIT) later if you want more detail.
+// Modality icons for the roster cards. Icons from Tabler Icons (https://tabler.io/icons),
+// MIT License © Paweł Kuna — free to use/redistribute. Monochrome + stroke-based
+// so they inherit `currentColor`: the card lights the trained modalities (full
+// colour) and dims the rest.
 import type { CSSProperties } from "react";
 
 const base = {
@@ -15,39 +15,40 @@ const base = {
   strokeLinejoin: "round" as const,
 };
 
+// Tabler: swimming, bike, run, barbell.
 const PATHS: Record<string, React.ReactNode> = {
-  // swimmer: head + reaching arm over a wave
   swim: (
     <>
-      <circle cx="8" cy="7.5" r="1.7" />
-      <path d="M9.4 8.7 13.5 6.7 17 8.3" />
-      <path d="M2.5 15.5c1.4-1.4 2.8-1.4 4.2 0s2.8 1.4 4.2 0 2.8-1.4 4.2 0 2.8 1.4 4.2 0" />
+      <path d="M15 9a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+      <path d="M6 11l4 -2l3.5 3l-1.5 2" />
+      <path d="M3 16.75a2.4 2.4 0 0 0 1 .25a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 1 -.25" />
     </>
   ),
-  // bicycle: two wheels + frame + handlebar
   bike: (
     <>
-      <circle cx="6" cy="16.5" r="3.4" />
-      <circle cx="18" cy="16.5" r="3.4" />
-      <path d="M6 16.5 9.5 8.5H14l4 8" />
-      <path d="M9.5 8.5H15.5" />
-      <path d="M15.5 8.5 17 6h1.5" />
+      <path d="M2 18a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+      <path d="M16 18a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+      <path d="M12 19v-4l-3 -3l5 -4l2 3h3" />
+      <path d="M13.007 5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
     </>
   ),
-  // runner: head + leaning body, arms and legs mid-stride
   run: (
     <>
-      <circle cx="15" cy="5.3" r="1.7" />
-      <path d="M14 8.4 10.4 11l2.1 2.4-2 5.6" />
-      <path d="M10.4 11 6.8 10.6" />
-      <path d="M12.5 13.4 16 15" />
+      <path d="M11.007 5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+      <path d="M4 17l5 1l.75 -1.5" />
+      <path d="M15 21v-4l-4 -3l1 -6" />
+      <path d="M7 12v-3l5 -1l3 3l3 1" />
     </>
   ),
-  // dumbbell: two plates each side + bar
   strength: (
     <>
-      <path d="M4 9v6M6.5 7.5v9M17.5 7.5v9M20 9v6" />
-      <path d="M6.5 12h11" />
+      <path d="M2 12h1" />
+      <path d="M6 8h-2a1 1 0 0 0 -1 1v6a1 1 0 0 0 1 1h2" />
+      <path d="M6 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1 -1v-10a1 1 0 0 0 -1 -1h-1a1 1 0 0 0 -1 1" />
+      <path d="M9 12h6" />
+      <path d="M15 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1 -1v-10a1 1 0 0 0 -1 -1h-1a1 1 0 0 0 -1 1" />
+      <path d="M18 8h2a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-2" />
+      <path d="M22 12h-1" />
     </>
   ),
 };
