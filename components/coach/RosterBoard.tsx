@@ -63,7 +63,8 @@ function Card({ a, todayISO, tr, href }: { a: RosterAthlete; todayISO: string; t
               <SportIcon
                 key={m}
                 sport={m}
-                style={{ color: on ? "var(--text)" : "var(--text-faint)", opacity: on ? 1 : 0.32 }}
+                // Lit = the discipline's own colour (same as the calendar); dim = faint.
+                style={{ color: on ? `var(--${m})` : "var(--text-faint)", opacity: on ? 1 : 0.32 }}
               />
             );
           })}
