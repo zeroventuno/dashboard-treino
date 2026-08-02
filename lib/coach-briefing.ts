@@ -62,7 +62,7 @@ AO LONGO DO TEMPO
 - log_body_composition quando eu pesar na balança de bioimpedância.
 - log_injury quando eu relatar uma dor ou lesão (área + severidade 1-5). Aparece nos Pontos de Atenção; re-registre a mesma área/data para atualizar conforme melhora.
 - log_milestone quando eu fizer um teste (FTP, pace de limiar, CSS). Aparece como marcador na Temporada. Use os slugs: FTP, swim_pace_100m, run_pace_threshold.
-- Remarquei ou pulei um treino? Atualize o status (planned, done, skipped, modified) em vez de criar sessão nova.
+- Status do treino: done (fiz), skipped (não fiz), cancelled (você cancelou), moved (remarcado). Para remarcar, marque o original como moved e crie a cópia na nova data — senão o resumo da semana duplica. Sessão fora do plano: marque extra (conta no volume, não no x/y).
 
 REGRAS QUE VALEM SEMPRE
 - Datas em YYYY-MM-DD.
@@ -125,7 +125,7 @@ OVER TIME
 - log_body_composition when I weigh in on the bioimpedance scale.
 - log_injury when I report a niggle or injury (area + severity 1-5). It shows in Watch Points; re-log the same area/date to update as it heals.
 - log_milestone when I do a test (FTP, threshold pace, CSS). It marks the Season timeline. Use slugs: FTP, swim_pace_100m, run_pace_threshold.
-- Rescheduled or skipped a session? Update its status (planned, done, skipped, modified) instead of creating a new one.
+- Workout status: done, skipped (no-show), cancelled (you removed it), moved (rescheduled). To reschedule, mark the original moved and add the copy on the new date — otherwise the week summary double-counts. Off-plan session: mark it extra (counts in volume, not x/y).
 
 RULES THAT ALWAYS APPLY
 - Dates as YYYY-MM-DD.
@@ -188,7 +188,7 @@ NEL TEMPO
 - log_body_composition quando mi peso sulla bilancia a bioimpedenza.
 - log_injury quando segnalo un fastidio o un infortunio (area + gravità 1-5). Compare nei Punti di Attenzione; ri-registra stessa area/data per aggiornare mentre migliora.
 - log_milestone quando faccio un test (FTP, passo soglia, CSS). Segna la timeline Stagione. Usa gli slug: FTP, swim_pace_100m, run_pace_threshold.
-- Ho spostato o saltato una sessione? Aggiorna lo status (planned, done, skipped, modified) invece di crearne una nuova.
+- Status della sessione: done, skipped (non fatta), cancelled (annullata da te), moved (spostata). Per spostare, segna l'originale moved e crea la copia nella nuova data — altrimenti il riepilogo settimanale raddoppia. Sessione fuori piano: segnala extra (conta nel volume, non in x/y).
 
 REGOLE SEMPRE VALIDE
 - Date in formato YYYY-MM-DD.
@@ -251,7 +251,7 @@ CON EL TIEMPO
 - log_body_composition cuando me pese en la báscula de bioimpedancia.
 - log_injury cuando reporto una molestia o lesión (área + severidad 1-5). Aparece en Puntos de Atención; vuelve a registrar la misma área/fecha para actualizar según mejora.
 - log_milestone cuando hago un test (FTP, ritmo de umbral, CSS). Marca la línea de Temporada. Usa los slugs: FTP, swim_pace_100m, run_pace_threshold.
-- ¿Moví o salté una sesión? Actualiza su status (planned, done, skipped, modified) en vez de crear una nueva.
+- Status de la sesión: done, skipped (no la hice), cancelled (la cancelaste), moved (reprogramada). Para reprogramar, marca la original como moved y crea la copia en la nueva fecha — si no, el resumen semanal se duplica. Sesión fuera del plan: márcala extra (cuenta en el volumen, no en x/y).
 
 REGLAS QUE SIEMPRE APLICAN
 - Fechas en YYYY-MM-DD.
@@ -314,7 +314,7 @@ AU FIL DU TEMPS
 - log_body_composition quand je me pèse sur la balance à impédancemétrie.
 - log_injury quand je signale une gêne ou une blessure (zone + gravité 1-5). Elle apparaît dans les Points de Vigilance ; ré-enregistre la même zone/date pour la mettre à jour au fil de la guérison.
 - log_milestone quand je fais un test (FTP, allure au seuil, CSS). Elle marque la frise Saison. Utilise les slugs : FTP, swim_pace_100m, run_pace_threshold.
-- Séance déplacée ou sautée ? Mets à jour son status (planned, done, skipped, modified) au lieu d'en créer une nouvelle.
+- Status de la séance : done, skipped (pas faite), cancelled (annulée par toi), moved (déplacée). Pour déplacer, marque l'originale moved et crée la copie à la nouvelle date — sinon le résumé de la semaine double. Séance hors plan : marque-la extra (compte dans le volume, pas dans x/y).
 
 RÈGLES TOUJOURS VALABLES
 - Dates au format YYYY-MM-DD.

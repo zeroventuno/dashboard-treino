@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { setWorkoutStatus } from "@/lib/data";
 import type { WorkoutStatus } from "@/lib/types";
 
-const VALID: WorkoutStatus[] = ["planned", "done", "skipped", "modified"];
+const VALID: WorkoutStatus[] = ["planned", "done", "skipped", "cancelled", "moved"];
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);

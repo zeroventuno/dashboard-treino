@@ -9,11 +9,15 @@ import { DEFAULT_LOCALE, translator, type Locale, type T, type TKey } from "@/li
 import { DisciplineIcon, DownloadIcon, CloseIcon } from "./Icons";
 import { WorkoutBlocks } from "./WorkoutBlocks";
 
-export const STATUS_META: Record<WorkoutStatus, { key: "status.planned" | "status.done" | "status.skipped" | "status.modified"; dot: string; ring: string }> = {
-  planned:  { key: "status.planned",  dot: "var(--text-faint)", ring: "var(--border)" },
-  done:     { key: "status.done",     dot: "var(--good)",       ring: "color-mix(in oklab, var(--good) 45%, var(--border))" },
-  skipped:  { key: "status.skipped",  dot: "var(--bad)",        ring: "var(--border)" },
-  modified: { key: "status.modified", dot: "var(--warn)",       ring: "color-mix(in oklab, var(--warn) 40%, var(--border))" },
+export const STATUS_META: Record<
+  WorkoutStatus,
+  { key: "status.planned" | "status.done" | "status.skipped" | "status.cancelled" | "status.moved"; dot: string; ring: string }
+> = {
+  planned:   { key: "status.planned",   dot: "var(--text-faint)", ring: "var(--border)" },
+  done:      { key: "status.done",      dot: "var(--good)",       ring: "color-mix(in oklab, var(--good) 45%, var(--border))" },
+  skipped:   { key: "status.skipped",   dot: "var(--bad)",        ring: "var(--border)" },
+  cancelled: { key: "status.cancelled", dot: "var(--text-faint)", ring: "var(--border)" },
+  moved:     { key: "status.moved",     dot: "var(--text-faint)", ring: "var(--border)" },
 };
 
 /** Same reasoning as disciplineMeta: `status` is text in the database, and rows
@@ -27,8 +31,9 @@ function statusMeta(s: string): (typeof STATUS_META)[WorkoutStatus] {
 // (coach chat), not clickable actions. Planned = all off.
 const STATUS_LIGHTS: { status: WorkoutStatus; key: TKey; color: string }[] = [
   { status: "done", key: "status.done", color: "var(--good)" },
-  { status: "modified", key: "status.modified", color: "var(--warn)" },
   { status: "skipped", key: "status.skipped", color: "var(--bad)" },
+  { status: "cancelled", key: "status.cancelled", color: "var(--text-faint)" },
+  { status: "moved", key: "status.moved", color: "var(--text-faint)" },
 ];
 
 function downloadZwo(w: Workout) {

@@ -33,13 +33,19 @@ function fmtKm(km: number, units: Units): string {
 interface WeekData {
   days: { iso: string; date: Date; inMonth: boolean; items: Workout[] }[];
   wk: number;
-  min: number;
-  tss: number;
-  km: Record<Discipline, number>;
-  done: number;
-  total: number;
+  doneMin: number;
+  plannedMin: number;
+  doneTss: number;
+  plannedTss: number;
+  km: Record<Discipline, number>; // done only (planned distance is often unset)
+  done: number; // completed workouts of the plan (x)
+  total: number; // scheduled workouts in the plan (y)
   isThis: boolean;
 }
+
+// Rescheduled / cancelled workouts are out of every total (moved leaves a
+// struck-through duplicate; cancelled is off the plan). Everything else counts.
+const OUT_OF_PLAN = new Set<string>(["moved", "cancelled"]);
 
 export function CalendarBoard({
   workouts,
@@ -80,18 +86,42 @@ export function CalendarBoard({
       });
       const items = days.flatMap((d) => d.items);
       const km = { swim: 0, bike: 0, run: 0, strength: 0, rest: 0 } as Record<Discipline, number>;
+      let doneMin = 0;
+      let plannedMin = 0;
+      let doneTss = 0;
+      let plannedTss = 0;
+      let done = 0;
+      let total = 0;
       for (const w of items) {
-        const d = Number(w.actual_distance_km ?? w.planned_distance_km ?? 0);
-        if (d > 0) km[w.discipline] += d;
+        if (OUT_OF_PLAN.has(w.status)) continue; // moved/cancelled: out of everything
+        const isDone = w.status === "done";
+        // Done volume = what actually happened, incl. unscheduled extras. This is
+        // why a rescheduled (moved) session no longer double-counts: only `done`
+        // work is summed, and the struck-through original isn't done.
+        if (isDone) {
+          doneMin += Number(w.actual_duration_min ?? w.planned_duration_min ?? 0);
+          doneTss += Number(w.actual_tss ?? w.planned_tss ?? 0);
+          const d = Number(w.actual_distance_km ?? w.planned_distance_km ?? 0);
+          if (d > 0) km[w.discipline] += d;
+        }
+        // The scheduled plan (x/y + the "programmed" targets) excludes extras.
+        if (!w.extra) {
+          plannedMin += Number(w.planned_duration_min ?? 0);
+          plannedTss += Number(w.planned_tss ?? 0);
+          total += 1;
+          if (isDone) done += 1;
+        }
       }
       out.push({
         days,
         wk: isoWeek(cur),
-        min: items.reduce((s, w) => s + Number(w.actual_duration_min ?? w.planned_duration_min ?? 0), 0),
-        tss: items.reduce((s, w) => s + Number(w.actual_tss ?? w.planned_tss ?? 0), 0),
+        doneMin,
+        plannedMin,
+        doneTss,
+        plannedTss,
         km,
-        done: items.filter((w) => w.status === "done").length,
-        total: items.length,
+        done,
+        total,
         isThis: days.some((d) => d.iso === todayISO),
       });
       cur = addDays(cur, 7);
@@ -197,7 +227,7 @@ function WeekRow({ week, todayISO, tr, units, onOpen }: {
                     )}
                     <span
                       className={`flex-1 truncate text-[10.5px] leading-tight ${
-                        w.status === "skipped"
+                        w.status === "skipped" || w.status === "cancelled" || w.status === "moved"
                           ? "text-[var(--text-faint)] line-through"
                           : key
                             ? "font-semibold text-[var(--text)]"
@@ -231,7 +261,11 @@ function WeekRow({ week, todayISO, tr, units, onOpen }: {
           )}
         </div>
         <p className="dsp tnum mt-0.5 text-[22px] font-extrabold leading-none text-[var(--text)]">
-          {fmtDuration(week.min) === "—" ? "0h" : fmtDuration(week.min)}
+          {fmtDuration(week.doneMin) === "—" ? "0h" : fmtDuration(week.doneMin)}
+          <span className="text-[13px] font-semibold text-[var(--text-faint)]">
+            {" / "}
+            {fmtDuration(week.plannedMin) === "—" ? "0h" : fmtDuration(week.plannedMin)}
+          </span>
         </p>
 
         {/* per-discipline km totals — colored to match the legend */}
@@ -251,7 +285,9 @@ function WeekRow({ week, todayISO, tr, units, onOpen }: {
         <div className="mt-2 h-[4px] w-full overflow-hidden rounded-full bg-[#1a1d23]">
           <div className="h-full rounded-full bg-[var(--lime)]" style={{ width: `${week.total ? (week.done / week.total) * 100 : 0}%` }} />
         </div>
-        <p className="tnum mt-1.5 text-[11px] text-[var(--text-muted)]">{Math.round(week.tss)} TSS · {week.done}/{week.total} {tr("calendar.done")}</p>
+        <p className="tnum mt-1.5 text-[11px] text-[var(--text-muted)]">
+          {Math.round(week.doneTss)} / {Math.round(week.plannedTss)} TSS · {week.done}/{week.total} {tr("calendar.done")}
+        </p>
       </div>
     </>
   );

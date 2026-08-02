@@ -94,6 +94,7 @@ create table workouts (
   nutrition_post        text,
   key_workout           boolean not null default false,
   muscle_groups         text[]  not null default '{}',   -- strength → body-heatmap
+  extra                 boolean not null default false,  -- unscheduled: volume yes, x/y no
   created_at            timestamptz not null default now(),
   unique (tenant_id, date, discipline, title)
 );

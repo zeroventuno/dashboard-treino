@@ -1,7 +1,10 @@
 // Domain types — mirror the Supabase schema (see supabase/migrations).
 
 export type Discipline = "swim" | "bike" | "run" | "strength" | "rest";
-export type WorkoutStatus = "planned" | "done" | "skipped" | "modified";
+// planned: scheduled, pending · done: completed (adherence score says how well)
+// skipped: athlete no-showed · cancelled: coach removed it · moved: rescheduled
+// (the struck-through original; the real one lives on the new date).
+export type WorkoutStatus = "planned" | "done" | "skipped" | "cancelled" | "moved";
 export type Recommendation = "green" | "yellow" | "red";
 
 export interface TrainingLoad {
@@ -41,6 +44,9 @@ export interface Workout {
   structure?: WorkoutBlock[] | null;
   /** One of the week's priority sessions — highlighted in the calendar. */
   key_workout?: boolean | null;
+  /** Logged but not part of the plan (an unscheduled extra session). Counts in
+   * the week's done volume — time/distance/TSS — but NOT in the x/y adherence. */
+  extra?: boolean | null;
   /** Pre-workout: activation/warm-up routine and fueling. */
   activation?: string | null;
   nutrition_pre?: string | null;

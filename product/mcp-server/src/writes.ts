@@ -43,7 +43,18 @@ export const workoutSchema = {
     .enum(["swim", "bike", "run", "strength", "rest"])
     .describe("one of: swim, bike, run, strength, rest — never a translated or free-form name"),
   title: z.string(),
-  status: z.enum(["planned", "done", "skipped", "modified"]).default("planned"),
+  status: z
+    .enum(["planned", "done", "skipped", "cancelled", "moved"])
+    .default("planned")
+    .describe(
+      "planned = to do · done = completed (adherence says how well) · skipped = athlete no-showed · " +
+      "cancelled = you removed it · moved = rescheduled (leave this one and add a copy on the new date). " +
+      "cancelled & moved drop out of the week's totals; skipped stays as a miss.",
+    ),
+  extra: z
+    .boolean()
+    .optional()
+    .describe("true = an unscheduled session the athlete added — counts in the week's volume, not in the plan's x/y."),
   description: z.string().optional(),
   garmin_instructions: z.string().optional(),
   zwo_content: z.string().optional(),
@@ -93,9 +104,9 @@ export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs
     `insert into workouts (tenant_id,date,discipline,title,status,description,garmin_instructions,zwo_content,
        planned_duration_min,actual_duration_min,planned_distance_km,actual_distance_km,planned_tss,actual_tss,
        planned_pace,actual_pace,planned_power_watts,actual_power_watts,notes,nutrition_notes,
-       key_workout,structure,activation,nutrition_pre,mobility,nutrition_post,muscle_groups)
+       key_workout,structure,activation,nutrition_pre,mobility,nutrition_post,muscle_groups,extra)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-       coalesce($21,false),$22::jsonb,$23,$24,$25,$26,coalesce($27::text[],'{}'::text[]))
+       coalesce($21,false),$22::jsonb,$23,$24,$25,$26,coalesce($27::text[],'{}'::text[]),coalesce($28,false))
      on conflict (tenant_id,date,discipline,title) do update set
        status=excluded.status,
        description=coalesce(excluded.description,workouts.description),
@@ -119,7 +130,8 @@ export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs
        nutrition_pre=coalesce(excluded.nutrition_pre,workouts.nutrition_pre),
        mobility=coalesce(excluded.mobility,workouts.mobility),
        nutrition_post=coalesce(excluded.nutrition_post,workouts.nutrition_post),
-       muscle_groups=coalesce($27::text[],workouts.muscle_groups)`,
+       muscle_groups=coalesce($27::text[],workouts.muscle_groups),
+       extra=coalesce($28,workouts.extra)`,
     [
       tenantId, a.date, a.discipline, a.title, a.status, a.description ?? null, a.garmin_instructions ?? null,
       a.zwo_content ?? null, a.planned_duration_min ?? null, a.actual_duration_min ?? null,
@@ -128,7 +140,7 @@ export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs
       a.notes ?? null, a.nutrition_notes ?? null,
       a.key_workout ?? null, a.structure ? JSON.stringify(a.structure) : null,
       a.activation ?? null, a.nutrition_pre ?? null, a.mobility ?? null, a.nutrition_post ?? null,
-      a.muscle_groups ?? null,
+      a.muscle_groups ?? null, a.extra ?? null,
     ],
   );
   return `Workout "${a.title}" (${a.date}) → ${a.status}${a.key_workout ? " ★" : ""}.`;
