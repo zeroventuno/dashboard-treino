@@ -168,7 +168,7 @@
             "sport": "={{ $json.sport }}",
             "phase": "={{ $json.phase }}",
             "title": "={{ $json.title }}",
-            "structure": "={{ JSON.stringify($json.structure) }}",
+            "structure": "={{ $json.structure }}",
             "duration_min": "={{ $json.duration_min }}",
             "tss": "={{ $json.tss }}",
             "description": "={{ $json.description }}",

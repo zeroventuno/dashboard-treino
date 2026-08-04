@@ -119,6 +119,13 @@ workouts daquele esporte para as fases pedidas. Tudo entra como `draft`.
 6. Em `/coach/bank`, escolha esportes + fases + quantidade e clique **Gerar** →
    recarregue em ~1 min e valide os rascunhos.
 
+> No nó **"Insert draft → workout_bank"**, ao importar o n8n pode auto-adicionar
+> as colunas `id` e `tags` (que têm default no banco). Se aparecerem em "Values
+> to Send", **apague as duas** — senão `id` vazio quebra o UUID e `tags` vazio
+> quebra o `text[]`. Também precisa acessar `$env` nos nós Code/HTTP: no n8n
+> setar `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` (senão dá "access to env vars
+> denied") — ou trocar as chaves por credenciais.
+
 **Trocar de volta para a Claude** (se carregar crédito lá): nos 2 nós HTTP, troque
 a URL para `https://api.anthropic.com/v1/messages`, o header `Authorization` por
 `x-api-key: {{ $env.ANTHROPIC_API_KEY }}` + `anthropic-version: 2023-06-01`; nos
