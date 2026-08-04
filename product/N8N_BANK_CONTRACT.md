@@ -58,9 +58,21 @@ values
   `validated` é usado na prescrição** — essa é a auditoria/assinatura dele.
 
 ## 4. Acesso ao banco pelo n8n
-O node Postgres do n8n precisa conectar ao **projeto do produto** com um papel que
-tenha `select on app.staff` e `insert on app.workout_bank`. O `app_writer` já
-serve (é o mesmo que o servidor MCP usa). Use o **transaction pooler** do Supabase.
+O node Postgres do n8n conecta ao **projeto do produto** com um papel que tenha
+`select on app.staff` e `insert on app.workout_bank`. O `app_writer` já serve (é
+o mesmo do servidor MCP).
+
+⚠️ **Use o node Postgres, NÃO o node Supabase.** O node Supabase fala com a API
+REST (PostgREST), que só enxerga o schema `public` — o nosso `app` é privado de
+propósito, então a API REST não lê `app.staff` nem escreve `app.workout_bank`.
+Só o acesso SQL direto (Postgres) funciona.
+
+**Conexão:** use o **pooler** do Supabase (host `...pooler.supabase.com`, aceita
+IPv4; a conexão direta `db.<ref>.supabase.co` é IPv6-only). Para o n8n prefira o
+**Session pooler (porta 5432)** — o node Postgres usa prepared statements, que o
+transaction pooler (6543) limita. Campos da credencial: Host = host do pooler,
+Port = 5432, Database = `postgres`, User = `postgres.<project-ref>`, Password =
+a senha do banco, SSL = require.
 
 ## 5. Variáveis
 - `N8N_BANK_WEBHOOK_URL` — na Vercel do **dashboard** (produção): a URL do webhook.
