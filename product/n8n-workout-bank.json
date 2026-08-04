@@ -1,0 +1,294 @@
+{
+  "name": "MY TRAKR — Workout Bank Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trakr-bank",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook — bank/generate",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "trakr-bank-webhook"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Verify the shared secret (if set), then normalize the request.\nconst item = $input.first().json;\nconst body = item.body ?? item;\nconst headers = item.headers ?? {};\nconst need = $env.N8N_BANK_SECRET;\nif (need && headers['x-trakr-secret'] !== need) {\n  throw new Error('Invalid x-trakr-secret');\n}\nconst SPORTS = ['swim', 'bike', 'run', 'strength'];\nconst ALL_PHASES = ['Base', 'Build', 'Peak', 'Taper'];\nconst sports = Array.isArray(body.sports) ? body.sports.filter((s) => SPORTS.includes(s)) : [];\nif (!sports.length) throw new Error('No valid sports in request');\nlet perPhase = Number(body.perPhase);\nif (!Number.isFinite(perPhase) || perPhase < 1) perPhase = 3;\nif (perPhase > 20) perPhase = 20;\nconst phases = Array.isArray(body.phases) && body.phases.length\n  ? body.phases.filter((p) => ALL_PHASES.includes(p))\n  : ALL_PHASES;\nreturn [{ json: { agencyId: body.agencyId, staffId: body.staffId, sports, perPhase, phases: phases.length ? phases : ALL_PHASES } }];"
+      },
+      "name": "Guard + normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=select methodology from app.staff where id = '{{ $json.staffId }}'",
+        "options": {}
+      },
+      "name": "Read methodology",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// The \"head coach\": turn the agency methodology into a directive per sport.\nconst p = $('Guard + normalize').first().json;\nconst methRow = $('Read methodology').first().json;\nconst methodology = methRow ? methRow.methodology : null;\nconst system = 'You are the head coach of an endurance training agency, building a library of reusable workouts that a specialist per sport will flesh out. Honor the agency methodology exactly. Output ONLY JSON, no prose, no markdown.';\nconst user =\n  'Methodology (JSON, may be null): ' + JSON.stringify(methodology) + '\\n' +\n  'Sports to cover: ' + p.sports.join(', ') + '\\n' +\n  'Cycle phases: ' + p.phases.join(', ') + '\\n' +\n  'For EACH sport, write concise directives for that sport specialist: intensity distribution, the 2-3 signature session types, and how they progress across ' + p.phases.join('/') + '. ~5 sentences per sport.\\n' +\n  'Return a JSON object mapping each sport to its directive string, e.g. {\"swim\":\"...\",\"bike\":\"...\"}.';\nreturn [{ json: { anthropicBody: {\n  model: 'claude-sonnet-5',\n  max_tokens: 1500,\n  system,\n  messages: [{ role: 'user', content: user }],\n} } }];"
+      },
+      "name": "Build leader request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.anthropicBody }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "Leader agent (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Fan out: one task per sport, each carrying a ready Anthropic request for that\n// sport's specialist. The specialist HTTP node runs once per item below.\nconst FENCE = String.fromCharCode(96, 96, 96);\nfunction parseJson(text) {\n  if (!text) return null;\n  let t = String(text).trim();\n  if (t.startsWith(FENCE)) { t = t.slice(t.indexOf('\\n') + 1); const e = t.lastIndexOf(FENCE); if (e >= 0) t = t.slice(0, e); t = t.trim(); }\n  return JSON.parse(t);\n}\nconst p = $('Guard + normalize').first().json;\nconst resp = $input.first().json;\nconst text = resp && resp.content && resp.content[0] ? resp.content[0].text : '';\nlet briefs = {};\ntry { briefs = parseJson(text) || {}; } catch (e) { briefs = {}; }\nconst out = [];\nfor (const sport of p.sports) {\n  const brief = briefs[sport] || ('Design ' + sport + ' sessions faithful to the methodology.');\n  const total = p.perPhase * p.phases.length;\n  const system = 'You are the ' + sport + ' specialist coach writing reusable ' + sport + ' workouts for an agency library. Follow the head coach directive and the methodology. EVERY workout must include a structure array of blocks. Output ONLY a JSON array, no prose, no markdown.';\n  const user =\n    'Head coach directive for ' + sport + ': ' + brief + '\\n' +\n    'Cycle phases: ' + p.phases.join(', ') + '\\n' +\n    'Produce ' + p.perPhase + ' ' + sport + ' workout(s) for EACH phase listed.\\n' +\n    'Each workout object: { \"phase\": one of ' + p.phases.join('|') + ', \"title\": short name, \"description\": 1-2 sentences, \"duration_min\": integer, \"tss\": integer estimate, \"structure\": [{ \"label\": string, \"duration_min\": integer, \"intensity\": integer percent of threshold, \"target\": short string e.g. \"Z2\" or \"CSS+3s\", \"note\": optional string }] }.\\n' +\n    'Return a JSON array of all ' + total + ' workouts. No markdown.';\n  out.push({ json: {\n    sport, agencyId: p.agencyId, staffId: p.staffId,\n    anthropicBody: { model: 'claude-sonnet-5', max_tokens: 4096, system, messages: [{ role: 'user', content: user }] },\n  } });\n}\nreturn out;"
+      },
+      "name": "Plan per-sport tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.anthropicBody }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "Sport specialist (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse each specialist's JSON array into individual draft rows. The specialist\n// responses come back in the same order as the tasks, so index i lines up.\nconst FENCE = String.fromCharCode(96, 96, 96);\nfunction parseJson(text) {\n  if (!text) return null;\n  let t = String(text).trim();\n  if (t.startsWith(FENCE)) { t = t.slice(t.indexOf('\\n') + 1); const e = t.lastIndexOf(FENCE); if (e >= 0) t = t.slice(0, e); t = t.trim(); }\n  return JSON.parse(t);\n}\nconst ctxAll = $('Plan per-sport tasks').all();\nconst out = [];\nfor (let i = 0; i < items.length; i++) {\n  const ctx = (ctxAll[i] && ctxAll[i].json) || {};\n  const resp = items[i].json;\n  const text = resp && resp.content && resp.content[0] ? resp.content[0].text : '';\n  let arr = [];\n  try { arr = parseJson(text) || []; } catch (e) { arr = []; }\n  if (!Array.isArray(arr)) arr = [];\n  for (const w of arr) {\n    if (!w || !w.title) continue;\n    out.push({ json: {\n      agencyId: ctx.agencyId,\n      staffId: ctx.staffId,\n      sport: ctx.sport,\n      phase: w.phase || null,\n      title: String(w.title).slice(0, 200),\n      description: w.description || null,\n      duration_min: Number.isFinite(+w.duration_min) ? Math.round(+w.duration_min) : null,\n      tss: Number.isFinite(+w.tss) ? Math.round(+w.tss) : null,\n      structure: Array.isArray(w.structure) ? w.structure : null,\n    } });\n  }\n}\nreturn out;"
+      },
+      "name": "Flatten workouts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "app",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "workout_bank",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "agency_id": "={{ $json.agencyId }}",
+            "created_by": "={{ $json.staffId }}",
+            "sport": "={{ $json.sport }}",
+            "phase": "={{ $json.phase }}",
+            "title": "={{ $json.title }}",
+            "structure": "={{ JSON.stringify($json.structure) }}",
+            "duration_min": "={{ $json.duration_min }}",
+            "tss": "={{ $json.tss }}",
+            "description": "={{ $json.description }}",
+            "source": "ai",
+            "status": "draft"
+          }
+        },
+        "options": {}
+      },
+      "name": "Insert draft → workout_bank",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1760,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook — bank/generate": {
+      "main": [
+        [
+          {
+            "node": "Guard + normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard + normalize": {
+      "main": [
+        [
+          {
+            "node": "Read methodology",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read methodology": {
+      "main": [
+        [
+          {
+            "node": "Build leader request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build leader request": {
+      "main": [
+        [
+          {
+            "node": "Leader agent (Claude)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leader agent (Claude)": {
+      "main": [
+        [
+          {
+            "node": "Plan per-sport tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan per-sport tasks": {
+      "main": [
+        [
+          {
+            "node": "Sport specialist (Claude)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sport specialist (Claude)": {
+      "main": [
+        [
+          {
+            "node": "Flatten workouts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten workouts": {
+      "main": [
+        [
+          {
+            "node": "Insert draft → workout_bank",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {}
+}

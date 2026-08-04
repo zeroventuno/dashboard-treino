@@ -7,23 +7,26 @@ import type { BankWorkout } from "@/lib/product-db";
 
 const SPORTS = ["swim", "bike", "run", "strength"] as const;
 const SPORT_LABEL: Record<string, string> = { swim: "Natação", bike: "Bike", run: "Corrida", strength: "Força" };
+// Canonical cycle phases — same strings the season, set_cycle and the bank use.
+const PHASES = ["Base", "Build", "Peak", "Taper"] as const;
 
 export function BankView({ items, locale }: { items: BankWorkout[]; locale: Locale }) {
   const tr = translator(locale);
   const router = useRouter();
   const [sel, setSel] = useState<string[]>([...SPORTS]);
+  const [phaseSel, setPhaseSel] = useState<string[]>([...PHASES]);
   const [perPhase, setPerPhase] = useState(3);
   const [gen, setGen] = useState<"idle" | "busy" | "sent" | "off" | "error">("idle");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function generate() {
-    if (sel.length === 0) return;
+    if (sel.length === 0 || phaseSel.length === 0) return;
     setGen("busy");
     try {
       const res = await fetch("/api/coach/bank/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sports: sel, perPhase }),
+        body: JSON.stringify({ sports: sel, perPhase, phases: phaseSel }),
       });
       if (res.ok) setGen("sent");
       else setGen((await res.json().catch(() => ({}))).code === "not_configured" ? "off" : "error");
@@ -84,10 +87,34 @@ export function BankView({ items, locale }: { items: BankWorkout[]; locale: Loca
             />
             {tr("coach.bank.perPhase")}
           </label>
+
+          {/* Cycle phases to generate for (defaults to all) */}
+          <div className="flex basis-full flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">{tr("coach.bank.phases")}</span>
+            {PHASES.map((ph) => {
+              const on = phaseSel.includes(ph);
+              return (
+                <button
+                  key={ph}
+                  type="button"
+                  onClick={() => setPhaseSel((p) => (on ? p.filter((x) => x !== ph) : [...p, ph]))}
+                  className="rounded-full border px-2.5 py-1 text-[11.5px] font-semibold transition-colors"
+                  style={{
+                    borderColor: on ? "var(--lime)" : "var(--border)",
+                    background: on ? "color-mix(in oklab, var(--lime) 16%, transparent)" : "transparent",
+                    color: on ? "var(--lime)" : "var(--text-muted)",
+                  }}
+                >
+                  {ph}
+                </button>
+              );
+            })}
+          </div>
+
           <button
             type="button"
             onClick={generate}
-            disabled={gen === "busy" || sel.length === 0}
+            disabled={gen === "busy" || sel.length === 0 || phaseSel.length === 0}
             className="rounded-[10px] bg-[var(--lime)] px-4 py-2 text-[13px] font-bold text-[#0a0b0d] transition-opacity disabled:opacity-40"
           >
             {gen === "busy" ? "…" : tr("coach.bank.generate")}

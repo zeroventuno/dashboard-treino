@@ -18,9 +18,13 @@ x-trakr-secret: <N8N_BANK_SECRET>     # se configurado, o n8n deve conferir
   "agencyId": "uuid-da-assessoria",
   "staffId":  "uuid-do-treinador",
   "sports":   ["swim","bike","run","strength"],
-  "perPhase": 3
+  "perPhase": 3,
+  "phases":   ["Base","Build","Peak","Taper"]
 }
 ```
+
+`perPhase` = quantos workouts por esporte **por fase**. `phases` = quais fases do
+ciclo gerar (o form deixa escolher; se vier vazio, o fluxo assume as quatro).
 
 ## 2. O que o n8n faz
 
@@ -66,3 +70,39 @@ serve (é o mesmo que o servidor MCP usa). Use o **transaction pooler** do Supab
 Enquanto `N8N_BANK_WEBHOOK_URL` não estiver setada, o botão responde
 "geração automática ainda não configurada" — o resto do banco (criar pela IA
 copiloto, validar, reusar na prescrição) funciona normalmente.
+
+## 6. Fluxo pronto para importar — `n8n-workout-bank.json`
+
+O arquivo `product/n8n-workout-bank.json` é o workflow completo. Arquitetura:
+
+```
+Webhook → Guard (confere o secret) → Read methodology (Postgres) →
+  Leader agent (Claude): metodologia → diretriz por esporte →
+  Plan per-sport tasks → Sport specialist (Claude, roda 1x por esporte):
+    gera perPhase workouts por fase → Flatten → Insert draft (Postgres)
+```
+
+O **agente líder** lê a metodologia da assessoria e escreve a diretriz de cada
+esporte; cada **sub-agente especialista** (swim/bike/run/strength) gera os
+workouts daquele esporte para as fases pedidas. Tudo entra como `draft`.
+
+**Passos para ligar:**
+1. **n8n → Import from File** → `product/n8n-workout-bank.json`.
+2. **Credencial Postgres** (crie uma "Postgres" apontando pro *transaction
+   pooler* do projeto de produto, papel com `select app.staff` + `insert
+   app.workout_bank`) e selecione nos dois nós Postgres ("Read methodology" e
+   "Insert draft").
+3. **Chave da IA:** no n8n, setar a variável de ambiente `ANTHROPIC_API_KEY`
+   (os nós HTTP a leem em `{{ $env.ANTHROPIC_API_KEY }}`). Modelo padrão
+   `claude-sonnet-5` — troque nos nós Code "Build leader request" / "Plan
+   per-sport tasks" se quiser outro.
+4. (Opcional) setar `N8N_BANK_SECRET` no n8n **e** na Vercel (mesmo valor).
+5. **Activate** o workflow. Copie a **Production URL** do nó Webhook
+   (`.../webhook/trakr-bank`) e cole em `N8N_BANK_WEBHOOK_URL` na Vercel do
+   dashboard.
+6. Em `/coach/bank`, escolha esportes + fases + quantidade e clique **Gerar** →
+   recarregue em ~1 min e valide os rascunhos.
+
+> Nota: as versões dos nós (`typeVersion`) seguem um n8n recente. Se o seu n8n
+> for mais antigo e um nó importar "amarelo", é só reabrir/reselecionar a opção —
+> a lógica (prompts, SQL, conexões) já vem toda montada.

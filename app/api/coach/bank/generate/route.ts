@@ -9,6 +9,7 @@ import { resolveStaffId } from "@/lib/product-db";
 import { COACH_COOKIE } from "@/app/api/coach-login/route";
 
 const SPORTS = ["swim", "bike", "run", "strength"];
+const PHASES = ["Base", "Build", "Peak", "Taper"];
 
 export async function POST(req: NextRequest) {
   const key = (await cookies()).get(COACH_COOKIE)?.value;
@@ -22,9 +23,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, code: "not_configured" }, { status: 503 });
   }
 
-  const body = (await req.json().catch(() => ({}))) as { sports?: unknown; perPhase?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { sports?: unknown; perPhase?: unknown; phases?: unknown };
   const sports = Array.isArray(body.sports) ? body.sports.filter((s) => SPORTS.includes(String(s))) : [];
   const perPhase = Number(body.perPhase);
+  // Which cycle phases to generate for — default to all four when unspecified.
+  const pickedPhases = Array.isArray(body.phases) ? body.phases.filter((p) => PHASES.includes(String(p))) : [];
+  const phases = pickedPhases.length ? pickedPhases : PHASES;
   if (sports.length === 0 || !Number.isFinite(perPhase) || perPhase < 1 || perPhase > 20) {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
   }
@@ -38,7 +42,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         ...(process.env.N8N_BANK_SECRET ? { "x-trakr-secret": process.env.N8N_BANK_SECRET } : {}),
       },
-      body: JSON.stringify({ agencyId: staff.agencyId, staffId: staff.id, sports, perPhase }),
+      body: JSON.stringify({ agencyId: staff.agencyId, staffId: staff.id, sports, perPhase, phases }),
     });
     if (!res.ok) {
       console.error("[bank/generate] n8n webhook returned", res.status);
