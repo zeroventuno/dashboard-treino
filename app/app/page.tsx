@@ -21,6 +21,7 @@ import { Onboarding } from "@/components/Onboarding";
 import { LogoutButton } from "@/components/LogoutButton";
 import { AppNotifications } from "@/components/AppNotifications";
 import { coachBriefing, BRIEFING_VERSION } from "@/lib/coach-briefing";
+import { CONNECTOR_VERSION } from "@/lib/connector";
 import { DashboardBlocks } from "@/components/DashboardBlocks";
 import { hasProductDb } from "@/lib/product-db";
 import { APP_COOKIE } from "@/app/api/app-login/route";
@@ -114,7 +115,7 @@ export default async function ProductDashboardPage({
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
             {live ? tr("common.live") : tenantId ? tr("app.noData") : tr("common.sampleData")}
           </span>
-          <AppNotifications briefing={coachBriefing(locale)} briefingVersion={BRIEFING_VERSION} locale={locale} />
+          <AppNotifications briefing={coachBriefing(locale)} briefingVersion={BRIEFING_VERSION} connectorVersion={CONNECTOR_VERSION} locale={locale} />
           <LogoutButton locale={locale} />
         </div>
       </nav>

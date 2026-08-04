@@ -19,6 +19,8 @@ const pt = {
   "app.notif.title": "Avisos",
   "app.notif.briefing.title": "Nova versão do briefing",
   "app.notif.briefing.body": "Atualizamos as instruções do coach. Copie e cole numa conversa nova com ele para ensinar as novidades.",
+  "app.notif.connector.title": "Atualize o conector",
+  "app.notif.connector.body": "Adicionamos ferramentas novas à sua IA. Remova e adicione de novo o conector \"MY TRAKR\" para carregá-las.",
   // coach nav / settings / notifications
   "coach.nav.team": "Equipe",
   "coach.settings.title": "Configurações",
@@ -262,6 +264,8 @@ const en: Dict = {
   "app.notif.title": "Notifications",
   "app.notif.briefing.title": "New briefing version",
   "app.notif.briefing.body": "We updated the coach's instructions. Copy and paste it into a fresh chat so your coach learns what's new.",
+  "app.notif.connector.title": "Update the connector",
+  "app.notif.connector.body": "We added new tools. Remove and re-add the \"MY TRAKR\" connector in your AI so it loads them.",
   // coach nav / settings / notifications
   "coach.nav.team": "Team",
   "coach.settings.title": "Settings",
@@ -480,6 +484,8 @@ const it: Dict = {
   "app.notif.title": "Avvisi",
   "app.notif.briefing.title": "Nuova versione del briefing",
   "app.notif.briefing.body": "Abbiamo aggiornato le istruzioni del coach. Copiala e incollala in una nuova chat per fargli imparare le novità.",
+  "app.notif.connector.title": "Aggiorna il connettore",
+  "app.notif.connector.body": "Abbiamo aggiunto nuovi strumenti. Rimuovi e riaggiungi il connettore \"MY TRAKR\" nella tua IA per caricarli.",
   // coach nav / settings / notifications
   "coach.nav.team": "Squadra",
   "coach.settings.title": "Impostazioni",
@@ -698,6 +704,8 @@ const es: Dict = {
   "app.notif.title": "Avisos",
   "app.notif.briefing.title": "Nueva versión del briefing",
   "app.notif.briefing.body": "Actualizamos las instrucciones del coach. Cópialo y pégalo en un chat nuevo para que aprenda las novedades.",
+  "app.notif.connector.title": "Actualiza el conector",
+  "app.notif.connector.body": "Agregamos herramientas nuevas. Quita y vuelve a añadir el conector \"MY TRAKR\" en tu IA para que las cargue.",
   // coach nav / settings / notifications
   "coach.nav.team": "Equipo",
   "coach.settings.title": "Configuración",
@@ -916,6 +924,8 @@ const fr: Dict = {
   "app.notif.title": "Avis",
   "app.notif.briefing.title": "Nouvelle version du briefing",
   "app.notif.briefing.body": "Nous avons mis à jour les instructions du coach. Copie-le et colle-le dans une nouvelle conversation pour qu'il apprenne les nouveautés.",
+  "app.notif.connector.title": "Mets à jour le connecteur",
+  "app.notif.connector.body": "Nous avons ajouté de nouveaux outils. Retire et rajoute le connecteur \"MY TRAKR\" dans ton IA pour qu'il les charge.",
   // coach nav / settings / notifications
   "coach.nav.team": "Équipe",
   "coach.settings.title": "Paramètres",
