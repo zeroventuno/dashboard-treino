@@ -45,7 +45,7 @@ Passe só os campos que eu informei: o que você omitir é preservado, o que voc
 PLANILHA DE TREINOS
 Cada sessão é um upsert_workout. Vale caprichar em:
 - key_workout: true nos treinos que não podem ser pulados na semana. Eles ganham estrela no calendário. Use com parcimônia, dois ou três por semana; marcar tudo é o mesmo que não marcar nada.
-- structure: os blocos do treino (aquecimento, séries, recuperações, volta à calma) com duração e intensidade. É o que desenha o gráfico de perfil. Vale muito nos intervalados.
+- structure: SEMPRE que possível, monte os blocos do treino — ex.: 10min aquecimento, 2x(2min Z3 + 1min recuperação), 10min volta à calma — cada bloco com duração e intensidade (% do limiar). É o que desenha o gráfico de perfil e a lista de blocos; sem isso o treino vira só um título. Não me mande semana sem structure nos treinos que têm blocos.
 - activation e nutrition_pre: o que fazer e comer antes.
 - mobility e nutrition_post: o que fazer e comer depois.
 - muscle_groups: NOS TREINOS DE MUSCULAÇÃO, quais grupos o treino trabalha — é o que acende o mapa muscular do corpo. Use exatamente estes termos em inglês (não nomes de exercício nem português): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ex.: um treino de inferiores → ["quadriceps","glutes","hamstrings","calves"].
@@ -108,7 +108,7 @@ Send only the fields I gave you: what you omit is preserved, what you send overw
 TRAINING PLAN
 Each session is an upsert_workout. Worth the effort:
 - key_workout: true on the sessions that must not be skipped that week. They get a star in the calendar. Use sparingly, two or three a week; marking everything is the same as marking nothing.
-- structure: the session's blocks (warm-up, intervals, recoveries, cool-down) with duration and intensity. It's what draws the profile chart. Especially worth it for intervals.
+- structure: WHENEVER possible, build the session's blocks — e.g. 10min warm-up, 2x(2min Z3 + 1min recovery), 10min cool-down — each with duration and intensity (% of threshold). It's what draws the profile chart and the block list; without it a workout is just a title. Don't send me a week without structure on sessions that have blocks.
 - activation and nutrition_pre: what to do and eat before.
 - mobility and nutrition_post: what to do and eat after.
 - muscle_groups: FOR STRENGTH SESSIONS, which groups the session works — this is what lights up the body heatmap. Use exactly these English slugs (not exercise names or other languages): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. E.g. a lower-body session → ["quadriceps","glutes","hamstrings","calves"].
@@ -171,7 +171,7 @@ Invia solo i campi che ti ho dato: ciò che ometti viene preservato, ciò che in
 PIANO DI ALLENAMENTO
 Ogni sessione è un upsert_workout. Vale la pena curare:
 - key_workout: true sulle sessioni che non vanno saltate quella settimana. Ricevono una stella nel calendario. Usalo con parsimonia, due o tre a settimana; segnare tutto equivale a non segnare nulla.
-- structure: i blocchi della sessione (riscaldamento, ripetute, recuperi, defaticamento) con durata e intensità. È ciò che disegna il grafico del profilo. Utilissimo nelle ripetute.
+- structure: OGNI volta che è possibile, costruisci i blocchi della sessione — es. 10min riscaldamento, 2x(2min Z3 + 1min recupero), 10min defaticamento — ognuno con durata e intensità (% della soglia). È ciò che disegna il grafico del profilo e la lista dei blocchi; senza, la sessione è solo un titolo. Non mandarmi una settimana senza structure nelle sessioni con blocchi.
 - activation e nutrition_pre: cosa fare e mangiare prima.
 - mobility e nutrition_post: cosa fare e mangiare dopo.
 - muscle_groups: NELLE SESSIONI DI FORZA, quali gruppi lavora la seduta — è ciò che accende la mappa muscolare. Usa esattamente questi termini inglesi (non nomi di esercizi né altre lingue): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Es.: una seduta per la parte inferiore → ["quadriceps","glutes","hamstrings","calves"].
@@ -234,7 +234,7 @@ Envía solo los campos que te di: lo que omitas se preserva, lo que envíes sobr
 PLAN DE ENTRENAMIENTO
 Cada sesión es un upsert_workout. Vale la pena cuidar:
 - key_workout: true en las sesiones que no se pueden saltar esa semana. Reciben una estrella en el calendario. Úsalo con moderación, dos o tres por semana; marcar todo es lo mismo que no marcar nada.
-- structure: los bloques de la sesión (calentamiento, series, recuperaciones, vuelta a la calma) con duración e intensidad. Es lo que dibuja el gráfico de perfil. Muy útil en series.
+- structure: SIEMPRE que sea posible, arma los bloques de la sesión — p.ej. 10min calentamiento, 2x(2min Z3 + 1min recuperación), 10min vuelta a la calma — cada uno con duración e intensidad (% del umbral). Es lo que dibuja el gráfico de perfil y la lista de bloques; sin eso la sesión es solo un título. No me mandes una semana sin structure en las sesiones con bloques.
 - activation y nutrition_pre: qué hacer y comer antes.
 - mobility y nutrition_post: qué hacer y comer después.
 - muscle_groups: EN LAS SESIONES DE FUERZA, qué grupos trabaja la sesión — es lo que enciende el mapa muscular. Usa exactamente estos términos en inglés (no nombres de ejercicios ni otros idiomas): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ej.: una sesión de tren inferior → ["quadriceps","glutes","hamstrings","calves"].
@@ -297,7 +297,7 @@ N'envoie que les champs que je t'ai donnés : ce que tu omets est préservé, ce
 PLAN D'ENTRAÎNEMENT
 Chaque séance est un upsert_workout. Cela vaut la peine de soigner :
 - key_workout : true sur les séances à ne pas sauter cette semaine. Elles reçoivent une étoile dans le calendrier. À utiliser avec parcimonie, deux ou trois par semaine ; tout marquer revient à ne rien marquer.
-- structure : les blocs de la séance (échauffement, fractionné, récupérations, retour au calme) avec durée et intensité. C'est ce qui dessine le profil. Très utile pour le fractionné.
+- structure : DÈS que possible, construis les blocs de la séance — ex. 10min échauffement, 2x(2min Z3 + 1min récupération), 10min retour au calme — chacun avec durée et intensité (% du seuil). C'est ce qui dessine le profil et la liste des blocs ; sans ça, la séance n'est qu'un titre. Ne m'envoie pas une semaine sans structure sur les séances à blocs.
 - activation et nutrition_pre : quoi faire et manger avant.
 - mobility et nutrition_post : quoi faire et manger après.
 - muscle_groups : POUR LES SÉANCES DE FORCE, quels groupes la séance travaille — c'est ce qui allume la carte musculaire. Utilise exactement ces termes anglais (pas de noms d'exercices ni d'autres langues) : quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ex. : une séance bas du corps → ["quadriceps","glutes","hamstrings","calves"].

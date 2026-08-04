@@ -53,6 +53,10 @@ complementar o que já está agendado, não duplicar nem sobrescrever.
 - Escreva títulos, descrições e notas **no idioma do atleta**.
 - Discipline: `swim | bike | run | strength | rest` (slugs em inglês). Datas em
   `YYYY-MM-DD`. Distância em km, peso em kg.
+- **`structure` SEMPRE que possível** — os blocos do treino (ex.: 10min aquecimento,
+  2x(2min Z3 + 1min recuperação), 10min volta à calma), cada um com duração e
+  intensidade (% do limiar). É o que desenha o perfil e a lista de blocos; sem isso
+  o treino vira só um título. Não mande a semana sem `structure` nos treinos com blocos.
 - Nos treinos de força, use `muscle_groups` (slugs em inglês) para acender o mapa
   muscular.
 - Depois de gravar, me diga em uma linha o que mudou em cada painel.

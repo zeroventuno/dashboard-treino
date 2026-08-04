@@ -125,9 +125,11 @@ Cada sessão é um `upsert_workout`. Alguns campos mudam bastante a experiência
 - `key_workout: true` nos treinos que **não podem ser pulados** na semana. Eles
   ganham estrela e destaque no calendário. Use com parcimônia — dois ou três por
   semana; marcar tudo é o mesmo que não marcar nada.
-- `structure` — os blocos do treino (aquecimento, séries, recuperações, volta à
-  calma), com duração e intensidade. É o que desenha o gráfico de perfil e a
-  lista de blocos. Vale muito a pena preencher nos treinos intervalados.
+- `structure` — **SEMPRE que possível**, monte os blocos do treino — ex.: 10min
+  aquecimento, 2x(2min Z3 + 1min recuperação), 10min volta à calma — cada bloco
+  com duração e intensidade (% do limiar). É o que desenha o gráfico de perfil e
+  a lista de blocos; sem isso o treino vira só um título. Não mande a semana sem
+  `structure` nos treinos que têm blocos.
 - `activation` e `nutrition_pre` — o que fazer antes: ativação/aquecimento e o
   que comer.
 - `mobility` e `nutrition_post` — o que fazer depois.
