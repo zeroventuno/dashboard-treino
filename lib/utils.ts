@@ -1,4 +1,4 @@
-import { RACE_DATE, type Discipline, type MuscleGroup, type Recommendation, type StrengthSession } from "./types";
+import { RACE_DATE, type Discipline, type MuscleGroup, type Recommendation, type StrengthSession, type Workout } from "./types";
 
 // ---- dates -----------------------------------------------------------------
 
@@ -172,4 +172,45 @@ export type Muscle = MuscleGroup;
 export function avg(nums: number[]): number {
   if (!nums.length) return 0;
   return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+// ── Adherence ─────────────────────────────────────────────────────────────
+// A 0-100 score of how closely a DONE workout matched its plan. Overshooting is
+// deviation too (90 min of a planned 60 isn't "150% adherent" — it's off-plan),
+// so we score closeness, not a ratio: 1 - |actual - planned| / planned.
+
+/** Closeness of one metric, 0..1, or null when there's nothing to compare. */
+function closeness(actual: number | null | undefined, planned: number | null | undefined): number | null {
+  if (planned == null || planned <= 0 || actual == null) return null;
+  return Math.max(0, 1 - Math.abs(actual - planned) / planned);
+}
+
+/**
+ * The adherence score for a workout, 0-100, or null when it doesn't apply
+ * (not done, or a coach who gave no plan to measure against). A coach-set
+ * `adherence` always wins — it's their judgment (an athlete who swapped the
+ * session for something unrelated can match the duration yet score low).
+ * Otherwise we estimate from actual vs planned duration, TSS and distance.
+ */
+export function computeAdherence(w: Workout): number | null {
+  if (w.adherence != null) return clampScore(w.adherence);
+  if (w.status !== "done") return null;
+  const parts = [
+    closeness(w.actual_duration_min, w.planned_duration_min),
+    closeness(w.actual_tss, w.planned_tss),
+    closeness(w.actual_distance_km, w.planned_distance_km),
+  ].filter((x): x is number => x != null);
+  if (!parts.length) return null;
+  return Math.round(avg(parts) * 100);
+}
+
+function clampScore(n: number): number {
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+/** Traffic-light colour for an adherence score (CSS var). */
+export function adherenceColor(score: number): string {
+  if (score >= 80) return "var(--good)";
+  if (score >= 55) return "var(--warn)";
+  return "var(--bad)";
 }

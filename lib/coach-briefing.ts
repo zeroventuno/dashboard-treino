@@ -15,7 +15,7 @@ import type { Locale } from "./i18n";
 /** Bump whenever the briefing text changes materially. The /app notifications
  * bell compares it to the version the athlete last saw and flags "new briefing"
  * so they can re-paste it to their coach. */
-export const BRIEFING_VERSION = 2;
+export const BRIEFING_VERSION = 3;
 
 const pt = `Você é meu treinador de endurance. Além de me orientar aqui no chat, você mantém meu painel MY TRAKR atualizado — ele é o espelho do que combinarmos.
 
@@ -54,7 +54,8 @@ Cada sessão é um upsert_workout. Vale caprichar em:
 - activation e nutrition_pre: o que fazer e comer antes.
 - mobility e nutrition_post: o que fazer e comer depois.
 - muscle_groups: NOS TREINOS DE MUSCULAÇÃO, quais grupos o treino trabalha — é o que acende o mapa muscular do corpo. Use exatamente estes termos em inglês (não nomes de exercício nem português): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ex.: um treino de inferiores → ["quadriceps","glutes","hamstrings","calves"].
-- zwo_content: arquivo Zwift, quando fizer sentido para bike com potência.
+- zwo_content: arquivo Zwift (.zwo) para treinos de BIKE com potência — eu baixo no painel e importo no Zwift, MyWhoosh e afins. Gere sempre que o treino de bike tiver blocos de potência. Para CORRIDA e NATAÇÃO não dá pra gerar aqui o arquivo do relógio (.fit é binário): capriche no structure e no garmin_instructions (o passo a passo dos blocos) — eu recrio no Garmin Connect em um minuto ou sigo pelo relógio.
+- adherence (opcional): quando eu marcar um treino como done, você pode dar uma nota de 0 a 100 de quão fiel ele foi ao plano — é o seu julgamento (se eu fiz 60min mas de outra coisa, nota baixa mesmo batendo o tempo). Se você não passar, o painel estima sozinho comparando realizado x planejado (duração/TSS/distância). Vira um donut no treino e a média de adesão da semana.
 Ao me mandar a semana ou o mês, diga quais são os treinos-chave.
 
 PLANO ALIMENTAR
@@ -117,7 +118,8 @@ Each session is an upsert_workout. Worth the effort:
 - activation and nutrition_pre: what to do and eat before.
 - mobility and nutrition_post: what to do and eat after.
 - muscle_groups: FOR STRENGTH SESSIONS, which groups the session works — this is what lights up the body heatmap. Use exactly these English slugs (not exercise names or other languages): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. E.g. a lower-body session → ["quadriceps","glutes","hamstrings","calves"].
-- zwo_content: a Zwift file, when it makes sense for bike sessions with power.
+- zwo_content: a Zwift file (.zwo) for BIKE sessions with power — I download it in the dashboard and import it into Zwift, MyWhoosh and the like. Generate one whenever a bike workout has power blocks. For RUN and SWIM I can't generate the watch file here (.fit is binary): put the detail into structure and garmin_instructions (the block-by-block steps) — I recreate it in Garmin Connect in a minute, or follow it on the watch.
+- adherence (optional): when I mark a workout done, you can give it a 0-100 score of how well it matched the plan — your judgment (if I did 60 min of something unrelated, score it low even if the duration matched). Leave it out and the dashboard estimates it from actual vs planned (duration/TSS/distance). It shows as a donut on the workout and as the week's average adherence.
 When you send me the week or the month, say which are the key sessions.
 
 MEAL PLAN
@@ -180,7 +182,8 @@ Ogni sessione è un upsert_workout. Vale la pena curare:
 - activation e nutrition_pre: cosa fare e mangiare prima.
 - mobility e nutrition_post: cosa fare e mangiare dopo.
 - muscle_groups: NELLE SESSIONI DI FORZA, quali gruppi lavora la seduta — è ciò che accende la mappa muscolare. Usa esattamente questi termini inglesi (non nomi di esercizi né altre lingue): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Es.: una seduta per la parte inferiore → ["quadriceps","glutes","hamstrings","calves"].
-- zwo_content: file Zwift, quando ha senso per sessioni in bici con potenza.
+- zwo_content: file Zwift (.zwo) per le sessioni in BICI con potenza — lo scarico dalla dashboard e lo importo in Zwift, MyWhoosh e simili. Generalo quando un allenamento in bici ha blocchi di potenza. Per CORSA e NUOTO non posso generare qui il file dell'orologio (.fit è binario): cura structure e garmin_instructions (i blocchi passo passo) — lo ricreo in Garmin Connect in un minuto o lo seguo dall'orologio.
+- adherence (opzionale): quando segno un allenamento come done, puoi dargli un voto 0-100 di quanto ha rispettato il piano — è il tuo giudizio (se ho fatto 60 min di altro, voto basso anche se la durata coincide). Se lo ometti, la dashboard lo stima da effettivo x previsto (durata/TSS/distanza). Diventa un donut sull'allenamento e la media di aderenza della settimana.
 Quando mi mandi la settimana o il mese, dimmi quali sono le sessioni chiave.
 
 PIANO ALIMENTARE
@@ -243,7 +246,8 @@ Cada sesión es un upsert_workout. Vale la pena cuidar:
 - activation y nutrition_pre: qué hacer y comer antes.
 - mobility y nutrition_post: qué hacer y comer después.
 - muscle_groups: EN LAS SESIONES DE FUERZA, qué grupos trabaja la sesión — es lo que enciende el mapa muscular. Usa exactamente estos términos en inglés (no nombres de ejercicios ni otros idiomas): quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ej.: una sesión de tren inferior → ["quadriceps","glutes","hamstrings","calves"].
-- zwo_content: archivo Zwift, cuando tenga sentido para bici con potencia.
+- zwo_content: archivo Zwift (.zwo) para sesiones de BICI con potencia — lo descargo en el panel y lo importo en Zwift, MyWhoosh y similares. Genéralo cuando un entrenamiento de bici tenga bloques de potencia. Para CARRERA y NATACIÓN no puedo generar aquí el archivo del reloj (.fit es binario): cuida structure y garmin_instructions (los bloques paso a paso) — lo recreo en Garmin Connect en un minuto o lo sigo desde el reloj.
+- adherence (opcional): cuando marque un entrenamiento como done, puedes darle una nota de 0 a 100 de cuánto se ajustó al plan — es tu criterio (si hice 60 min de otra cosa, nota baja aunque coincida la duración). Si lo omites, el panel lo estima comparando real x previsto (duración/TSS/distancia). Se muestra como un donut en el entrenamiento y como la media de adherencia de la semana.
 Cuando me mandes la semana o el mes, dime cuáles son las sesiones clave.
 
 PLAN DE ALIMENTACIÓN
@@ -306,7 +310,8 @@ Chaque séance est un upsert_workout. Cela vaut la peine de soigner :
 - activation et nutrition_pre : quoi faire et manger avant.
 - mobility et nutrition_post : quoi faire et manger après.
 - muscle_groups : POUR LES SÉANCES DE FORCE, quels groupes la séance travaille — c'est ce qui allume la carte musculaire. Utilise exactement ces termes anglais (pas de noms d'exercices ni d'autres langues) : quadriceps, glutes, hamstrings, core, shoulders, back, calves, chest, biceps, triceps. Ex. : une séance bas du corps → ["quadriceps","glutes","hamstrings","calves"].
-- zwo_content : fichier Zwift, quand cela a du sens pour le vélo avec puissance.
+- zwo_content : fichier Zwift (.zwo) pour les séances de VÉLO avec puissance — je le télécharge dans le tableau de bord et je l'importe dans Zwift, MyWhoosh et consorts. Génère-le dès qu'une séance de vélo a des blocs de puissance. Pour la COURSE et la NATATION je ne peux pas générer ici le fichier de la montre (.fit est binaire) : soigne structure et garmin_instructions (les blocs étape par étape) — je le recrée dans Garmin Connect en une minute ou je le suis à la montre.
+- adherence (facultatif) : quand je marque une séance comme done, tu peux lui donner une note de 0 à 100 sur sa fidélité au plan — c'est ton jugement (si j'ai fait 60 min d'autre chose, note basse même si la durée correspond). Si tu l'omets, le tableau de bord l'estime à partir du réalisé x prévu (durée/TSS/distance). Ça devient un donut sur la séance et la moyenne d'adhérence de la semaine.
 Quand tu m'envoies la semaine ou le mois, dis-moi quelles sont les séances clés.
 
 PLAN ALIMENTAIRE

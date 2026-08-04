@@ -3,11 +3,12 @@
 import { Fragment, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
-import { disciplineMeta, fmtDuration, toDistance, distanceUnit, toSpeed, speedUnit, type Units } from "@/lib/utils";
+import { disciplineMeta, fmtDuration, toDistance, distanceUnit, toSpeed, speedUnit, computeAdherence, type Units } from "@/lib/utils";
 import { getWorkoutBlocks } from "@/lib/workout-structure";
 import { DEFAULT_LOCALE, translator, type Locale, type T, type TKey } from "@/lib/i18n";
 import { DisciplineIcon, DownloadIcon, CloseIcon } from "./Icons";
 import { WorkoutBlocks } from "./WorkoutBlocks";
+import { AdherenceDonut } from "./AdherenceDonut";
 
 export const STATUS_META: Record<
   WorkoutStatus,
@@ -136,21 +137,31 @@ function ComparisonTable({ w, tr, units }: { w: Workout; tr: T; units: Units }) 
     },
   ].filter((r) => r.planned != null || r.actual != null);
 
-  if (rows.length === 0) return null;
+  const score = computeAdherence(w);
+  if (rows.length === 0 && score == null) return null;
 
   return (
     <div className="border-b border-[var(--border)] px-5 py-3.5">
-      <div className="grid grid-cols-[minmax(72px,auto)_1fr_1fr] items-baseline gap-x-4 gap-y-1.5">
-        <span />
-        <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("modal.planned")}</span>
-        <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("modal.actual")}</span>
-        {rows.map((r) => (
-          <Fragment key={r.label}>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{r.label}</span>
-            <span className="tnum text-[13px] text-[var(--text-muted)]">{r.planned ?? "—"}</span>
-            <span className="tnum text-[13px] font-bold text-[var(--text)]">{r.actual ?? "—"}</span>
-          </Fragment>
-        ))}
+      <div className="flex items-center gap-4">
+        {rows.length > 0 && (
+          <div className="grid flex-1 grid-cols-[minmax(72px,auto)_1fr_1fr] items-baseline gap-x-4 gap-y-1.5">
+            <span />
+            <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("modal.planned")}</span>
+            <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("modal.actual")}</span>
+            {rows.map((r) => (
+              <Fragment key={r.label}>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{r.label}</span>
+                <span className="tnum text-[13px] text-[var(--text-muted)]">{r.planned ?? "—"}</span>
+                <span className="tnum text-[13px] font-bold text-[var(--text)]">{r.actual ?? "—"}</span>
+              </Fragment>
+            ))}
+          </div>
+        )}
+        {score != null && (
+          <div className={rows.length === 0 ? "flex-1" : "shrink-0"}>
+            <AdherenceDonut score={score} size={54} label={tr("modal.adherence")} />
+          </div>
+        )}
       </div>
     </div>
   );

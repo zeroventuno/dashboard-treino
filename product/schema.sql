@@ -95,6 +95,7 @@ create table workouts (
   key_workout           boolean not null default false,
   muscle_groups         text[]  not null default '{}',   -- strength → body-heatmap
   extra                 boolean not null default false,  -- unscheduled: volume yes, x/y no
+  adherence             int,                             -- 0-100 done-vs-plan quality; null = estimated
   created_at            timestamptz not null default now(),
   unique (tenant_id, date, discipline, title)
 );

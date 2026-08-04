@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import type { Workout, Discipline } from "@/lib/types";
-import { DISCIPLINE_META, disciplineMeta, fmtDuration, parseDate, startOfWeek, addDays, toISO, toDistance, distanceUnit, type Units } from "@/lib/utils";
+import { DISCIPLINE_META, disciplineMeta, fmtDuration, parseDate, startOfWeek, addDays, toISO, toDistance, distanceUnit, computeAdherence, avg, type Units } from "@/lib/utils";
 import { DisciplineIcon } from "./Icons";
 import { WorkoutModal } from "./WorkoutModal";
+import { AdherenceDonut } from "./AdherenceDonut";
 import { DEFAULT_LOCALE, translator, type Locale, type T } from "@/lib/i18n";
 
 const LEGEND: Discipline[] = ["swim", "bike", "run", "strength"];
@@ -40,6 +41,7 @@ interface WeekData {
   km: Record<Discipline, number>; // done only (planned distance is often unset)
   done: number; // completed workouts of the plan (x)
   total: number; // scheduled workouts in the plan (y)
+  adherence: number | null; // mean 0-100 over done workouts that have a score
   isThis: boolean;
 }
 
@@ -92,6 +94,7 @@ export function CalendarBoard({
       let plannedTss = 0;
       let done = 0;
       let total = 0;
+      const adherenceScores: number[] = [];
       for (const w of items) {
         if (OUT_OF_PLAN.has(w.status)) continue; // moved/cancelled: out of everything
         const isDone = w.status === "done";
@@ -103,6 +106,8 @@ export function CalendarBoard({
           doneTss += Number(w.actual_tss ?? w.planned_tss ?? 0);
           const d = Number(w.actual_distance_km ?? w.planned_distance_km ?? 0);
           if (d > 0) km[w.discipline] += d;
+          const a = computeAdherence(w);
+          if (a != null) adherenceScores.push(a);
         }
         // The scheduled plan (x/y + the "programmed" targets) excludes extras.
         if (!w.extra) {
@@ -122,6 +127,7 @@ export function CalendarBoard({
         km,
         done,
         total,
+        adherence: adherenceScores.length ? Math.round(avg(adherenceScores)) : null,
         isThis: days.some((d) => d.iso === todayISO),
       });
       cur = addDays(cur, 7);
@@ -256,9 +262,12 @@ function WeekRow({ week, todayISO, tr, units, onOpen }: {
       >
         <div className="flex items-center justify-between gap-2">
           <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("calendar.week")} {week.wk}</p>
-          {week.isThis && (
-            <span className="rounded-full bg-[var(--lime)] px-1.5 py-[1px] text-[8px] font-bold uppercase tracking-wide text-[#0a0b0d]">{tr("calendar.thisWeek")}</span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {week.isThis && (
+              <span className="rounded-full bg-[var(--lime)] px-1.5 py-[1px] text-[8px] font-bold uppercase tracking-wide text-[#0a0b0d]">{tr("calendar.thisWeek")}</span>
+            )}
+            {week.adherence != null && <AdherenceDonut score={week.adherence} size={30} />}
+          </div>
         </div>
         <p className="dsp tnum mt-0.5 text-[22px] font-extrabold leading-none text-[var(--text)]">
           {fmtDuration(week.doneMin) === "—" ? "0h" : fmtDuration(week.doneMin)}

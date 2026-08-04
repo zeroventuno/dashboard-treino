@@ -55,6 +55,17 @@ export const workoutSchema = {
     .boolean()
     .optional()
     .describe("true = an unscheduled session the athlete added — counts in the week's volume, not in the plan's x/y."),
+  adherence: z
+    .number()
+    .int()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe(
+      "0-100 quality score for a DONE workout — how well it matched the plan (your judgment: an athlete who " +
+      "swapped it for something unrelated scores low even if the duration matched). Omit and the dashboard " +
+      "estimates it from actual vs planned duration/TSS/distance.",
+    ),
   description: z.string().optional(),
   garmin_instructions: z.string().optional(),
   zwo_content: z.string().optional(),
@@ -104,9 +115,9 @@ export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs
     `insert into workouts (tenant_id,date,discipline,title,status,description,garmin_instructions,zwo_content,
        planned_duration_min,actual_duration_min,planned_distance_km,actual_distance_km,planned_tss,actual_tss,
        planned_pace,actual_pace,planned_power_watts,actual_power_watts,notes,nutrition_notes,
-       key_workout,structure,activation,nutrition_pre,mobility,nutrition_post,muscle_groups,extra)
+       key_workout,structure,activation,nutrition_pre,mobility,nutrition_post,muscle_groups,extra,adherence)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-       coalesce($21,false),$22::jsonb,$23,$24,$25,$26,coalesce($27::text[],'{}'::text[]),coalesce($28,false))
+       coalesce($21,false),$22::jsonb,$23,$24,$25,$26,coalesce($27::text[],'{}'::text[]),coalesce($28,false),$29)
      on conflict (tenant_id,date,discipline,title) do update set
        status=excluded.status,
        description=coalesce(excluded.description,workouts.description),
@@ -131,7 +142,8 @@ export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs
        mobility=coalesce(excluded.mobility,workouts.mobility),
        nutrition_post=coalesce(excluded.nutrition_post,workouts.nutrition_post),
        muscle_groups=coalesce($27::text[],workouts.muscle_groups),
-       extra=coalesce($28,workouts.extra)`,
+       extra=coalesce($28,workouts.extra),
+       adherence=coalesce($29,workouts.adherence)`,
     [
       tenantId, a.date, a.discipline, a.title, a.status, a.description ?? null, a.garmin_instructions ?? null,
       a.zwo_content ?? null, a.planned_duration_min ?? null, a.actual_duration_min ?? null,
@@ -140,7 +152,7 @@ export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs
       a.notes ?? null, a.nutrition_notes ?? null,
       a.key_workout ?? null, a.structure ? JSON.stringify(a.structure) : null,
       a.activation ?? null, a.nutrition_pre ?? null, a.mobility ?? null, a.nutrition_post ?? null,
-      a.muscle_groups ?? null, a.extra ?? null,
+      a.muscle_groups ?? null, a.extra ?? null, a.adherence ?? null,
     ],
   );
   return `Workout "${a.title}" (${a.date}) → ${a.status}${a.key_workout ? " ★" : ""}.`;

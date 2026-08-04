@@ -42,7 +42,7 @@ export const workoutsRangeSchema = {
 
 export async function readWorkouts(c: PoolClient, tenantId: string, from: string, to: string) {
   const { rows } = await c.query(
-    `select date, discipline, title, status, key_workout, muscle_groups,
+    `select date, discipline, title, status, key_workout, extra, adherence, muscle_groups,
             planned_duration_min, planned_tss, actual_duration_min, actual_tss, notes
        from workouts
       where tenant_id=$1 and date between $2 and $3

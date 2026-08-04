@@ -47,6 +47,10 @@ export interface Workout {
   /** Logged but not part of the plan (an unscheduled extra session). Counts in
    * the week's done volume — time/distance/TSS — but NOT in the x/y adherence. */
   extra?: boolean | null;
+  /** 0-100: how well a DONE workout matched the plan. Set by the coach (their
+   * judgment); if null, the dashboard estimates it from actual vs planned
+   * duration/TSS/distance. Only meaningful when status is "done". */
+  adherence?: number | null;
   /** Pre-workout: activation/warm-up routine and fueling. */
   activation?: string | null;
   nutrition_pre?: string | null;
