@@ -136,7 +136,7 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
     "get_profile",
     {
       description:
-        "Read a named athlete's config: devices, metrics, race|cycle mode, language, units, target races, active cycle, zones, and (if opted in) menstrual cycle. Read before writing so you don't re-ask or overwrite what you can't see.",
+        "Read a named athlete's config: devices, metrics, race|cycle mode, language, units, target races, active cycle, the season timeline (dated Base/Build/Peak/Taper the athlete sees — phases table, else derived from the cycle), zones, and (if opted in) menstrual cycle. Read before writing so you don't re-ask or overwrite what you can't see.",
       inputSchema: { athlete: athleteArg },
     },
     async (a) => readForAthlete(staff, a.athlete, (c, tid) => readProfile(c, tid)),

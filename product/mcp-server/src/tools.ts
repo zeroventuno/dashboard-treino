@@ -33,7 +33,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
     "get_profile",
     {
       description:
-        "Read everything already configured for this athlete: devices, available metrics, race|cycle mode, language, target races, active cycle and performance zones. Call this FIRST in a new conversation — it tells you what you already know, so you don't ask again or overwrite settings you can't see.",
+        "Read everything already configured for this athlete: devices, available metrics, race|cycle mode, language, target races, active cycle, the season timeline (the dated Base/Build/Peak/Taper the athlete sees — from the phases table, else derived from the cycle) and performance zones. Call this FIRST in a new conversation — it tells you what you already know, so you don't ask again or overwrite settings you can't see.",
       inputSchema: {},
     },
     async () => data(await withTenant(tenantId, (c) => readProfile(c, tenantId))),

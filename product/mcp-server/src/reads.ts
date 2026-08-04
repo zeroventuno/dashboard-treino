@@ -8,15 +8,37 @@ import type { PoolClient } from "pg";
 //  returns the plain object the tool serializes.
 // ────────────────────────────────────────────────────────────────────────────
 
+/** Cycle phases (jsonb {name,weeks,focus}) → dated phase bars, mirroring the
+ * dashboard's cycleToPhases. UTC-based so the ISO dates are stable regardless
+ * of where this runs. */
+function cycleToSeason(
+  startDate: string,
+  phases: { name: string; weeks: number; focus?: string | null }[],
+) {
+  const DAY = 86_400_000;
+  const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+  let cursor = new Date(`${startDate}T00:00:00Z`).getTime();
+  return phases.map((ph) => {
+    const start = cursor;
+    const end = start + (ph.weeks * 7 - 1) * DAY;
+    cursor = end + DAY;
+    return { name: ph.name, start_date: iso(start), end_date: iso(end), focus: ph.focus ?? null };
+  });
+}
+
 export async function readProfile(c: PoolClient, tenantId: string) {
-  const [profile, races, cycle, indicators, menstrual] = await Promise.all([
+  const [profile, races, cycle, phasesTable, indicators, menstrual] = await Promise.all([
     c.query(
       "select athlete, devices, metrics, mode, locale, units, anatomy, updated_at from profiles where tenant_id=$1 limit 1",
       [tenantId],
     ),
     c.query("select name, date, priority from races where tenant_id=$1 order by date", [tenantId]),
     c.query(
-      "select name, start_date, weeks, phases from training_cycles where tenant_id=$1 and active order by start_date desc limit 1",
+      "select name, to_char(start_date,'YYYY-MM-DD') as start_date, weeks, phases from training_cycles where tenant_id=$1 and active order by start_date desc limit 1",
+      [tenantId],
+    ),
+    c.query(
+      "select name, to_char(start_date,'YYYY-MM-DD') as start_date, to_char(end_date,'YYYY-MM-DD') as end_date, focus from phases where tenant_id=$1 order by start_date",
       [tenantId],
     ),
     c.query("select * from performance_indicators where tenant_id=$1 limit 1", [tenantId]),
@@ -25,10 +47,25 @@ export async function readProfile(c: PoolClient, tenantId: string) {
       [tenantId],
     ),
   ]);
+
+  // The Season the athlete actually sees: the `phases` TABLE wins (race-mode
+  // athletes populate it, sometimes seeded directly); otherwise it's derived
+  // from the active cycle — same precedence as the /app dashboard. Without this
+  // a race athlete whose season lives in `phases` reads back as active_cycle:null
+  // and the coach wrongly concludes "no season in the database".
+  const activeCycle = cycle.rows[0] ?? null;
+  const season =
+    phasesTable.rows.length > 0
+      ? { source: "phases", phases: phasesTable.rows }
+      : activeCycle
+        ? { source: "cycle", phases: cycleToSeason(activeCycle.start_date, activeCycle.phases ?? []) }
+        : { source: "none", phases: [] };
+
   return {
     profile: profile.rows[0] ?? null,
     races: races.rows,
-    active_cycle: cycle.rows[0] ?? null,
+    active_cycle: activeCycle,
+    season,
     indicators: indicators.rows[0] ?? null,
     menstrual_cycle: menstrual.rows[0] ?? null,
     configured: profile.rows.length > 0,
