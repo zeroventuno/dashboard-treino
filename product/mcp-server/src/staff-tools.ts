@@ -11,6 +11,7 @@ import {
 } from "./writes.js";
 import {
   readProfile, readWorkouts, workoutsRangeSchema, readCheckins, checkinsSchema,
+  readMealPlan, readBodyComposition, bodyCompositionSchema,
 } from "./reads.js";
 
 const data = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(v, null, 2) }] });
@@ -159,6 +160,26 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
       inputSchema: { ...checkinsSchema, athlete: athleteArg },
     },
     async (a) => readForAthlete(staff, a.athlete, (c, tid) => readCheckins(c, tid, a.days)),
+  );
+
+  server.registerTool(
+    "get_meal_plan",
+    {
+      description:
+        "Read a named athlete's current nutrition plan: the daily meals and the fueling strategy by duration. Read before set_meal_plan (it replaces each part wholesale). Any role can read; only a nutritionist writes.",
+      inputSchema: { athlete: athleteArg },
+    },
+    async (a) => readForAthlete(staff, a.athlete, (c, tid) => readMealPlan(c, tid)),
+  );
+
+  server.registerTool(
+    "get_body_composition",
+    {
+      description:
+        "Read a named athlete's recent bioimpedance readings (weight, muscle mass, body-fat %, lean mass, visceral fat, metabolic age), newest first.",
+      inputSchema: { ...bodyCompositionSchema, athlete: athleteArg },
+    },
+    async (a) => readForAthlete(staff, a.athlete, (c, tid) => readBodyComposition(c, tid, a.limit)),
   );
 
   // ── Role-scoped writes (concrete schemas → the SDK infers args precisely) ─

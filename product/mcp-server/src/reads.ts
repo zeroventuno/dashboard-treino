@@ -67,3 +67,42 @@ export async function readCheckins(c: PoolClient, tenantId: string, days: number
   );
   return { days, count: rows.length, checkins: rows };
 }
+
+// The read halves of set_meal_plan / log_body_composition — without these a
+// professional (or the athlete's own AI) can write nutrition and bioimpedance
+// but never read them back, so it can't verify or edit without re-asking.
+
+export async function readMealPlan(c: PoolClient, tenantId: string) {
+  const [meals, fueling] = await Promise.all([
+    c.query(
+      `select meal_order, meal_name, time_suggestion, foods, protein_g, carbs_g, notes
+         from daily_meal_plan where tenant_id=$1 order by meal_order`,
+      [tenantId],
+    ),
+    c.query(
+      `select duration_category, duration_range, discipline_context,
+              before_training, during_training, after_training, supplements_used, notes
+         from nutrition_plan where tenant_id=$1 order by duration_category`,
+      [tenantId],
+    ),
+  ]);
+  return {
+    meals: meals.rows,
+    fueling: fueling.rows,
+    configured: meals.rows.length > 0 || fueling.rows.length > 0,
+  };
+}
+
+export const bodyCompositionSchema = {
+  limit: z.number().int().min(1).max(60).default(12).describe("how many recent readings, newest first"),
+} satisfies z.ZodRawShape;
+
+export async function readBodyComposition(c: PoolClient, tenantId: string, limit: number) {
+  const { rows } = await c.query(
+    `select date, weight_kg, muscle_mass_kg, body_fat_pct, lean_mass_kg,
+            visceral_fat, metabolic_age, notes
+       from body_composition where tenant_id=$1 order by date desc limit $2`,
+    [tenantId, limit],
+  );
+  return { count: rows.length, readings: rows };
+}

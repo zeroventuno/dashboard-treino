@@ -6,6 +6,7 @@ import {
 } from "./writes.js";
 import {
   readProfile, readWorkouts, workoutsRangeSchema, readCheckins, checkinsSchema,
+  readMealPlan, readBodyComposition, bodyCompositionSchema,
 } from "./reads.js";
 
 const ok = (text: string) => ({ content: [{ type: "text" as const, text }] });
@@ -56,6 +57,26 @@ export function registerTools(server: McpServer, tenantId: string): void {
       inputSchema: checkinsSchema,
     },
     async (a) => data(await withTenant(tenantId, (c) => readCheckins(c, tenantId, a.days))),
+  );
+
+  server.registerTool(
+    "get_meal_plan",
+    {
+      description:
+        "Read the current nutrition plan: the daily meals (order, foods, protein/carbs) and the fueling strategy by training duration. Read before set_meal_plan — it replaces each part wholesale, so you need the current version to change one thing without wiping the rest.",
+      inputSchema: {},
+    },
+    async () => data(await withTenant(tenantId, (c) => readMealPlan(c, tenantId))),
+  );
+
+  server.registerTool(
+    "get_body_composition",
+    {
+      description:
+        "Read recent bioimpedance readings (weight, muscle mass, body-fat %, lean mass, visceral fat, metabolic age), newest first. Use to see the trend before advising, and to verify what log_body_composition saved.",
+      inputSchema: bodyCompositionSchema,
+    },
+    async (a) => data(await withTenant(tenantId, (c) => readBodyComposition(c, tenantId, a.limit))),
   );
 
   // ── Write tools ───────────────────────────────────────────────────────────
