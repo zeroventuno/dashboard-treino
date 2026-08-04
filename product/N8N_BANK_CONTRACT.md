@@ -77,10 +77,12 @@ O arquivo `product/n8n-workout-bank.json` é o workflow completo. Arquitetura:
 
 ```
 Webhook → Guard (confere o secret) → Read methodology (Postgres) →
-  Leader agent (Claude): metodologia → diretriz por esporte →
-  Plan per-sport tasks → Sport specialist (Claude, roda 1x por esporte):
+  Leader agent (OpenAI): metodologia → diretriz por esporte →
+  Plan per-sport tasks → Sport specialist (OpenAI, roda 1x por esporte):
     gera perPhase workouts por fase → Flatten → Insert draft (Postgres)
 ```
+
+> Provedor de IA: **OpenAI** (Chat Completions). Modelo padrão `gpt-4o`.
 
 O **agente líder** lê a metodologia da assessoria e escreve a diretriz de cada
 esporte; cada **sub-agente especialista** (swim/bike/run/strength) gera os
@@ -92,16 +94,24 @@ workouts daquele esporte para as fases pedidas. Tudo entra como `draft`.
    pooler* do projeto de produto, papel com `select app.staff` + `insert
    app.workout_bank`) e selecione nos dois nós Postgres ("Read methodology" e
    "Insert draft").
-3. **Chave da IA:** no n8n, setar a variável de ambiente `ANTHROPIC_API_KEY`
-   (os nós HTTP a leem em `{{ $env.ANTHROPIC_API_KEY }}`). Modelo padrão
-   `claude-sonnet-5` — troque nos nós Code "Build leader request" / "Plan
-   per-sport tasks" se quiser outro.
+3. **Chave da IA (OpenAI):** no n8n, setar a variável de ambiente
+   `OPENAI_API_KEY` (os nós HTTP a leem em `{{ $env.OPENAI_API_KEY }}`). Modelo
+   padrão `gpt-4o` — troque a string `model` nos nós Code "Build leader request"
+   / "Plan per-sport tasks" por qualquer modelo que sua chave acesse (gpt-4.1,
+   gpt-4o-mini, …). Modelos o-series/gpt-5 usam `max_completion_tokens` no lugar
+   de `max_tokens` — se trocar pra um deles, ajuste esse campo nos mesmos nós.
 4. (Opcional) setar `N8N_BANK_SECRET` no n8n **e** na Vercel (mesmo valor).
 5. **Activate** o workflow. Copie a **Production URL** do nó Webhook
    (`.../webhook/trakr-bank`) e cole em `N8N_BANK_WEBHOOK_URL` na Vercel do
    dashboard.
 6. Em `/coach/bank`, escolha esportes + fases + quantidade e clique **Gerar** →
    recarregue em ~1 min e valide os rascunhos.
+
+**Trocar de volta para a Claude** (se carregar crédito lá): nos 2 nós HTTP, troque
+a URL para `https://api.anthropic.com/v1/messages`, o header `Authorization` por
+`x-api-key: {{ $env.ANTHROPIC_API_KEY }}` + `anthropic-version: 2023-06-01`; nos
+nós Code, o `messages` vira `system` separado + `messages:[{role:'user',…}]` e o
+parse lê `content[0].text` no lugar de `choices[0].message.content`.
 
 > Nota: as versões dos nós (`typeVersion`) seguem um n8n recente. Se o seu n8n
 > for mais antigo e um nó importar "amarelo", é só reabrir/reselecionar a opção —
