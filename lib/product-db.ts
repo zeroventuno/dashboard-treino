@@ -7,6 +7,7 @@
 import pkg from "pg";
 import type { PoolClient } from "pg";
 import { createHash, randomBytes } from "node:crypto";
+import { normalizeTags } from "./bank-tags";
 
 const { Pool, types } = pkg;
 
@@ -184,7 +185,9 @@ export async function getBank(agencyId: string): Promise<BankWorkout[]> {
       order by sport, phase nulls last, status desc, title`,
     [agencyId],
   );
-  return rows;
+  // Normalize on read: rows written before tags were normalized (or imported by
+  // hand) shouldn't split the filter bar into "VO2 Max" vs "vo2max".
+  return rows.map((r) => ({ ...r, tags: normalizeTags(r.tags) }));
 }
 
 /** Validate/archive one library item — scoped to the agency (authorization). */

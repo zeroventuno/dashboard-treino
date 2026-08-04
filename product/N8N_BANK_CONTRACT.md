@@ -39,16 +39,39 @@ ciclo gerar (o form deixa escolher; se vier vazio, o fluxo assume as quatro).
 ```sql
 insert into app.workout_bank
   (agency_id, created_by, sport, phase, title, structure, duration_min, tss,
-   description, source, status)
+   description, tags, source, status)
 values
   ({{agencyId}}, {{staffId}}, {{sport}}, {{phase}}, {{title}},
    {{structure}}::jsonb, {{duration_min}}, {{tss}}, {{description}},
-   'ai', 'draft');
+   {{tags}}::text[], 'ai', 'draft');
 ```
 
 `structure` é o mesmo formato do `upsert_workout`:
 `[{ "label": "Aquecimento", "duration_min": 10, "intensity": 60, "target": "Z1", "note": "..." }, ...]`
 (intensity = % do limiar; só escala o gráfico).
+
+### Tags — a classificação do banco
+`sport` e `phase` já são colunas; **as tags carregam o FOCO** da sessão, que é o
+que torna um banco grande pesquisável ("as sessões de limiar de bike que dá pra
+fazer indoor"). O especialista recebe o vocabulário sugerido no prompt e devolve
+2-5 slugs por workout; o fluxo normaliza antes de gravar.
+
+Vocabulário sugerido (fonte da verdade: `lib/bank-tags.ts`, espelhado em
+`product/mcp-server/src/bank-tags.ts` e no nó Code do fluxo):
+
+| grupo | slugs |
+|---|---|
+| intensidade | `recovery` `endurance` `tempo` `threshold` `vo2max` `anaerobic` `sprint` |
+| formato | `intervals` `long` `steady` `pyramid` `fartlek` `negative-split` `brick` |
+| foco | `technique` `drills` `cadence` `climbing` `pacing` `strength-endurance` `test` `race-simulation` |
+| contexto | `indoor` `trainer` `treadmill` `track` `hills` `open-water` `pool` `gym` |
+| força | `hypertrophy` `max-strength` `power` `core` `mobility` `plyometrics` |
+
+Termos próprios do treinador são aceitos. Tudo é normalizado para
+lowercase-kebab-case **e encaixado no vocabulário quando só os separadores
+mudam** — "VO2 Max", "vo2-max" e "vo2max" viram um filtro só, não três.
+Em `/coach/bank` as tags viram chips clicáveis (filtro E: acumula), e a ferramenta
+`list_bank` aceita `tags: [...]` (`@>`, exige todas).
 
 ## 3. O que a ferramenta NÃO faz
 - Não espera a geração terminar (o n8n é assíncrono). A página mostra

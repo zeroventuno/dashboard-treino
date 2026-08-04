@@ -13,6 +13,7 @@ import {
   readProfile, readWorkouts, workoutsRangeSchema, readCheckins, checkinsSchema,
   readMealPlan, readBodyComposition, bodyCompositionSchema,
 } from "./reads.js";
+import { normalizeTags, SUGGESTED_TAGS } from "./bank-tags.js";
 
 const data = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(v, null, 2) }] });
 const ok = (text: string) => ({ content: [{ type: "text" as const, text }] });
@@ -199,11 +200,15 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
       "list_bank",
       {
         description:
-          "Read the agency's workout library. Filter by sport/phase/status. When prescribing, draw from status='validated'; 'draft' items are pending your review. Reuse a library workout by copying its `structure` into upsert_workout for the athlete.",
+          "Read the agency's workout library. Filter by sport/phase/status/tags. When prescribing, draw from status='validated'; 'draft' items are pending your review. Reuse a library workout by copying its `structure` into upsert_workout for the athlete.",
         inputSchema: {
           sport: z.enum(["swim", "bike", "run", "strength"]).optional(),
           phase: z.string().optional().describe("e.g. Base, Build, Peak, Taper"),
           status: z.enum(["draft", "validated", "archived", "all"]).default("validated"),
+          tags: z
+            .array(z.string())
+            .optional()
+            .describe("only workouts carrying ALL of these tags, e.g. [\"threshold\",\"indoor\"] — this is how you find the right session in a big bank"),
         },
       },
       async (a) =>
@@ -214,6 +219,8 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
             if (a.sport) { params.push(a.sport); conds.push(`sport = $${params.length}`); }
             if (a.phase) { params.push(a.phase); conds.push(`phase = $${params.length}`); }
             if (a.status !== "all") { params.push(a.status); conds.push(`status = $${params.length}`); }
+            const wanted = normalizeTags(a.tags);
+            if (wanted.length) { params.push(wanted); conds.push(`tags @> $${params.length}::text[]`); }
             const { rows } = await pool.query(
               `select id, sport, phase, title, structure, duration_min, tss, description, source, status, tags
                  from app.workout_bank where ${conds.join(" and ")} order by sport, phase, title`,
@@ -247,7 +254,14 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
           duration_min: z.number().optional(),
           tss: z.number().optional(),
           description: z.string().optional(),
-          tags: z.array(z.string()).optional(),
+          tags: z
+            .array(z.string())
+            .optional()
+            .describe(
+              "How this session is classified — what makes a big bank searchable. Don't repeat sport/phase (already columns); tag the FOCUS. Prefer these slugs: " +
+              SUGGESTED_TAGS.join(", ") +
+              ". Your own terms are fine too; everything is normalized to lowercase-kebab-case.",
+            ),
           validated: z.boolean().optional().describe("true = save straight as validated (you're approving it now)"),
         },
       },
@@ -260,7 +274,7 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
             staff.agencyId, staff.id, a.sport, a.phase ?? null, a.title,
             a.structure ? JSON.stringify(a.structure) : null,
             a.duration_min ?? null, a.tss ?? null, a.description ?? null,
-            a.validated ? "validated" : "draft", a.tags ?? null,
+            a.validated ? "validated" : "draft", normalizeTags(a.tags),
           ],
         );
         return ok(`Added "${a.title}" (${a.sport}${a.phase ? "/" + a.phase : ""}) to the bank as ${a.validated ? "validated" : "draft"}.`);

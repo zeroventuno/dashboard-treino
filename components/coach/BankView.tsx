@@ -18,6 +18,9 @@ export function BankView({ items, locale }: { items: BankWorkout[]; locale: Loca
   const [perPhase, setPerPhase] = useState(3);
   const [gen, setGen] = useState<"idle" | "busy" | "sent" | "off" | "error">("idle");
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Tag filter narrows the library (AND: a workout must carry every picked tag).
+  // This is what keeps a 500-workout bank browsable.
+  const [tagSel, setTagSel] = useState<string[]>([]);
 
   async function generate() {
     if (sel.length === 0 || phaseSel.length === 0) return;
@@ -46,9 +49,19 @@ export function BankView({ items, locale }: { items: BankWorkout[]; locale: Loca
     router.refresh();
   }
 
+  // Tag facets come from the data, not a fixed list — a coach's own tags show up
+  // beside the suggested vocabulary, and a tag nobody uses never clutters the bar.
+  const tagCounts = new Map<string, number>();
+  for (const w of items) for (const t of w.tags ?? []) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+  const allTags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  const shown = tagSel.length
+    ? items.filter((w) => tagSel.every((t) => (w.tags ?? []).includes(t)))
+    : items;
+
   // Group by sport for the list.
   const bySport = new Map<string, BankWorkout[]>();
-  for (const w of items) (bySport.get(w.sport) ?? bySport.set(w.sport, []).get(w.sport)!).push(w);
+  for (const w of shown) (bySport.get(w.sport) ?? bySport.set(w.sport, []).get(w.sport)!).push(w);
 
   return (
     <div className="flex flex-col gap-6">
@@ -126,10 +139,46 @@ export function BankView({ items, locale }: { items: BankWorkout[]; locale: Loca
         {gen === "error" && <p className="mt-2.5 text-[12px] text-[var(--bad)]">{tr("coach.bank.genError")}</p>}
       </section>
 
+      {/* Tag filter — only worth showing once the bank actually carries tags */}
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-0.5 text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
+            {tr("coach.bank.filterByTag")}
+          </span>
+          {allTags.map(([tag, n]) => {
+            const on = tagSel.includes(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setTagSel((p) => (on ? p.filter((x) => x !== tag) : [...p, tag]))}
+                className="rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors"
+                style={{
+                  borderColor: on ? "var(--lime)" : "var(--border)",
+                  background: on ? "color-mix(in oklab, var(--lime) 16%, transparent)" : "transparent",
+                  color: on ? "var(--lime)" : "var(--text-muted)",
+                }}
+              >
+                #{tag} <span className="tnum opacity-60">{n}</span>
+              </button>
+            );
+          })}
+          {tagSel.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setTagSel([])}
+              className="ml-1 text-[11px] font-medium text-[var(--text-faint)] underline hover:text-[var(--text-muted)]"
+            >
+              {tr("coach.bank.clearFilter")}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Library */}
-      {items.length === 0 ? (
+      {shown.length === 0 ? (
         <p className="rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] px-5 py-8 text-center text-[13.5px] text-[var(--text-faint)]">
-          {tr("coach.bank.empty")}
+          {items.length === 0 ? tr("coach.bank.empty") : tr("coach.bank.noMatch")}
         </p>
       ) : (
         [...bySport.entries()].map(([sport, list]) => (
@@ -161,6 +210,23 @@ export function BankView({ items, locale }: { items: BankWorkout[]; locale: Loca
                         {validated ? tr("coach.bank.status.validated") : tr("coach.bank.status.draft")}
                       </span>
                     </div>
+
+                    {(w.tags ?? []).length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {(w.tags ?? []).map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setTagSel((p) => (p.includes(t) ? p : [...p, t]))}
+                            title={tr("coach.bank.filterByTag")}
+                            className="rounded-[6px] bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-faint)] transition-colors hover:text-[var(--lime)]"
+                          >
+                            #{t}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="mt-2.5 flex gap-1.5">
                       {!validated && (
                         <button

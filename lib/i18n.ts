@@ -58,6 +58,9 @@ const pt = {
   "coach.bank.status.draft": "rascunho",
   "coach.bank.status.validated": "validado",
   "coach.bank.empty": "Banco vazio. Gere workouts acima, ou peça ao seu copiloto de IA para adicionar.",
+  "coach.bank.filterByTag": "Filtrar",
+  "coach.bank.clearFilter": "limpar",
+  "coach.bank.noMatch": "Nenhum workout com essas tags.",
   // coach panel (B2B)
   "coach.login.title": "Painel do profissional",
   "coach.login.hint": "Cole a sua chave de profissional (começa com {prefix}).",
@@ -304,6 +307,9 @@ const en: Dict = {
   "coach.bank.status.draft": "draft",
   "coach.bank.status.validated": "validated",
   "coach.bank.empty": "Bank is empty. Generate workouts above, or ask your AI copilot to add some.",
+  "coach.bank.filterByTag": "Filter",
+  "coach.bank.clearFilter": "clear",
+  "coach.bank.noMatch": "No workouts match those tags.",
   // coach panel (B2B)
   "coach.login.title": "Professional panel",
   "coach.login.hint": "Paste your professional key (starts with {prefix}).",
@@ -525,6 +531,9 @@ const it: Dict = {
   "coach.bank.status.draft": "bozza",
   "coach.bank.status.validated": "validato",
   "coach.bank.empty": "Banca vuota. Genera workout sopra, o chiedi al tuo copilota IA di aggiungerne.",
+  "coach.bank.filterByTag": "Filtra",
+  "coach.bank.clearFilter": "pulisci",
+  "coach.bank.noMatch": "Nessun workout con quei tag.",
   // coach panel (B2B)
   "coach.login.title": "Pannello del professionista",
   "coach.login.hint": "Incolla la tua chiave professionale (inizia con {prefix}).",
@@ -746,6 +755,9 @@ const es: Dict = {
   "coach.bank.status.draft": "borrador",
   "coach.bank.status.validated": "validado",
   "coach.bank.empty": "Banco vacío. Genera workouts arriba, o pide a tu copiloto de IA que agregue.",
+  "coach.bank.filterByTag": "Filtrar",
+  "coach.bank.clearFilter": "limpiar",
+  "coach.bank.noMatch": "Ningún workout con esas etiquetas.",
   // coach panel (B2B)
   "coach.login.title": "Panel del profesional",
   "coach.login.hint": "Pega tu clave de profesional (empieza con {prefix}).",
@@ -967,6 +979,9 @@ const fr: Dict = {
   "coach.bank.status.draft": "brouillon",
   "coach.bank.status.validated": "validé",
   "coach.bank.empty": "Banque vide. Génère des séances ci-dessus, ou demande à ton copilote IA d'en ajouter.",
+  "coach.bank.filterByTag": "Filtrer",
+  "coach.bank.clearFilter": "effacer",
+  "coach.bank.noMatch": "Aucune séance avec ces tags.",
   // coach panel (B2B)
   "coach.login.title": "Espace professionnel",
   "coach.login.hint": "Colle ta clé professionnelle (commence par {prefix}).",
