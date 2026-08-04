@@ -149,34 +149,11 @@
     },
     {
       "parameters": {
-        "operation": "insert",
-        "schema": {
-          "__rl": true,
-          "value": "app",
-          "mode": "list"
-        },
-        "table": {
-          "__rl": true,
-          "value": "workout_bank",
-          "mode": "list"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "agency_id": "={{ $json.agencyId }}",
-            "created_by": "={{ $json.staffId }}",
-            "sport": "={{ $json.sport }}",
-            "phase": "={{ $json.phase }}",
-            "title": "={{ $json.title }}",
-            "structure": "={{ $json.structure }}",
-            "duration_min": "={{ $json.duration_min }}",
-            "tss": "={{ $json.tss }}",
-            "description": "={{ $json.description }}",
-            "source": "ai",
-            "status": "draft"
-          }
-        },
-        "options": {}
+        "operation": "executeQuery",
+        "query": "insert into app.workout_bank (agency_id, created_by, sport, phase, title, structure, duration_min, tss, description, source, status) values ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,'ai','draft')",
+        "options": {
+          "queryReplacement": "={{ [$json.agencyId, $json.staffId, $json.sport, $json.phase, $json.title, JSON.stringify($json.structure), $json.duration_min, $json.tss, $json.description] }}"
+        }
       },
       "name": "Insert draft → workout_bank",
       "type": "n8n-nodes-base.postgres",
