@@ -15,6 +15,10 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "pt";
 
 const pt = {
+  // app notifications
+  "app.notif.title": "Avisos",
+  "app.notif.briefing.title": "Nova versão do briefing",
+  "app.notif.briefing.body": "Atualizamos as instruções do coach. Copie e cole numa conversa nova com ele para ensinar as novidades.",
   // coach nav / settings / notifications
   "coach.nav.team": "Equipe",
   "coach.settings.title": "Configurações",
@@ -253,6 +257,10 @@ export type TKey = keyof typeof pt;
 type Dict = Record<TKey, string>;
 
 const en: Dict = {
+  // app notifications
+  "app.notif.title": "Notifications",
+  "app.notif.briefing.title": "New briefing version",
+  "app.notif.briefing.body": "We updated the coach's instructions. Copy and paste it into a fresh chat so your coach learns what's new.",
   // coach nav / settings / notifications
   "coach.nav.team": "Team",
   "coach.settings.title": "Settings",
@@ -466,6 +474,10 @@ const en: Dict = {
 };
 
 const it: Dict = {
+  // app notifications
+  "app.notif.title": "Avvisi",
+  "app.notif.briefing.title": "Nuova versione del briefing",
+  "app.notif.briefing.body": "Abbiamo aggiornato le istruzioni del coach. Copiala e incollala in una nuova chat per fargli imparare le novità.",
   // coach nav / settings / notifications
   "coach.nav.team": "Squadra",
   "coach.settings.title": "Impostazioni",
@@ -679,6 +691,10 @@ const it: Dict = {
 };
 
 const es: Dict = {
+  // app notifications
+  "app.notif.title": "Avisos",
+  "app.notif.briefing.title": "Nueva versión del briefing",
+  "app.notif.briefing.body": "Actualizamos las instrucciones del coach. Cópialo y pégalo en un chat nuevo para que aprenda las novedades.",
   // coach nav / settings / notifications
   "coach.nav.team": "Equipo",
   "coach.settings.title": "Configuración",
@@ -892,6 +908,10 @@ const es: Dict = {
 };
 
 const fr: Dict = {
+  // app notifications
+  "app.notif.title": "Avis",
+  "app.notif.briefing.title": "Nouvelle version du briefing",
+  "app.notif.briefing.body": "Nous avons mis à jour les instructions du coach. Copie-le et colle-le dans une nouvelle conversation pour qu'il apprenne les nouveautés.",
   // coach nav / settings / notifications
   "coach.nav.team": "Équipe",
   "coach.settings.title": "Paramètres",

@@ -12,6 +12,11 @@
 
 import type { Locale } from "./i18n";
 
+/** Bump whenever the briefing text changes materially. The /app notifications
+ * bell compares it to the version the athlete last saw and flags "new briefing"
+ * so they can re-paste it to their coach. */
+export const BRIEFING_VERSION = 2;
+
 const pt = `Você é meu treinador de endurance. Além de me orientar aqui no chat, você mantém meu painel MY TRAKR atualizado — ele é o espelho do que combinarmos.
 
 FERRAMENTAS
