@@ -278,7 +278,11 @@ export function registerTools(server: McpServer, tenantId: string): void {
   server.registerTool(
     "log_checkin",
     {
-      description: "Daily readiness/wellness check-in. Pass only the fields the athlete's device provides; the rest stay hidden.",
+      description:
+        "Daily readiness/wellness check-in. Pass only the fields the athlete's device provides; the rest stay hidden. " +
+        "The traffic light you set goes in `recommendation` (green|yellow|red) and the readiness number in " +
+        "`readiness_score` — use those exact names, whatever language we're speaking. The reply lists what was " +
+        "actually stored; if a field you meant to set isn't there, it didn't save.",
       inputSchema: {
         date: z.string(),
         hrv: z.number().optional(),
@@ -286,15 +290,25 @@ export function registerTools(server: McpServer, tenantId: string): void {
         readiness_score: z.number().optional(),
         body_battery: z.number().optional(),
         resting_hr: z.number().optional(),
-        recommendation: z.enum(["green", "yellow", "red"]).optional(),
+        recommendation: z.enum(["green", "yellow", "red"]).optional().describe("THE TRAFFIC LIGHT — your read on the day"),
         hydration_liters: z.number().optional(),
         protein_grams: z.number().optional(),
         notes: z.string().optional(),
+        // Accepted spellings of the two fields that get guessed wrong most often
+        // (the briefing talks about "the traffic light"/"o farol", so models
+        // invent a matching field name). Taking them costs nothing and keeps a
+        // day's data from silently vanishing; the reply still teaches the
+        // canonical name.
+        readiness: z.number().optional().describe("alias for readiness_score — prefer readiness_score"),
+        traffic_light: z.enum(["green", "yellow", "red"]).optional().describe("alias for recommendation — prefer recommendation"),
+        farol: z.enum(["green", "yellow", "red"]).optional().describe("alias for recommendation — prefer recommendation"),
       },
     },
     async (a) => {
-      await withTenant(tenantId, (c) =>
-        c.query(
+      const readinessScore = a.readiness_score ?? a.readiness ?? null;
+      const light = a.recommendation ?? a.traffic_light ?? a.farol ?? null;
+      const stored = await withTenant(tenantId, async (c) => {
+        await c.query(
           `insert into checkins (tenant_id,date,hrv,sleep_hours,readiness_score,body_battery,resting_hr,recommendation,hydration_liters,protein_grams_estimate,notes)
            values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
            on conflict (tenant_id,date) do update set
@@ -308,13 +322,43 @@ export function registerTools(server: McpServer, tenantId: string): void {
              protein_grams_estimate=coalesce(excluded.protein_grams_estimate, checkins.protein_grams_estimate),
              notes=coalesce(excluded.notes, checkins.notes)`,
           [
-            tenantId, a.date, a.hrv ?? null, a.sleep_hours ?? null, a.readiness_score ?? null,
-            a.body_battery ?? null, a.resting_hr ?? null, a.recommendation ?? null,
+            tenantId, a.date, a.hrv ?? null, a.sleep_hours ?? null, readinessScore,
+            a.body_battery ?? null, a.resting_hr ?? null, light,
             a.hydration_liters ?? null, a.protein_grams ?? null, a.notes ?? null,
           ],
-        ),
+        );
+        // Read the row back and report it. A check-in that silently dropped the
+        // traffic light used to answer "saved." all the same, so the athlete
+        // found out only by looking at an uncoloured dashboard.
+        const { rows } = await c.query(
+          `select readiness_score, recommendation, hrv, sleep_hours, body_battery,
+                  resting_hr, hydration_liters, protein_grams_estimate
+             from checkins where tenant_id = $1 and date = $2`,
+          [tenantId, a.date],
+        );
+        return rows[0] ?? null;
+      });
+
+      const summary = stored
+        ? Object.entries({
+            readiness_score: stored.readiness_score,
+            recommendation: stored.recommendation,
+            hrv: stored.hrv,
+            sleep_hours: stored.sleep_hours,
+            body_battery: stored.body_battery,
+            resting_hr: stored.resting_hr,
+            hydration_liters: stored.hydration_liters,
+            protein_grams: stored.protein_grams_estimate,
+          })
+            .filter(([, v]) => v != null)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(", ")
+        : "";
+      const missingLight = stored && stored.recommendation == null;
+      return ok(
+        `Check-in for ${a.date} saved — stored: ${summary || "(nothing)"}.` +
+        (missingLight ? " No traffic light on this day yet: set `recommendation` (green|yellow|red)." : ""),
       );
-      return ok(`Check-in for ${a.date} saved.`);
     },
   );
 
