@@ -116,8 +116,8 @@ export function registerTools(server: McpServer, tenantId: string): void {
       // so the two intents stay expressible; only the accident is gone. The
       // update references the parameters, not excluded.*, because the INSERT
       // branch already substituted defaults for the nulls.
-      await withTenant(tenantId, (c) =>
-        c.query(
+      const saved = await withTenant(tenantId, async (c) => {
+        const { rows } = await c.query(
           // The ::text[] casts are load-bearing. Without them Postgres infers
           // $3 from the bare '{}' literal — which is untyped, so it lands on
           // text — and then refuses to put a text into a text[] column. Every
@@ -135,7 +135,8 @@ export function registerTools(server: McpServer, tenantId: string): void {
              locale  = coalesce($6::text, profiles.locale),
              units   = coalesce($7::text, profiles.units),
              anatomy = coalesce($8::text, profiles.anatomy),
-             updated_at = now()`,
+             updated_at = now()
+           returning athlete, devices, metrics, mode, locale, units, anatomy`,
           [
             tenantId,
             a.athlete ?? null,
@@ -146,24 +147,23 @@ export function registerTools(server: McpServer, tenantId: string): void {
             a.units ?? null,
             a.anatomy ?? null,
           ],
-        ),
-      );
-      // No RETURNING. It was the one thing this tool did that no other tool
-      // does, and reading a row back just to phrase a nicer confirmation isn't
-      // worth being the odd one out while this is the tool that keeps failing.
-      // The coach can call get_profile if it wants to see the result.
-      const changed = [
-        a.athlete !== undefined && "athlete",
-        a.devices !== undefined && `${a.devices.length} devices`,
-        a.metrics !== undefined && `${a.metrics.length} metrics`,
-        a.mode !== undefined && `${a.mode} mode`,
-        a.locale !== undefined && `locale ${a.locale}`,
-        a.units !== undefined && a.units,
-      ].filter(Boolean);
+        );
+        return rows[0] ?? null;
+      });
+
+      // Report the profile as it now stands. (An earlier version deliberately
+      // skipped RETURNING to avoid being the odd tool out — but echoing the
+      // stored row is now the house pattern, precisely because a field the tool
+      // didn't recognise is dropped without an error and "saved." hides it.)
+      // `metrics` matters most: the dashboard only renders the blocks whose
+      // metrics are declared, so a typo here silently hides a whole block.
+      if (!saved) return ok("Profile saved.");
+      const list = (v: unknown) => (Array.isArray(v) && v.length ? v.join(", ") : "none");
       return ok(
-        changed.length > 0
-          ? `Profile saved — ${changed.join(", ")}. Fields you omitted were kept.`
-          : "Nothing to change.",
+        `Profile saved — stored: athlete=${saved.athlete ?? "unset"}, mode=${saved.mode}, ` +
+        `locale=${saved.locale}, units=${saved.units}, anatomy=${saved.anatomy}, ` +
+        `devices=[${list(saved.devices)}], metrics=[${list(saved.metrics)}]. ` +
+        `Only the blocks whose metrics are listed will show. Fields you omitted were kept.`,
       );
     },
   );

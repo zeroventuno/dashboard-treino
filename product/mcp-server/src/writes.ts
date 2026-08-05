@@ -111,7 +111,7 @@ export const workoutSchema = {
 export type WorkoutArgs = z.infer<z.ZodObject<typeof workoutSchema>>;
 
 export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs): Promise<string> {
-  await c.query(
+  const { rows } = await c.query(
     `insert into workouts (tenant_id,date,discipline,title,status,description,garmin_instructions,zwo_content,
        planned_duration_min,actual_duration_min,planned_distance_km,actual_distance_km,planned_tss,actual_tss,
        planned_pace,actual_pace,planned_power_watts,actual_power_watts,notes,nutrition_notes,
@@ -143,7 +143,10 @@ export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs
        nutrition_post=coalesce(excluded.nutrition_post,workouts.nutrition_post),
        muscle_groups=coalesce($27::text[],workouts.muscle_groups),
        extra=coalesce($28,workouts.extra),
-       adherence=coalesce($29,workouts.adherence)`,
+       adherence=coalesce($29,workouts.adherence)
+     returning date, discipline, title, status, planned_duration_min, planned_tss,
+       key_workout, extra, adherence, zwo_content is not null as has_zwo,
+       case when jsonb_typeof(structure) = 'array' then jsonb_array_length(structure) else 0 end as blocks`,
     [
       tenantId, a.date, a.discipline, a.title, a.status, a.description ?? null, a.garmin_instructions ?? null,
       a.zwo_content ?? null, a.planned_duration_min ?? null, a.actual_duration_min ?? null,
@@ -155,7 +158,31 @@ export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs
       a.muscle_groups ?? null, a.extra ?? null, a.adherence ?? null,
     ],
   );
-  return `Workout "${a.title}" (${a.date}) → ${a.status}${a.key_workout ? " ★" : ""}.`;
+  // Report the row as it now stands, not the arguments we sent. A field the
+  // tool didn't recognise is dropped silently, so "saved." can be true and
+  // still hide a workout that lost its blocks or its planned duration.
+  const r = rows[0];
+  if (!r) return `Workout "${a.title}" (${a.date}) → ${a.status}.`;
+  const parts = [
+    `status=${r.status}`,
+    r.planned_duration_min != null ? `planned_duration_min=${r.planned_duration_min}` : null,
+    r.planned_tss != null ? `planned_tss=${r.planned_tss}` : null,
+    `structure=${r.blocks} block(s)`,
+    r.key_workout ? "key_workout=true" : null,
+    r.extra ? "extra=true" : null,
+    r.adherence != null ? `adherence=${r.adherence}` : null,
+  ].filter(Boolean);
+
+  // The blocks are what draw the profile chart and the block list — and for a
+  // bike session they're also what the dashboard turns into the .zwo download.
+  const missingStructure =
+    Number(r.blocks) === 0 && r.discipline !== "rest"
+      ? ` No structure on this one: send the blocks (label + duration_min + intensity) or it's just a title${
+          r.discipline === "bike" && !r.has_zwo ? ", and the athlete gets no Zwift file" : ""
+        }.`
+      : "";
+
+  return `Workout "${r.title}" (${r.date}, ${r.discipline}) saved — stored: ${parts.join(", ")}.${missingStructure}`;
 }
 
 // ── set_meal_plan (nutritionist) ────────────────────────────────────────────
