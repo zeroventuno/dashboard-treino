@@ -325,6 +325,7 @@ export function WorkoutModal({
           )}
 
           {(zwo || fit) && (
+            <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-2 sm:flex-row">
               {w.discipline === "bike" && zwo && (
                 <button
@@ -342,6 +343,12 @@ export function WorkoutModal({
                   <DownloadIcon /> {tr("modal.downloadFit")}
                 </button>
               )}
+            </div>
+            {/* Garmin Connect's import only takes RECORDED activities, not
+                planned workouts — so a .fit workout reaches the watch over USB,
+                or the athlete rebuilds it in Connect from garmin_instructions.
+                Saying so here saves everyone the same dead end. */}
+            {fit && <p className="text-[11.5px] leading-relaxed text-[var(--text-faint)]">{tr("modal.fitHint")}</p>}
             </div>
           )}
         </div>
