@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
 import { disciplineMeta, fmtDuration, toDistance, distanceUnit, toSpeed, speedUnit, computeAdherence, type Units } from "@/lib/utils";
 import { getWorkoutBlocks, buildZwo } from "@/lib/workout-structure";
+import { buildFitWorkout } from "@/lib/fit-workout";
 import { DEFAULT_LOCALE, translator, type Locale, type T, type TKey } from "@/lib/i18n";
 import { DisciplineIcon, DownloadIcon, CloseIcon } from "./Icons";
 import { WorkoutBlocks } from "./WorkoutBlocks";
@@ -36,6 +37,23 @@ const STATUS_LIGHTS: { status: WorkoutStatus; key: TKey; color: string }[] = [
   { status: "cancelled", key: "status.cancelled", color: "var(--text-faint)" },
   { status: "moved", key: "status.moved", color: "var(--text-faint)" },
 ];
+
+function saveAs(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const fileBase = (w: Workout) => w.title.replace(/[^\w\-]+/g, "_");
+
+/** Garmin's binary workout file — built in code, since no AI can type a binary.
+ * This is the run/swim path to a watch-ready session. */
+function downloadFit(w: Workout, bytes: Uint8Array) {
+  saveAs(new Blob([bytes as BlobPart], { type: "application/octet-stream" }), `${fileBase(w)}.fit`);
+}
 
 /** The coach's own file wins; otherwise we synthesize one from the blocks, so a
  * bike session doesn't lose its download just because the AI skipped the XML. */
@@ -187,6 +205,9 @@ export function WorkoutModal({
   const blocks = getWorkoutBlocks(w, ftpWatts);
   // Coach-supplied file first; else synthesized from the blocks (see buildZwo).
   const zwo = w.zwo_content ?? (w.discipline === "bike" ? buildZwo(w, blocks) : null);
+  // Garmin file for the three endurance disciplines — strength workouts are
+  // sets and reps, which this encoder doesn't model.
+  const fit = ["swim", "bike", "run"].includes(w.discipline) ? buildFitWorkout(w, blocks) : null;
   const [moveDate, setMoveDate] = useState(w.date);
 
   // lock background scroll while open
@@ -303,13 +324,25 @@ export function WorkoutModal({
             </Section>
           )}
 
-          {w.discipline === "bike" && zwo && (
-            <button
-              onClick={() => downloadZwo(w, zwo)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors hover:border-[var(--lime)] hover:text-[var(--lime)]"
-            >
-              <DownloadIcon /> {tr("modal.download")}
-            </button>
+          {(zwo || fit) && (
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {w.discipline === "bike" && zwo && (
+                <button
+                  onClick={() => downloadZwo(w, zwo)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors hover:border-[var(--lime)] hover:text-[var(--lime)]"
+                >
+                  <DownloadIcon /> {tr("modal.download")}
+                </button>
+              )}
+              {fit && (
+                <button
+                  onClick={() => downloadFit(w, fit)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors hover:border-[var(--lime)] hover:text-[var(--lime)]"
+                >
+                  <DownloadIcon /> {tr("modal.downloadFit")}
+                </button>
+              )}
+            </div>
           )}
         </div>
 
