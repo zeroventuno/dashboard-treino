@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Workout, Discipline } from "@/lib/types";
 import { DISCIPLINE_META, disciplineMeta, fmtDuration, parseDate, startOfWeek, addDays, toISO, toDistance, distanceUnit, computeAdherence, avg, type Units } from "@/lib/utils";
 import { DisciplineIcon } from "./Icons";
@@ -55,6 +56,7 @@ export function CalendarBoard({
   ftpWatts = null,
   locale = DEFAULT_LOCALE,
   units = "metric",
+  editable = false,
 }: {
   workouts: Workout[];
   todayISO: string;
@@ -62,18 +64,58 @@ export function CalendarBoard({
   units?: Units;
   /** Athlete's threshold power — converts .zwo power fractions into watts. */
   ftpWatts?: number | null;
+  /** Viewer owns this dashboard → sessions can be dragged to another day. */
+  editable?: boolean;
 }) {
   const tr = translator(locale);
+  const router = useRouter();
   const WD = useMemo(() => weekdayNames(locale), [locale]);
   const today = parseDate(todayISO);
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() });
   const [open, setOpen] = useState<Workout | null>(null);
+  const [dragging, setDragging] = useState<Workout | null>(null);
+  const [overDate, setOverDate] = useState<string | null>(null);
+  // Optimistic view of the move: the grid updates on drop, then router.refresh()
+  // brings the server's version and this override is dropped.
+  const [override, setOverride] = useState<Workout[] | null>(null);
+  const [moveError, setMoveError] = useState(false);
+
+  useEffect(() => { setOverride(null); }, [workouts]);
+
+  const effective = override ?? workouts;
 
   const byDate = useMemo(() => {
     const map: Record<string, Workout[]> = {};
-    for (const w of workouts) (map[w.date] ??= []).push(w);
+    for (const w of effective) (map[w.date] ??= []).push(w);
     return map;
-  }, [workouts]);
+  }, [effective]);
+
+  /** A session that hasn't happened yet can be rescheduled; `done` is a fact
+   * about a day, and cancelled/moved are already out of the plan. */
+  const canDrag = (w: Workout) => editable && (w.status === "planned" || w.status === "skipped");
+
+  async function moveTo(w: Workout, iso: string) {
+    if (w.date === iso) return;
+    setMoveError(false);
+    // Same model the briefing teaches the AI: original stays, struck through as
+    // `moved`; a planned copy appears on the new day.
+    setOverride([
+      ...effective.map((x) => (x.id === w.id ? { ...x, status: "moved" as const } : x)),
+      { ...w, id: `pending-${w.id}`, date: iso, status: "planned" as const },
+    ]);
+    try {
+      const res = await fetch("/api/app/workouts/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: w.id, date: iso }),
+      });
+      if (!res.ok) throw new Error("move failed");
+      router.refresh();
+    } catch {
+      setOverride(null); // put it back where it was
+      setMoveError(true);
+    }
+  }
 
   const weeks = useMemo<WeekData[]>(() => {
     const firstOfMonth = new Date(ym.y, ym.m, 1);
@@ -159,6 +201,12 @@ export function CalendarBoard({
         </div>
       </div>
 
+      {editable && (
+        <p className="mb-2 text-[11.5px] text-[var(--text-faint)]">
+          {moveError ? <span className="text-[var(--bad)]">{tr("calendar.moveError")}</span> : tr("calendar.dragHint")}
+        </p>
+      )}
+
       {/* grid (scrolls horizontally on small screens) */}
       <div className="overflow-x-auto">
         <div className="min-w-[960px]">
@@ -169,35 +217,92 @@ export function CalendarBoard({
             <div className="px-1 pb-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("calendar.week")}</div>
 
             {weeks.map((week) => (
-              <WeekRow key={week.days[0].iso} week={week} todayISO={todayISO} tr={tr} units={units} onOpen={setOpen} />
+              <WeekRow
+                key={week.days[0].iso}
+                week={week}
+                todayISO={todayISO}
+                tr={tr}
+                units={units}
+                onOpen={setOpen}
+                canDrag={canDrag}
+                dragging={dragging}
+                overDate={overDate}
+                onDragStart={setDragging}
+                onDragEnd={() => { setDragging(null); setOverDate(null); }}
+                onDragOverDay={setOverDate}
+                onDropDay={(iso) => {
+                  const w = dragging;
+                  setDragging(null);
+                  setOverDate(null);
+                  if (w) void moveTo(w, iso);
+                }}
+              />
             ))}
           </div>
         </div>
       </div>
 
-      {open && <WorkoutModal w={open} ftpWatts={ftpWatts} locale={locale} units={units} onClose={() => setOpen(null)} />}
+      {open && (
+        <WorkoutModal
+          w={open}
+          ftpWatts={ftpWatts}
+          locale={locale}
+          units={units}
+          onClose={() => setOpen(null)}
+          // Touch devices don't do HTML5 drag — the modal's date picker is the
+          // path that works everywhere (and with a keyboard).
+          onMove={
+            canDrag(open)
+              ? (iso) => { const w = open; setOpen(null); void moveTo(w, iso); }
+              : undefined
+          }
+        />
+      )}
     </>
   );
 }
 
-function WeekRow({ week, todayISO, tr, units, onOpen }: {
+function WeekRow({
+  week, todayISO, tr, units, onOpen,
+  canDrag, dragging, overDate, onDragStart, onDragEnd, onDragOverDay, onDropDay,
+}: {
   week: WeekData;
   todayISO: string;
   tr: T;
   units: Units;
   onOpen: (w: Workout) => void;
+  canDrag: (w: Workout) => boolean;
+  dragging: Workout | null;
+  overDate: string | null;
+  onDragStart: (w: Workout) => void;
+  onDragEnd: () => void;
+  onDragOverDay: (iso: string) => void;
+  onDropDay: (iso: string) => void;
 }) {
   return (
     <>
       {week.days.map((day) => {
         const isToday = day.iso === todayISO;
+        // Only light up a day you can actually drop on (not the one you picked up from).
+        const isTarget = dragging != null && dragging.date !== day.iso;
+        const isOver = isTarget && overDate === day.iso;
         return (
           <div
             key={day.iso}
-            className="min-h-[92px] rounded-[12px] border p-1.5"
+            onDragOver={isTarget ? (e) => { e.preventDefault(); onDragOverDay(day.iso); } : undefined}
+            onDrop={isTarget ? (e) => { e.preventDefault(); onDropDay(day.iso); } : undefined}
+            className="min-h-[92px] rounded-[12px] border p-1.5 transition-colors"
             style={{
-              borderColor: isToday ? "color-mix(in oklab, var(--lime) 55%, var(--border))" : "var(--border-soft)",
-              background: day.inMonth ? "var(--surface-2)" : "transparent",
+              borderColor: isOver
+                ? "var(--lime)"
+                : isToday
+                  ? "color-mix(in oklab, var(--lime) 55%, var(--border))"
+                  : "var(--border-soft)",
+              background: isOver
+                ? "color-mix(in oklab, var(--lime) 12%, var(--surface-2))"
+                : day.inMonth
+                  ? "var(--surface-2)"
+                  : "transparent",
               opacity: day.inMonth ? 1 : 0.45,
             }}
           >
@@ -212,13 +317,27 @@ function WeekRow({ week, todayISO, tr, units, onOpen }: {
               {day.items.map((w) => {
                 const meta = disciplineMeta(w.discipline);
                 const key = Boolean(w.key_workout);
+                const draggable = canDrag(w);
+                const isPending = w.id.startsWith("pending-");
                 return (
                   <button
                     key={w.id}
                     onClick={() => onOpen(w)}
-                    title={key ? `${tr("modal.keyWorkout")} · ${w.title}` : w.title}
-                    className="group flex w-full items-center gap-1 rounded-md border-l-2 px-1.5 py-1 text-left transition-[background-color,transform] duration-150 hover:scale-[1.03] hover:bg-[var(--border)]"
+                    draggable={draggable}
+                    onDragStart={draggable ? (e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(w); } : undefined}
+                    onDragEnd={draggable ? onDragEnd : undefined}
+                    title={
+                      draggable
+                        ? `${w.title} — ${tr("calendar.dragHint")}`
+                        : key
+                          ? `${tr("modal.keyWorkout")} · ${w.title}`
+                          : w.title
+                    }
+                    className={`group flex w-full items-center gap-1 rounded-md border-l-2 px-1.5 py-1 text-left transition-[background-color,transform] duration-150 hover:scale-[1.03] hover:bg-[var(--border)] ${
+                      draggable ? "cursor-grab active:cursor-grabbing" : ""
+                    }`}
                     style={{
+                      opacity: isPending ? 0.55 : undefined,
                       borderColor: meta.color,
                       // Key sessions read at a glance in a dense grid: a tinted
                       // ground carries further than a 9px glyph alone.

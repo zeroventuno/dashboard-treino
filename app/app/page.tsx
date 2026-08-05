@@ -127,7 +127,9 @@ export default async function ProductDashboardPage({
         </div>
       )}
 
-      <DashboardBlocks data={data} tenant={tenant} locale={locale} todayISO={todayISO} />
+      {/* The athlete owns this dashboard → they can drag a session to another day.
+          `live` guards the sample-data fallback, where a write has nowhere to go. */}
+      <DashboardBlocks data={data} tenant={tenant} locale={locale} todayISO={todayISO} editable={live} />
 
       <footer className="mt-9 text-center">
         <Tagline />

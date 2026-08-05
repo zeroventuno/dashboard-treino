@@ -12,7 +12,10 @@ import { AUTH_COOKIE, tokenFor } from "@/lib/auth";
 // up/down + an error code.
 const PUBLIC = [
   "/login", "/api/login", "/api/health",
-  "/app", "/api/app-login",
+  // /api/app/* (the athlete's own writes, e.g. rescheduling a session) reads the
+  // same per-tenant cookie as /app — gating it behind the shared password would
+  // lock every athlete out of their own dashboard.
+  "/app", "/api/app-login", "/api/app/",
   // The coach panel has its own per-professional key auth (trakc_ in an httpOnly
   // cookie), same reasoning as /app — don't sit it behind the shared password.
   // /api/coach/* (bank generate/status) authenticate via the coach cookie too.

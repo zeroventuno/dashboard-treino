@@ -204,6 +204,58 @@ export async function setBankStatus(
   return (rowCount ?? 0) > 0;
 }
 
+// ── Rescheduling (athlete drags a session to another day) ───────────────────
+
+export type MoveResult =
+  | { ok: true }
+  | { ok: false; code: "not_found" | "not_movable" | "same_date" | "no_db" };
+
+/**
+ * Reschedule one session, using the SAME model the coach briefing teaches the
+ * AI: the original stays put marked `moved` (struck through in the calendar, a
+ * visible breadcrumb of what was pushed) and a fresh `planned` copy lands on the
+ * new date. Nothing is deleted, the weekly box already drops `moved` from every
+ * total, and the coach reads the history on the next get_workouts.
+ *
+ * Only a session that hasn't happened can move: `done` is a fact about a day.
+ * Runs inside withTenant, so RLS refuses another tenant's row even if an id leaks.
+ */
+export async function moveWorkout(tenantId: string, id: string, toDate: string): Promise<MoveResult> {
+  if (!hasProductDb()) return { ok: false, code: "no_db" };
+  return withTenant(tenantId, async (c) => {
+    const { rows } = await c.query<{ status: string; date: string }>(
+      "select status, to_char(date,'YYYY-MM-DD') as date from workouts where id = $1",
+      [id],
+    );
+    const current = rows[0];
+    if (!current) return { ok: false, code: "not_found" } as const;
+    if (current.date === toDate) return { ok: false, code: "same_date" } as const;
+    // `done` already happened; `cancelled`/`moved` are out of the plan already.
+    if (current.status !== "planned" && current.status !== "skipped") {
+      return { ok: false, code: "not_movable" } as const;
+    }
+
+    // Copy the PLAN (never the actuals — the copy hasn't been trained yet).
+    await c.query(
+      `insert into workouts
+         (tenant_id, date, discipline, title, status, description, garmin_instructions, zwo_content,
+          planned_duration_min, planned_distance_km, planned_tss, planned_pace, planned_power_watts,
+          notes, nutrition_notes, structure, key_workout,
+          activation, nutrition_pre, mobility, nutrition_post, muscle_groups)
+       select $1, $3::date, discipline, title, 'planned', description, garmin_instructions, zwo_content,
+          planned_duration_min, planned_distance_km, planned_tss, planned_pace, planned_power_watts,
+          notes, nutrition_notes, structure, key_workout,
+          activation, nutrition_pre, mobility, nutrition_post, muscle_groups
+         from workouts where id = $2
+       on conflict (tenant_id, date, discipline, title) do update set
+         status = case when workouts.status = 'done' then workouts.status else 'planned' end`,
+      [tenantId, id, toDate],
+    );
+    await c.query("update workouts set status = 'moved' where id = $1", [id]);
+    return { ok: true } as const;
+  });
+}
+
 // ── Staff management (agency team) ──────────────────────────────────────────
 
 export interface StaffMember {

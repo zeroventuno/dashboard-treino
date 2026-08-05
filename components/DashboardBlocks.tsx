@@ -21,7 +21,16 @@ import { StrengthBlock } from "@/components/blocks/StrengthBlock";
 import { WatchPointsBlock } from "@/components/blocks/WatchPointsBlock";
 import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
 
-type BlockProps = { data: DashboardData; todayISO: string; locale: Locale; tenant: TenantView };
+type BlockProps = {
+  data: DashboardData;
+  todayISO: string;
+  locale: Locale;
+  tenant: TenantView;
+  /** The viewer owns this dashboard, so blocks may offer writes (dragging a
+   * session to another day). Off by default — the coach drill-in reuses these
+   * same blocks and must stay read-only. */
+  editable: boolean;
+};
 
 const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
   hero: (p) => (
@@ -37,7 +46,9 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
     />
   ),
   fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
-  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} units={p.tenant.units} />,
+  calendar: (p) => (
+    <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} units={p.tenant.units} editable={p.editable} />
+  ),
   season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   menstrual: (p) => <MenstrualCycleBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
@@ -53,13 +64,15 @@ export function DashboardBlocks({
   tenant,
   locale,
   todayISO,
+  editable = false,
 }: {
   data: DashboardData;
   tenant: TenantView;
   locale: Locale;
   todayISO: string;
+  editable?: boolean;
 }) {
-  const props: BlockProps = { data, todayISO, locale, tenant };
+  const props: BlockProps = { data, todayISO, locale, tenant, editable };
 
   // Only blocks this athlete can actually feed (adaptive gating on declared metrics).
   const enabled = BLOCKS.filter((b) => b.enabled && blockAvailable(b.requires, tenant.metrics));

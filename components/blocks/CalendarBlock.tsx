@@ -9,11 +9,14 @@ export function CalendarBlock({
   todayISO,
   locale = DEFAULT_LOCALE,
   units = "metric",
+  editable = false,
 }: {
   data: DashboardData;
   todayISO: string;
   locale?: Locale;
   units?: Units;
+  /** Athlete viewing their own dashboard → sessions can be dragged to another day. */
+  editable?: boolean;
 }) {
   const tr = translator(locale);
   return (
@@ -25,6 +28,7 @@ export function CalendarBlock({
         locale={locale}
         units={units}
         ftpWatts={data.indicators?.ftp_watts ?? null}
+        editable={editable}
       />
     </SectionCard>
   );

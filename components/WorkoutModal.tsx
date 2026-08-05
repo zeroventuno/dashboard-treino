@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
 import { disciplineMeta, fmtDuration, toDistance, distanceUnit, toSpeed, speedUnit, computeAdherence, type Units } from "@/lib/utils";
@@ -168,7 +168,7 @@ function ComparisonTable({ w, tr, units }: { w: Workout; tr: T; units: Units }) 
 }
 
 export function WorkoutModal({
-  w, ftpWatts = null, locale = DEFAULT_LOCALE, units = "metric", onClose,
+  w, ftpWatts = null, locale = DEFAULT_LOCALE, units = "metric", onClose, onMove,
 }: {
   w: Workout;
   locale?: Locale;
@@ -176,11 +176,15 @@ export function WorkoutModal({
   /** Athlete's threshold power — .zwo stores power as a fraction of it. */
   ftpWatts?: number | null;
   onClose: () => void;
+  /** Present when this session can be rescheduled — the touch/keyboard path to
+   * the same move that dragging performs on desktop. */
+  onMove?: (iso: string) => void;
 }) {
   const tr = translator(locale);
   const meta = disciplineMeta(w.discipline);
   // coach-authored blocks, else derived from the .zwo (free for bike workouts)
   const blocks = getWorkoutBlocks(w, ftpWatts);
+  const [moveDate, setMoveDate] = useState(w.date);
 
   // lock background scroll while open
   useEffect(() => {
@@ -274,6 +278,28 @@ export function WorkoutModal({
               <p className="text-[13.5px] italic text-[var(--text-muted)]">{w.notes}</p>
             </Section>
           )}
+          {onMove && (
+            <Section label={tr("modal.reschedule")}>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  value={moveDate}
+                  onChange={(e) => setMoveDate(e.target.value)}
+                  className="rounded-[10px] border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2 text-[13px] text-[var(--text)] outline-none focus:border-[var(--lime)]"
+                />
+                <button
+                  type="button"
+                  onClick={() => onMove(moveDate)}
+                  disabled={!moveDate || moveDate === w.date}
+                  className="rounded-[10px] bg-[var(--lime)] px-4 py-2 text-[13px] font-bold text-[#0a0b0d] transition-opacity disabled:opacity-40"
+                >
+                  {tr("modal.move")}
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11.5px] text-[var(--text-faint)]">{tr("modal.rescheduleHint")}</p>
+            </Section>
+          )}
+
           {w.discipline === "bike" && w.zwo_content && (
             <button
               onClick={() => downloadZwo(w)}
