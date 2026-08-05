@@ -379,22 +379,27 @@ function WeekRow({
           borderLeft: week.isThis ? "2.5px solid var(--lime)" : undefined,
         }}
       >
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("calendar.week")} {week.wk}</p>
-          <div className="flex items-center gap-1.5">
-            {week.isThis && (
-              <span className="rounded-full bg-[var(--lime)] px-1.5 py-[1px] text-[8px] font-bold uppercase tracking-wide text-[#0a0b0d]">{tr("calendar.thisWeek")}</span>
-            )}
-            {week.adherence != null && <AdherenceDonut score={week.adherence} size={30} />}
-          </div>
+        {/* Label and badge own the full width — squeezing the donut in beside
+            them wrapped "SEMANA 32" onto two lines in a 182px column. */}
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          <p className="whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{tr("calendar.week")} {week.wk}</p>
+          {week.isThis && (
+            <span className="whitespace-nowrap rounded-full bg-[var(--lime)] px-1.5 py-[1px] text-[8px] font-bold uppercase tracking-wide text-[#0a0b0d]">{tr("calendar.thisWeek")}</span>
+          )}
         </div>
-        <p className="dsp tnum mt-0.5 text-[22px] font-extrabold leading-none text-[var(--text)]">
-          {fmtDuration(week.doneMin) === "—" ? "0h" : fmtDuration(week.doneMin)}
-          <span className="text-[13px] font-semibold text-[var(--text-faint)]">
-            {" / "}
-            {fmtDuration(week.plannedMin) === "—" ? "0h" : fmtDuration(week.plannedMin)}
-          </span>
-        </p>
+        {/* Adherence sits with the volume it qualifies, where there's room. */}
+        <div className="mt-0.5 flex items-center justify-between gap-2">
+          <p className="dsp tnum text-[22px] font-extrabold leading-none text-[var(--text)]">
+            {fmtDuration(week.doneMin) === "—" ? "0h" : fmtDuration(week.doneMin)}
+            <span className="text-[13px] font-semibold text-[var(--text-faint)]">
+              {" / "}
+              {fmtDuration(week.plannedMin) === "—" ? "0h" : fmtDuration(week.plannedMin)}
+            </span>
+          </p>
+          {week.adherence != null && (
+            <span className="shrink-0"><AdherenceDonut score={week.adherence} size={32} /></span>
+          )}
+        </div>
 
         {/* per-discipline km totals — colored to match the legend */}
         {KM_DISCIPLINES.some((d) => week.km[d] > 0) && (

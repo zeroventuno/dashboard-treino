@@ -92,6 +92,66 @@ export function parseZwo(xml: string, ftpWatts: number | null = null): WorkoutBl
   return blocks;
 }
 
+// ── .zwo generation ─────────────────────────────────────────────────────────
+// The reverse of parseZwo. Asking the AI to hand-write Zwift XML for every bike
+// session doesn't survive contact with reality — it's a laborious optional
+// field, so it gets skipped and the download button never appears. But
+// `structure` already carries exactly what a .zwo encodes (duration + intensity
+// as % of threshold), and the briefing insists on it for every workout. So we
+// synthesize the file instead of asking for it: any bike session with blocks
+// becomes a Zwift/MyWhoosh file, deterministically.
+
+const WARMUP_WORDS = /aquec|warm|riscald|calent|échauff|echauff/i;
+const COOLDOWN_WORDS = /volta à calma|volta a calma|cool ?down|defatic|enfriam|retour au calme|soltura/i;
+
+const xmlEscape = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/**
+ * Build a Zwift .zwo from a workout's blocks, or null when there's nothing to
+ * ride by — a file of pure free-rides would be a download that does nothing.
+ * Power is written as a fraction of FTP, which is what .zwo means by "Power";
+ * blocks with no intensity become FreeRide so the time still exists.
+ */
+export function buildZwo(w: Workout, blocks: WorkoutBlock[]): string | null {
+  if (!blocks.length || !blocks.some((b) => b.intensity != null && b.intensity > 0)) return null;
+
+  const elements = blocks.map((b, i) => {
+    const seconds = Math.max(1, Math.round((b.duration_min ?? 0) * 60));
+    if (b.intensity == null || b.intensity <= 0) return `    <FreeRide Duration="${seconds}"/>`;
+    const power = (b.intensity / 100).toFixed(3);
+    const label = b.label ?? "";
+    // A warm-up/cool-down ramps rather than sitting flat, which is how Zwift
+    // renders them too — first/last block only, so a mid-session "aquecimento
+    // do bloco" doesn't turn into a ramp. The ramp is centred on the prescribed
+    // intensity (±15%), so the average load still equals what the coach wrote:
+    // shape is ours to choose, the prescription isn't.
+    const lo = ((b.intensity * 0.85) / 100).toFixed(3);
+    const hi = ((b.intensity * 1.15) / 100).toFixed(3);
+    if (i === 0 && WARMUP_WORDS.test(label)) {
+      return `    <Warmup Duration="${seconds}" PowerLow="${lo}" PowerHigh="${hi}"/>`;
+    }
+    if (i === blocks.length - 1 && COOLDOWN_WORDS.test(label)) {
+      return `    <Cooldown Duration="${seconds}" PowerLow="${hi}" PowerHigh="${lo}"/>`;
+    }
+    const text = label ? `\n      <textevent timeoffset="0" message="${xmlEscape(label)}"/>\n    ` : "";
+    return text
+      ? `    <SteadyState Duration="${seconds}" Power="${power}">${text}</SteadyState>`
+      : `    <SteadyState Duration="${seconds}" Power="${power}"/>`;
+  });
+
+  return `<workout_file>
+  <author>MY TRAKR</author>
+  <name>${xmlEscape(w.title)}</name>
+  <description>${xmlEscape(w.description ?? "")}</description>
+  <sportType>bike</sportType>
+  <workout>
+${elements.join("\n")}
+  </workout>
+</workout_file>
+`;
+}
+
 /** "1h40" / "45min" — compact, for block rows. */
 export function fmtBlockDuration(min: number): string {
   const total = Math.round(min);

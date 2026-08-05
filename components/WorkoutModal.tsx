@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
 import { disciplineMeta, fmtDuration, toDistance, distanceUnit, toSpeed, speedUnit, computeAdherence, type Units } from "@/lib/utils";
-import { getWorkoutBlocks } from "@/lib/workout-structure";
+import { getWorkoutBlocks, buildZwo } from "@/lib/workout-structure";
 import { DEFAULT_LOCALE, translator, type Locale, type T, type TKey } from "@/lib/i18n";
 import { DisciplineIcon, DownloadIcon, CloseIcon } from "./Icons";
 import { WorkoutBlocks } from "./WorkoutBlocks";
@@ -37,9 +37,10 @@ const STATUS_LIGHTS: { status: WorkoutStatus; key: TKey; color: string }[] = [
   { status: "moved", key: "status.moved", color: "var(--text-faint)" },
 ];
 
-function downloadZwo(w: Workout) {
-  if (!w.zwo_content) return;
-  const blob = new Blob([w.zwo_content], { type: "application/xml" });
+/** The coach's own file wins; otherwise we synthesize one from the blocks, so a
+ * bike session doesn't lose its download just because the AI skipped the XML. */
+function downloadZwo(w: Workout, xml: string) {
+  const blob = new Blob([xml], { type: "application/xml" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -184,6 +185,8 @@ export function WorkoutModal({
   const meta = disciplineMeta(w.discipline);
   // coach-authored blocks, else derived from the .zwo (free for bike workouts)
   const blocks = getWorkoutBlocks(w, ftpWatts);
+  // Coach-supplied file first; else synthesized from the blocks (see buildZwo).
+  const zwo = w.zwo_content ?? (w.discipline === "bike" ? buildZwo(w, blocks) : null);
   const [moveDate, setMoveDate] = useState(w.date);
 
   // lock background scroll while open
@@ -300,9 +303,9 @@ export function WorkoutModal({
             </Section>
           )}
 
-          {w.discipline === "bike" && w.zwo_content && (
+          {w.discipline === "bike" && zwo && (
             <button
-              onClick={() => downloadZwo(w)}
+              onClick={() => downloadZwo(w, zwo)}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors hover:border-[var(--lime)] hover:text-[var(--lime)]"
             >
               <DownloadIcon /> {tr("modal.download")}
