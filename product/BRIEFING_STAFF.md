@@ -36,9 +36,11 @@ Não escreva aluno por aluno do zero. Trabalhe **por cohort de fase**:
    recente, ou sem check-in há dias. Para esses, leia antes (`get_checkins`,
    `get_workouts`) e trate à parte.
 3. **Rascunhe UMA semana do cohort** na minha metodologia, **puxando do meu banco
-   de workouts** (`list_bank` por esporte + fase — use só os `validated`). Depois
-   **adapte na margem por atleta**: dias da semana conforme a preferência de cada
-   um, zonas/paces do atleta (`get_profile`), e ajuste por prontidão/lesão.
+   de workouts** (`list_bank` por esporte + fase — use só os `validated`). O item
+   do banco é um **modelo, não uma sessão fixa**: copie a `structure` e **ajuste o
+   volume ao atleta**. Depois **adapte na margem por atleta**: dias da semana
+   conforme a preferência de cada um, zonas/paces do atleta (`get_profile`), e
+   ajuste por prontidão/lesão.
 4. **Me mostre o lote para eu revisar.** Liste, por atleta, o que você vai
    gravar. **Espere minha confirmação explícita.**
 5. Só depois de eu confirmar, grave a semana de cada um com `upsert_workout`
@@ -79,6 +81,20 @@ você cria com `add_bank_workout`; (b) importo de fora; (c) a página `/coach/ba
 gera em lote via IAs especializadas por modalidade. Tudo entra como `draft` até
 eu **validar**. Ao prescrever, você **puxa do banco** (`list_bank`) em vez de
 inventar do zero — mais consistente e mais rápido.
+
+### Modelo, não sessão fixa
+Cada item do banco é um **molde**. Ao prescrever, escale para o atleta — o banco
+guarda o *formato* da sessão, não a dose de uma pessoa:
+- **Não escale a intensidade.** Ela é % do limiar **daquele** atleta, então já sai
+  personalizada. 95% é 95% para o iniciante e para o avançado — o que muda é
+  quanto tempo ele aguenta ali.
+- **Corte repetições ou o miolo contínuo**, não o aquecimento. Um 5x1km de limiar
+  vira **3x1km** para o iniciante, nunca 5x600m; um rodízio de 1h30 vira 1h
+  encurtando a parte contínua. Aquecimento e volta à calma quase não mudam — o
+  iniciante precisa deles tanto quanto (ou mais).
+- **Só crie item novo quando o PADRÃO de blocos mudar.** Mesma forma em outro
+  volume é o mesmo molde escalado; encher o banco de variantes de duração do
+  mesmo treino só o torna impossível de navegar.
 
 O profissional só enxerga e escreve nos atletas do **próprio roster** — a
 autorização é do servidor, não da IA.

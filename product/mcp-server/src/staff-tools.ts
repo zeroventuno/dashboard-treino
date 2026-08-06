@@ -200,7 +200,9 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
       "list_bank",
       {
         description:
-          "Read the agency's workout library. Filter by sport/phase/status/tags. When prescribing, draw from status='validated'; 'draft' items are pending your review. Reuse a library workout by copying its `structure` into upsert_workout for the athlete.",
+          "Read the agency's workout library. Filter by sport/phase/status/tags. When prescribing, draw from status='validated'; 'draft' items are pending your review. " +
+          "A library item is a TEMPLATE, not a fixed session: copy its `structure` into upsert_workout and SCALE it to the athlete. Scaling is not proportional — keep the warm-up and cool-down roughly as they are (a beginner needs them just as much), cut the number of reps or the steady middle instead, and NEVER scale `intensity`: it is a percentage of that athlete's own threshold, so it is already personal. A 5x1km threshold run becomes 3x1km for a beginner, never 5x600m. " +
+          "Only make a new library item when the block PATTERN differs — same shape at another volume is the same template scaled.",
         inputSchema: {
           sport: z.enum(["swim", "bike", "run", "strength"]).optional(),
           phase: z.string().optional().describe("e.g. Base, Build, Peak, Taper"),
