@@ -6,7 +6,7 @@ import { translator, type Locale, type TKey } from "@/lib/i18n";
 import { Icon } from "./icons";
 import { CoachLogout } from "./CoachLogout";
 
-type Tab = "team" | "bank" | "settings" | "notifications";
+type Tab = "team" | "bank" | "agency" | "settings" | "notifications";
 
 const iconBtn =
   "grid h-8 w-8 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] transition-colors hover:border-[var(--text)] hover:text-[var(--text)]";
@@ -45,6 +45,11 @@ export function CoachNav({
           {isCoach && (
             <Link href="/coach/bank" className={tabCls(active === "bank")}>
               {tr("coach.bank.link")}
+            </Link>
+          )}
+          {isCoach && (
+            <Link href="/coach/agency" className={tabCls(active === "agency")}>
+              {tr("coach.nav.agency")}
             </Link>
           )}
         </div>

@@ -8,6 +8,7 @@ import pkg from "pg";
 import type { PoolClient } from "pg";
 import { createHash, randomBytes } from "node:crypto";
 import { normalizeTags } from "./bank-tags";
+import type { AttentionRow } from "./retention";
 
 const { Pool, types } = pkg;
 
@@ -287,6 +288,24 @@ export async function setBankTags(agencyId: string, id: string, tags: string[]):
     [id, agencyId, normalizeTags(tags)],
   );
   return (rowCount ?? 0) > 0;
+}
+
+/**
+ * Engagement facts for every athlete of an agency, for the retention screen.
+ * The cross-tenant read happens inside app.agency_attention (SECURITY DEFINER);
+ * the agency_id join in the function body is the authorization boundary.
+ */
+export async function getAgencyAttention(agencyId: string): Promise<AttentionRow[]> {
+  if (!hasProductDb()) return [];
+  const { rows } = await getPool().query<AttentionRow>(
+    `select tenant_id, name, email, created_at,
+            to_char(last_checkin,'YYYY-MM-DD') as last_checkin,
+            to_char(last_done,'YYYY-MM-DD')    as last_done,
+            done_recent, done_prev, checkins_recent, staff
+       from app.agency_attention($1)`,
+    [agencyId],
+  );
+  return rows;
 }
 
 // ── Methodology (the professional's working method) ─────────────────────────
