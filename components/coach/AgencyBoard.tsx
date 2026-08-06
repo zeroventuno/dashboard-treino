@@ -9,15 +9,26 @@ export function AgencyBoard({
   rows,
   todayISO,
   locale,
+  showMoney = false,
+  showStaffBreakdown = false,
+  currency = "BRL",
 }: {
   rows: AttentionRow[];
   todayISO: string;
   locale: Locale;
+  /** Owner-only: what the book is worth and what's at risk. */
+  showMoney?: boolean;
+  /** Owner-only: the per-professional cards. */
+  showStaffBreakdown?: boolean;
+  currency?: string;
 }) {
   const tr = translator(locale);
   const t = totals(rows, todayISO);
   const list = needsAttention(rows, todayISO);
   const loads = byStaff(rows, todayISO);
+  const money = new Intl.NumberFormat(locale, {
+    style: "currency", currency: currency || "BRL", maximumFractionDigits: 0,
+  });
 
   const Stat = ({ label, value, color }: { label: string; value: number; color?: string }) => (
     <div className="rounded-[12px] border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-3">
@@ -37,6 +48,37 @@ export function AgencyBoard({
         <Stat label={tr("agency.inactive")} value={t.inactive} color="var(--bad)" />
         <Stat label={tr("agency.new")} value={t.newAthletes} color="var(--lime)" />
       </div>
+
+      {/* "12 at risk" is a fact; "12 at risk = R$ 4.680/month" is a decision. */}
+      {showMoney && t.total > 0 && (
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 rounded-[12px] border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-3">
+          <div>
+            <p className="dsp tnum text-[22px] font-extrabold leading-none text-[var(--text)]">
+              {money.format(t.revenue)}
+            </p>
+            <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
+              {tr("agency.monthlyBook")}
+            </p>
+          </div>
+          <div>
+            <p
+              className="dsp tnum text-[22px] font-extrabold leading-none"
+              style={{ color: t.revenueAtRisk > 0 ? "var(--warn)" : "var(--text-faint)" }}
+            >
+              {money.format(t.revenueAtRisk)}
+            </p>
+            <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
+              {tr("agency.revenueAtRisk")}
+            </p>
+          </div>
+          {/* Never let a total look complete when it isn't. */}
+          {t.unpriced > 0 && (
+            <p className="text-[11.5px] text-[var(--warn)]">
+              {t.unpriced} {tr("agency.unpricedNote")}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* The queue — the reason this screen exists. */}
       <section>
@@ -96,7 +138,7 @@ export function AgencyBoard({
 
       {/* Load per professional: 40 athletes with falling engagement is a
           different problem from 8. */}
-      {loads.length > 0 && (
+      {showStaffBreakdown && loads.length > 0 && (
         <section>
           <h2 className="mb-2 px-1 text-[14px] font-bold text-[var(--text)]">{tr("agency.byStaff")}</h2>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">

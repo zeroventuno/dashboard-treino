@@ -24,7 +24,10 @@ export interface AttentionRow {
   done_recent: number;
   done_prev: number;
   checkins_recent: number;
+  /** What the owner says this athlete is worth per month; null when unpriced. */
+  monthly_value: string | null;
   staff: string[];
+  staff_ids: string[];
 }
 
 export interface Assessed extends AttentionRow {
@@ -109,16 +112,33 @@ export interface AgencyTotals {
   atRisk: number;
   inactive: number;
   newAthletes: number;
+  /** Monthly value of the whole book. */
+  revenue: number;
+  /** Monthly value sitting on at-risk and inactive athletes — the number that
+   * turns "12 people" into a decision. */
+  revenueAtRisk: number;
+  /** Athletes with no price set, so the figures can be honest about coverage. */
+  unpriced: number;
 }
 
 export function totals(rows: AttentionRow[], todayISO: string): AgencyTotals {
-  const t: AgencyTotals = { total: rows.length, active: 0, atRisk: 0, inactive: 0, newAthletes: 0 };
+  const t: AgencyTotals = {
+    total: rows.length, active: 0, atRisk: 0, inactive: 0, newAthletes: 0,
+    revenue: 0, revenueAtRisk: 0, unpriced: 0,
+  };
   for (const r of rows) {
     const { state } = assess(r, todayISO);
     if (state === "active") t.active++;
     else if (state === "at_risk") t.atRisk++;
     else if (state === "inactive") t.inactive++;
     else t.newAthletes++;
+
+    const value = r.monthly_value == null ? null : Number(r.monthly_value);
+    if (value == null || !Number.isFinite(value)) t.unpriced++;
+    else {
+      t.revenue += value;
+      if (state === "at_risk" || state === "inactive") t.revenueAtRisk += value;
+    }
   }
   return t;
 }

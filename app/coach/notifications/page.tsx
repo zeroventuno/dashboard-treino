@@ -55,7 +55,7 @@ export default async function CoachNotificationsPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
-      <CoachNav active="notifications" role={staff.role} name={staff.name} locale={locale} />
+      <CoachNav active="notifications" role={staff.role} name={staff.name} locale={locale} isOwner={staff.isOwner} />
 
       <header className="mb-5 px-1">
         <h1 className="dsp text-[24px] font-extrabold text-[var(--text)]">{tr("coach.notifications.title")}</h1>

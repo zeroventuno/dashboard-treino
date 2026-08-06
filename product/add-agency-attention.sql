@@ -30,7 +30,9 @@ returns table (
   done_recent   int,   -- completed sessions, last 14 days
   done_prev     int,   -- completed sessions, the 14 days before those
   checkins_recent int, -- check-ins in the last 14 days (engagement ≠ training)
-  staff         text[]
+  monthly_value numeric,
+  staff         text[],
+  staff_ids     uuid[]  -- lets the panel narrow the same rows to one professional
 )
 language sql
 security definer
@@ -53,12 +55,14 @@ as $$
         and w.date <= current_date - 14)::int                            as done_prev,
     (select count(*) from public.checkins c
       where c.tenant_id = t.id and c.date > current_date - 14)::int      as checkins_recent,
-    coalesce(array_agg(distinct s.name) filter (where s.name is not null), '{}') as staff
+    t.monthly_value,
+    coalesce(array_agg(distinct s.name) filter (where s.name is not null), '{}') as staff,
+    coalesce(array_agg(distinct s.id)   filter (where s.id   is not null), '{}') as staff_ids
   from app.tenants t
   left join app.staff_athletes sa on sa.tenant_id = t.id
   left join app.staff s on s.id = sa.staff_id and s.status = 'active'
   where t.agency_id = p_agency
-  group by t.id, t.athlete_name, t.email, t.created_at
+  group by t.id, t.athlete_name, t.email, t.created_at, t.monthly_value
 $$;
 
 -- The MCP/runtime role executes it; the function body does the cross-tenant read.

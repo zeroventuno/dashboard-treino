@@ -17,12 +17,16 @@ export function CoachNav({
   name,
   locale,
   demo = false,
+  isOwner = false,
 }: {
   active?: Tab;
   role: string;
   name?: string | null;
   locale: Locale;
   demo?: boolean;
+  /** Owns the agency — the settings gear becomes agency admin, and the label
+   * says so, because "coach" and "owner" are different jobs on the same person. */
+  isOwner?: boolean;
 }) {
   const tr = translator(locale);
   const roleLabel = tr(`coach.role.${role}` as TKey);
@@ -47,11 +51,11 @@ export function CoachNav({
               {tr("coach.bank.link")}
             </Link>
           )}
-          {isCoach && (
-            <Link href="/coach/agency" className={tabCls(active === "agency")}>
-              {tr("coach.nav.agency")}
-            </Link>
-          )}
+          {/* Everyone gets it — scoped to their own book unless they own the
+              agency, in which case it's the whole thing. */}
+          <Link href="/coach/agency" className={tabCls(active === "agency")}>
+            {isOwner ? tr("coach.nav.agency") : tr("agency.myBook")}
+          </Link>
         </div>
       </div>
 
@@ -59,11 +63,11 @@ export function CoachNav({
         <Link href="/coach/notifications" className={iconBtn} aria-label={tr("coach.notifications.title")}>
           <Icon name="bell" size={17} />
         </Link>
-        {isCoach && (
-          <Link href="/coach/settings" className={iconBtn} aria-label={tr("coach.settings.title")}>
-            <Icon name="settings" size={17} />
-          </Link>
-        )}
+        {/* An owner administers the agency here; a hired professional sees the
+            team read-only. Either way the page is theirs to open. */}
+        <Link href="/coach/settings" className={iconBtn} aria-label={tr("coach.settings.title")}>
+          <Icon name="settings" size={17} />
+        </Link>
         {demo ? (
           <span className="rounded-full border border-[var(--lime)] px-2.5 py-[5px] text-[11px] font-bold uppercase tracking-wide text-[var(--lime)]">
             Demo

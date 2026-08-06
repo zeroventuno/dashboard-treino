@@ -95,6 +95,11 @@ export interface StaffIdentity {
   agencyId: string;
   role: string;
   name: string | null;
+  /** Owns the agency: sees every professional's book, not just their own.
+   * A flag rather than a role — the founder usually coaches too. */
+  isOwner: boolean;
+  /** Agency's billing currency, for the value figures. */
+  currency: string;
 }
 
 /** professional key (trakc_…) → staff identity, or null if unknown/inactive.
@@ -103,8 +108,10 @@ export interface StaffIdentity {
 export async function resolveStaffId(staffKey: string): Promise<StaffIdentity | null> {
   if (!hasProductDb()) return null;
   const hash = createHash("sha256").update(staffKey).digest("hex");
-  const { rows } = await getPool().query<{ id: string; agency_id: string; role: string; name: string | null }>(
-    `select s.id, s.agency_id, s.role, s.name
+  const { rows } = await getPool().query<{
+    id: string; agency_id: string; role: string; name: string | null; is_owner: boolean; currency: string;
+  }>(
+    `select s.id, s.agency_id, s.role, s.name, s.is_owner, a.currency
        from app.staff s
        join app.agencies a on a.id = s.agency_id
       where s.api_key_hash = $1 and s.status = 'active' and a.status = 'active'
@@ -112,7 +119,9 @@ export async function resolveStaffId(staffKey: string): Promise<StaffIdentity | 
     [hash],
   );
   const r = rows[0];
-  return r ? { id: r.id, agencyId: r.agency_id, role: r.role, name: r.name } : null;
+  return r
+    ? { id: r.id, agencyId: r.agency_id, role: r.role, name: r.name, isOwner: r.is_owner, currency: r.currency }
+    : null;
 }
 
 /** One summary row per athlete on a staff member's roster, for the team view. */
@@ -348,6 +357,9 @@ export interface StaffMember {
   email: string | null;
   role: string;
   status: string;
+  is_owner: boolean;
+  /** Modalities this professional programs; empty = no restriction declared. */
+  sports: string[];
   athlete_count: number;
 }
 
@@ -355,14 +367,121 @@ export interface StaffMember {
 export async function listStaff(agencyId: string): Promise<StaffMember[]> {
   if (!hasProductDb()) return [];
   const { rows } = await getPool().query<StaffMember>(
-    `select s.id, s.name, s.email, s.role, s.status,
+    `select s.id, s.name, s.email, s.role, s.status, s.is_owner, s.sports,
             (select count(*)::int from app.staff_athletes sa where sa.staff_id = s.id) as athlete_count
        from app.staff s
       where s.agency_id = $1
-      order by s.role, s.name nulls last`,
+      order by s.is_owner desc, s.role, s.name nulls last`,
     [agencyId],
   );
   return rows;
+}
+
+/**
+ * Owner-only edits to a team member: ownership and which modalities they
+ * program. Never role or key — those stay provisioning-time decisions.
+ *
+ * Refuses to remove the last owner: an agency with no owner has no one who can
+ * grant ownership back, so the panel would lock itself out permanently.
+ */
+export async function updateStaff(
+  agencyId: string,
+  staffId: string,
+  patch: { isOwner?: boolean; sports?: string[] },
+): Promise<{ ok: boolean; code?: "last_owner" | "not_found" }> {
+  if (!hasProductDb()) return { ok: false, code: "not_found" };
+  if (patch.isOwner === false) {
+    const { rows } = await getPool().query<{ owners: string }>(
+      "select count(*) as owners from app.staff where agency_id = $1 and is_owner and status = 'active'",
+      [agencyId],
+    );
+    const { rows: self } = await getPool().query<{ is_owner: boolean }>(
+      "select is_owner from app.staff where id = $1 and agency_id = $2",
+      [staffId, agencyId],
+    );
+    if (self[0]?.is_owner && Number(rows[0]?.owners ?? 0) <= 1) return { ok: false, code: "last_owner" };
+  }
+  const { rowCount } = await getPool().query(
+    `update app.staff
+        set is_owner = coalesce($3, is_owner),
+            sports   = coalesce($4::text[], sports)
+      where id = $1 and agency_id = $2`,
+    [staffId, agencyId, patch.isOwner ?? null, patch.sports ?? null],
+  );
+  return (rowCount ?? 0) > 0 ? { ok: true } : { ok: false, code: "not_found" };
+}
+
+export interface AgencyAthlete {
+  tenant_id: string;
+  name: string | null;
+  email: string;
+  monthly_value: string | null;
+  created_at: string;
+  staff_ids: string[];
+}
+
+/** The athlete admin list — assignment and price live here, not on the
+ * dashboard the athlete sees. */
+export async function listAgencyAthletes(agencyId: string): Promise<AgencyAthlete[]> {
+  if (!hasProductDb()) return [];
+  const { rows } = await getPool().query<AgencyAthlete>(
+    `select t.id as tenant_id, t.athlete_name as name, t.email,
+            t.monthly_value, t.created_at,
+            coalesce(array_agg(sa.staff_id) filter (where sa.staff_id is not null), '{}') as staff_ids
+       from app.tenants t
+       left join app.staff_athletes sa on sa.tenant_id = t.id
+      where t.agency_id = $1
+      group by t.id
+      order by coalesce(t.athlete_name, t.email)`,
+    [agencyId],
+  );
+  return rows;
+}
+
+/**
+ * Owner-only: set what an athlete costs per month and which professionals look
+ * after them. Assignment is replaced wholesale — the UI always sends the full
+ * set, and a diff would silently keep a professional the owner just unticked.
+ */
+export async function updateAgencyAthlete(
+  agencyId: string,
+  tenantId: string,
+  patch: { monthlyValue?: number | null; staffIds?: string[]; name?: string },
+): Promise<boolean> {
+  if (!hasProductDb()) return false;
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    // The agency_id predicate is the authorization boundary on every statement.
+    const { rowCount } = await client.query(
+      `update app.tenants
+          set monthly_value = case when $3::boolean then $4::numeric else monthly_value end,
+              athlete_name  = coalesce($5, athlete_name)
+        where id = $1 and agency_id = $2`,
+      [tenantId, agencyId, patch.monthlyValue !== undefined, patch.monthlyValue ?? null, patch.name ?? null],
+    );
+    if ((rowCount ?? 0) === 0) { await client.query("rollback"); return false; }
+
+    if (patch.staffIds) {
+      await client.query("delete from app.staff_athletes where tenant_id = $1", [tenantId]);
+      if (patch.staffIds.length) {
+        await client.query(
+          `insert into app.staff_athletes (staff_id, tenant_id)
+           select s.id, $2 from app.staff s
+            where s.id = any($3::uuid[]) and s.agency_id = $1
+           on conflict do nothing`,
+          [agencyId, tenantId, patch.staffIds],
+        );
+      }
+    }
+    await client.query("commit");
+    return true;
+  } catch (e) {
+    await client.query("rollback");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 /** Provision a new professional under the agency. Returns the plaintext key ONCE
