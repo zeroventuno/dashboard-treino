@@ -256,6 +256,18 @@ export async function moveWorkout(tenantId: string, id: string, toDate: string):
   });
 }
 
+/** Replace one library item's tags — the coach's correction of whatever the AI
+ * guessed, and the only way to classify items generated before tags existed.
+ * Scoped to the agency, same authorization rule as setBankStatus. */
+export async function setBankTags(agencyId: string, id: string, tags: string[]): Promise<boolean> {
+  if (!hasProductDb()) return false;
+  const { rowCount } = await getPool().query(
+    "update app.workout_bank set tags = $3::text[] where id = $1 and agency_id = $2",
+    [id, agencyId, normalizeTags(tags)],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 // ── Methodology (the professional's working method) ─────────────────────────
 // Also writable from the AI copilot via set_methodology; the panel is the path
 // for a coach who'd rather type it than dictate it. Same jsonb, shallow-merged

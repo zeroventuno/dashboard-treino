@@ -6,6 +6,7 @@ import { translator, type Locale } from "@/lib/i18n";
 import type { BankWorkout, Methodology } from "@/lib/product-db";
 import type { Workout, Discipline, WorkoutBlock } from "@/lib/types";
 import { WorkoutModal } from "@/components/WorkoutModal";
+import { TagEditor } from "@/components/coach/TagEditor";
 
 const SPORTS = ["swim", "bike", "run", "strength"] as const;
 const SPORT_LABEL: Record<string, string> = { swim: "Natação", bike: "Bike", run: "Corrida", strength: "Força" };
@@ -77,6 +78,7 @@ export function BankView({
   const [phaseFilter, setPhaseFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "validated">("all");
   const [open, setOpen] = useState<BankWorkout | null>(null);
+  const [editingTags, setEditingTags] = useState<string | null>(null);
   // Methodology is what the leader agent reads before briefing the specialists,
   // so it belongs next to the button that starts them.
   const [method, setMethod] = useState<Record<string, string>>(() =>
@@ -475,8 +477,17 @@ export function BankView({
                       </span>
                     </div>
 
-                    {(w.tags ?? []).length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
+                    {editingTags === w.id ? (
+                      <TagEditor
+                        id={w.id}
+                        tags={w.tags ?? []}
+                        bankTags={allTags.map(([t]) => t)}
+                        locale={locale}
+                        onSaved={() => { setEditingTags(null); router.refresh(); }}
+                        onCancel={() => setEditingTags(null)}
+                      />
+                    ) : (
+                      <div className="mt-2 flex flex-wrap items-center gap-1">
                         {(w.tags ?? []).map((t) => (
                           <button
                             key={t}
@@ -488,6 +499,15 @@ export function BankView({
                             #{t}
                           </button>
                         ))}
+                        {/* An untagged item says so, because otherwise it just
+                            quietly never shows up under any filter. */}
+                        <button
+                          type="button"
+                          onClick={() => setEditingTags(w.id)}
+                          className="rounded-[6px] border border-dashed border-[var(--border)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-faint)] transition-colors hover:border-[var(--lime)] hover:text-[var(--lime)]"
+                        >
+                          {(w.tags ?? []).length > 0 ? tr("coach.bank.editTags") : `+ ${tr("coach.bank.addTags")}`}
+                        </button>
                       </div>
                     )}
 
