@@ -12,6 +12,17 @@ const SPORT_LABEL: Record<string, string> = { swim: "Natação", bike: "Bike", r
 // Canonical cycle phases — same strings the season, set_cycle and the bank use.
 const PHASES = ["Base", "Build", "Peak", "Taper"] as const;
 const METHOD_FIELDS = ["philosophy", "periodization", "intensity_distribution", "defaults", "notes"] as const;
+/** Bucket for library items the AI (or an import) left without a phase. */
+const NO_PHASE = "—";
+/** Same colours the athlete's season timeline paints these phases with, so a
+ * phase reads the same wherever it appears in the product. */
+const PHASE_COLOR: Record<string, string> = {
+  Base: "#2dd4bf",
+  Build: "#c6f24e",
+  Peak: "#f4a24e",
+  Taper: "#4fb8ff",
+  [NO_PHASE]: "var(--text-faint)",
+};
 
 /** A library item rendered through the athlete's own workout modal: the coach
  * reviews exactly what the athlete will see — block list, profile chart, and the
@@ -60,6 +71,11 @@ export function BankView({
   // Tag filter narrows the library (AND: a workout must carry every picked tag).
   // This is what keeps a 500-workout bank browsable.
   const [tagSel, setTagSel] = useState<string[]>([]);
+  // Library filters (empty array = no narrowing, which reads better than
+  // "everything selected" once a filter has more values than fit on a line).
+  const [sportFilter, setSportFilter] = useState<string[]>([]);
+  const [phaseFilter, setPhaseFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "validated">("all");
   const [open, setOpen] = useState<BankWorkout | null>(null);
   // Methodology is what the leader agent reads before briefing the specialists,
   // so it belongs next to the button that starts them.
@@ -117,13 +133,29 @@ export function BankView({
   for (const w of items) for (const t of w.tags ?? []) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
   const allTags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 
-  const shown = tagSel.length
-    ? items.filter((w) => tagSel.every((t) => (w.tags ?? []).includes(t)))
-    : items;
+  const shown = items.filter(
+    (w) =>
+      (sportFilter.length === 0 || sportFilter.includes(w.sport)) &&
+      (phaseFilter.length === 0 || phaseFilter.includes(w.phase ?? NO_PHASE)) &&
+      (statusFilter === "all" || w.status === statusFilter) &&
+      (tagSel.length === 0 || tagSel.every((t) => (w.tags ?? []).includes(t))),
+  );
 
-  // Group by sport for the list.
-  const bySport = new Map<string, BankWorkout[]>();
-  for (const w of shown) (bySport.get(w.sport) ?? bySport.set(w.sport, []).get(w.sport)!).push(w);
+  // Sport → phase. Generating 3 per phase per sport means a sport section is a
+  // wall of near-identical cards unless the phase is a heading you can scan,
+  // rather than the third item in a subtitle.
+  const bySport = new Map<string, Map<string, BankWorkout[]>>();
+  for (const w of shown) {
+    const phases = bySport.get(w.sport) ?? bySport.set(w.sport, new Map()).get(w.sport)!;
+    const key = w.phase ?? NO_PHASE;
+    (phases.get(key) ?? phases.set(key, []).get(key)!).push(w);
+  }
+  const phaseOrder = (p: string) => {
+    const i = (PHASES as readonly string[]).indexOf(p);
+    return i === -1 ? PHASES.length : i; // unknown / no phase goes last
+  };
+
+  const countFor = (pred: (w: BankWorkout) => boolean) => items.filter(pred).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -250,12 +282,97 @@ export function BankView({
         {gen === "error" && <p className="mt-2.5 text-[12px] text-[var(--bad)]">{tr("coach.bank.genError")}</p>}
       </section>
 
-      {/* Tag filter — only worth showing once the bank actually carries tags */}
-      {allTags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-0.5 text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
-            {tr("coach.bank.filterByTag")}
-          </span>
+      {/* ── Library filters ─────────────────────────────────────────────── */}
+      {items.length > 0 && (
+        <section className="flex flex-col gap-2.5 rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] p-4">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-0.5 w-[52px] text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
+              {tr("coach.bank.filterSport")}
+            </span>
+            {SPORTS.filter((s) => countFor((w) => w.sport === s) > 0).map((s) => {
+              const on = sportFilter.includes(s);
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSportFilter((p) => (on ? p.filter((x) => x !== s) : [...p, s]))}
+                  className="rounded-full border px-2.5 py-1 text-[11.5px] font-semibold transition-colors"
+                  style={{
+                    borderColor: on ? "var(--lime)" : "var(--border)",
+                    background: on ? "color-mix(in oklab, var(--lime) 16%, transparent)" : "transparent",
+                    color: on ? "var(--lime)" : "var(--text-muted)",
+                  }}
+                >
+                  {SPORT_LABEL[s] ?? s} <span className="tnum opacity-60">{countFor((w) => w.sport === s)}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-0.5 w-[52px] text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
+              {tr("coach.bank.phases")}
+            </span>
+            {[...PHASES, NO_PHASE].filter((p) => countFor((w) => (w.phase ?? NO_PHASE) === p) > 0).map((p) => {
+              const on = phaseFilter.includes(p);
+              const color = PHASE_COLOR[p] ?? "var(--text-muted)";
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPhaseFilter((prev) => (on ? prev.filter((x) => x !== p) : [...prev, p]))}
+                  className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-semibold transition-colors"
+                  style={{
+                    borderColor: on ? color : "var(--border)",
+                    background: on ? `color-mix(in oklab, ${color} 16%, transparent)` : "transparent",
+                    color: on ? color : "var(--text-muted)",
+                  }}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+                  {p} <span className="tnum opacity-60">{countFor((w) => (w.phase ?? NO_PHASE) === p)}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-0.5 w-[52px] text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
+              {tr("coach.bank.filterStatus")}
+            </span>
+            {(["all", "draft", "validated"] as const).map((st) => {
+              const on = statusFilter === st;
+              const label =
+                st === "all" ? tr("coach.bank.all")
+                : st === "draft" ? tr("coach.bank.status.draft")
+                : tr("coach.bank.status.validated");
+              const n = st === "all" ? items.length : countFor((w) => w.status === st);
+              return (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setStatusFilter(st)}
+                  className="rounded-full border px-2.5 py-1 text-[11.5px] font-semibold transition-colors"
+                  style={{
+                    borderColor: on ? "var(--lime)" : "var(--border)",
+                    background: on ? "color-mix(in oklab, var(--lime) 16%, transparent)" : "transparent",
+                    color: on ? "var(--lime)" : "var(--text-muted)",
+                  }}
+                >
+                  {label} <span className="tnum opacity-60">{n}</span>
+                </button>
+              );
+            })}
+            <span className="ml-auto text-[11.5px] text-[var(--text-faint)]">
+              {shown.length}/{items.length}
+            </span>
+          </div>
+
+          {/* Tags stay their own row — the vocabulary grows, the others don't. */}
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-[var(--border-soft)] pt-2.5">
+              <span className="mr-0.5 w-[52px] text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
+                {tr("coach.bank.filterByTag")}
+              </span>
           {allTags.map(([tag, n]) => {
             const on = tagSel.includes(tag);
             return (
@@ -274,16 +391,19 @@ export function BankView({
               </button>
             );
           })}
-          {tagSel.length > 0 && (
+            </div>
+          )}
+
+          {(sportFilter.length > 0 || phaseFilter.length > 0 || statusFilter !== "all" || tagSel.length > 0) && (
             <button
               type="button"
-              onClick={() => setTagSel([])}
-              className="ml-1 text-[11px] font-medium text-[var(--text-faint)] underline hover:text-[var(--text-muted)]"
+              onClick={() => { setSportFilter([]); setPhaseFilter([]); setStatusFilter("all"); setTagSel([]); }}
+              className="self-start text-[11.5px] font-medium text-[var(--text-faint)] underline hover:text-[var(--text-muted)]"
             >
               {tr("coach.bank.clearFilter")}
             </button>
           )}
-        </div>
+        </section>
       )}
 
       {/* Library */}
@@ -292,12 +412,29 @@ export function BankView({
           {items.length === 0 ? tr("coach.bank.empty") : tr("coach.bank.noMatch")}
         </p>
       ) : (
-        [...bySport.entries()].map(([sport, list]) => (
+        [...bySport.entries()].map(([sport, phases]) => {
+          const total = [...phases.values()].reduce((n, l) => n + l.length, 0);
+          return (
           <section key={sport}>
             <h3 className="mb-2 px-1 text-[13px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
-              {SPORT_LABEL[sport] ?? sport} <span className="tnum text-[var(--text-faint)]">{list.length}</span>
+              {SPORT_LABEL[sport] ?? sport} <span className="tnum text-[var(--text-faint)]">{total}</span>
             </h3>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {[...phases.entries()]
+              .sort((a, b) => phaseOrder(a[0]) - phaseOrder(b[0]))
+              .map(([phase, list]) => (
+              <div key={phase} className="mb-3">
+                {/* The phase heading is the separation that was missing: three
+                    near-identical bike sessions only differ by the block they
+                    belong to. */}
+                <div className="mb-1.5 flex items-center gap-2 px-1">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: PHASE_COLOR[phase] ?? "var(--text-faint)" }} />
+                  <span className="text-[11.5px] font-bold uppercase tracking-wide" style={{ color: PHASE_COLOR[phase] ?? "var(--text-faint)" }}>
+                    {phase === NO_PHASE ? tr("coach.bank.noPhase") : phase}
+                  </span>
+                  <span className="tnum text-[11px] text-[var(--text-faint)]">{list.length}</span>
+                  <span className="h-px flex-1 bg-[var(--border-soft)]" />
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {list.map((w) => {
                 const validated = w.status === "validated";
                 return (
@@ -316,8 +453,9 @@ export function BankView({
                           {w.title}
                         </p>
                         <p className="mt-0.5 text-[11.5px] text-[var(--text-faint)]">
+                          {/* Phase is the group heading now — repeating it here
+                              was the noise hiding duration and block count. */}
                           {[
-                            w.phase,
                             w.duration_min ? `${w.duration_min}min` : null,
                             w.tss ? `TSS ${w.tss}` : null,
                             blockCount(w) ? `${blockCount(w)} ${tr("coach.bank.blocks")}` : tr("coach.bank.noBlocks"),
@@ -376,9 +514,12 @@ export function BankView({
                   </div>
                 );
               })}
-            </div>
+                </div>
+              </div>
+            ))}
           </section>
-        ))
+          );
+        })
       )}
 
       {open && (
