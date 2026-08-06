@@ -79,6 +79,32 @@ export function BankView({
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "validated">("all");
   const [open, setOpen] = useState<BankWorkout | null>(null);
   const [editingTags, setEditingTags] = useState<string | null>(null);
+  // Bulk cleanup: a generation run makes dozens of items, so a bad batch has to
+  // be undoable in one sweep. Delete needs a second click (see `confirmDelete`).
+  const [picked, setPicked] = useState<string[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  async function runBulk(action: "archive" | "delete") {
+    if (picked.length === 0) return;
+    setBulkBusy(true);
+    try {
+      await fetch("/api/coach/bank/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: picked, action }),
+      });
+    } catch {
+      /* the refresh below shows what actually survived */
+    }
+    setBulkBusy(false);
+    setPicked([]);
+    setConfirmDelete(false);
+    router.refresh();
+  }
+
+  const togglePick = (id: string) =>
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   // Methodology is what the leader agent reads before briefing the specialists,
   // so it belongs next to the button that starts them.
   const [method, setMethod] = useState<Record<string, string>>(() =>
@@ -408,6 +434,64 @@ export function BankView({
         </section>
       )}
 
+      {/* Bulk bar — appears with a selection, sticks to the bottom so it stays
+          reachable while scrolling a long library. */}
+      {picked.length > 0 && (
+        <div className="sticky bottom-3 z-30 flex flex-wrap items-center gap-2 rounded-[var(--radius)] border border-[var(--lime)] bg-[var(--surface)] px-4 py-3 shadow-[var(--shadow)]">
+          <span className="text-[12.5px] font-semibold text-[var(--text)]">
+            {picked.length} {tr("coach.bank.selected")}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPicked(shown.map((w) => w.id))}
+            className="text-[11.5px] font-medium text-[var(--text-faint)] underline hover:text-[var(--text-muted)]"
+          >
+            {tr("coach.bank.selectAll")} ({shown.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => { setPicked([]); setConfirmDelete(false); }}
+            className="text-[11.5px] font-medium text-[var(--text-faint)] underline hover:text-[var(--text-muted)]"
+          >
+            {tr("coach.bank.clearSelection")}
+          </button>
+
+          <div className="ml-auto flex items-center gap-2">
+            {/* Archive first: it's the reversible one, and usually what's meant. */}
+            <button
+              type="button"
+              onClick={() => runBulk("archive")}
+              disabled={bulkBusy}
+              className="rounded-[10px] border border-[var(--border)] px-3 py-1.5 text-[12px] font-semibold text-[var(--text-muted)] transition-colors hover:border-[var(--text)] hover:text-[var(--text)] disabled:opacity-40"
+            >
+              {tr("coach.bank.archiveSelected")}
+            </button>
+            {confirmDelete ? (
+              <button
+                type="button"
+                onClick={() => runBulk("delete")}
+                disabled={bulkBusy}
+                className="rounded-[10px] bg-[var(--bad)] px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-40"
+              >
+                {bulkBusy ? "…" : `${tr("coach.bank.confirmDelete")} (${picked.length})`}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                disabled={bulkBusy}
+                className="rounded-[10px] border border-[var(--bad)] px-3 py-1.5 text-[12px] font-semibold text-[var(--bad)] transition-colors hover:bg-[var(--bad)] hover:text-white disabled:opacity-40"
+              >
+                {tr("coach.bank.deleteSelected")}
+              </button>
+            )}
+          </div>
+          {confirmDelete && (
+            <p className="basis-full text-[11.5px] text-[var(--bad)]">{tr("coach.bank.deleteWarning")}</p>
+          )}
+        </div>
+      )}
+
       {/* Library */}
       {shown.length === 0 ? (
         <p className="rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] px-5 py-8 text-center text-[13.5px] text-[var(--text-faint)]">
@@ -429,6 +513,20 @@ export function BankView({
                     near-identical bike sessions only differ by the block they
                     belong to. */}
                 <div className="mb-1.5 flex items-center gap-2 px-1">
+                  {/* Selecting a whole phase is the unit a bad generation run
+                      comes in — that's what makes cleanup one gesture. */}
+                  <input
+                    type="checkbox"
+                    checked={list.every((w) => picked.includes(w.id))}
+                    onChange={(e) => {
+                      const ids = list.map((w) => w.id);
+                      setPicked((p) =>
+                        e.target.checked ? [...new Set([...p, ...ids])] : p.filter((x) => !ids.includes(x)),
+                      );
+                    }}
+                    aria-label={`${tr("coach.bank.select")} ${phase}`}
+                    className="h-3.5 w-3.5 accent-[var(--lime)]"
+                  />
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: PHASE_COLOR[phase] ?? "var(--text-faint)" }} />
                   <span className="text-[11.5px] font-bold uppercase tracking-wide" style={{ color: PHASE_COLOR[phase] ?? "var(--text-faint)" }}>
                     {phase === NO_PHASE ? tr("coach.bank.noPhase") : phase}
@@ -440,8 +538,24 @@ export function BankView({
               {list.map((w) => {
                 const validated = w.status === "validated";
                 return (
-                  <div key={w.id} className="rounded-[12px] border border-[var(--border-soft)] bg-[var(--surface)] p-3">
+                  <div
+                    key={w.id}
+                    className="rounded-[12px] border bg-[var(--surface)] p-3 transition-colors"
+                    style={{
+                      borderColor: picked.includes(w.id) ? "var(--lime)" : "var(--border-soft)",
+                      background: picked.includes(w.id)
+                        ? "color-mix(in oklab, var(--lime) 6%, var(--surface))"
+                        : undefined,
+                    }}
+                  >
                     <div className="flex items-start justify-between gap-2">
+                      <input
+                        type="checkbox"
+                        checked={picked.includes(w.id)}
+                        onChange={() => togglePick(w.id)}
+                        aria-label={`${tr("coach.bank.select")} ${w.title}`}
+                        className="mt-1 h-3.5 w-3.5 shrink-0 accent-[var(--lime)]"
+                      />
                       {/* The title opens the same modal the athlete gets — block
                           list, profile chart and the watch files — so the coach
                           validates what they'll actually receive, not a summary. */}

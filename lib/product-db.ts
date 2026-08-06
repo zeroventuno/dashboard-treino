@@ -256,6 +256,27 @@ export async function moveWorkout(tenantId: string, id: string, toDate: string):
   });
 }
 
+/**
+ * Bulk cleanup of library items. `archive` is reversible and keeps the row;
+ * `delete` is not, which is why the panel makes the coach confirm it separately.
+ * Both are agency-scoped: ids from another agency simply match nothing.
+ * Returns how many rows were actually affected, so the UI can report the truth
+ * rather than assume the whole selection landed.
+ */
+export async function bulkBankAction(
+  agencyId: string,
+  ids: string[],
+  action: "archive" | "delete",
+): Promise<number> {
+  if (!hasProductDb() || ids.length === 0) return 0;
+  const sql =
+    action === "delete"
+      ? "delete from app.workout_bank where agency_id = $1 and id = any($2::uuid[])"
+      : "update app.workout_bank set status = 'archived' where agency_id = $1 and id = any($2::uuid[])";
+  const { rowCount } = await getPool().query(sql, [agencyId, ids]);
+  return rowCount ?? 0;
+}
+
 /** Replace one library item's tags — the coach's correction of whatever the AI
  * guessed, and the only way to classify items generated before tags existed.
  * Scoped to the agency, same authorization rule as setBankStatus. */
