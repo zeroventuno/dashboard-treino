@@ -2,7 +2,7 @@
 // Coach-only. Reused when prescribing (list_bank / add_bank_workout tools).
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { resolveStaffId, getBank } from "@/lib/product-db";
+import { resolveStaffId, getBank, getMethodology } from "@/lib/product-db";
 import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
 import { CoachNav } from "@/components/coach/CoachNav";
@@ -21,7 +21,10 @@ export default async function CoachBankPage() {
 
   const locale: Locale = pickLocale((await headers()).get("accept-language"));
   const tr = translator(locale);
-  const items = await getBank(staff.agencyId);
+  const [items, methodology] = await Promise.all([
+    getBank(staff.agencyId),
+    getMethodology(staff.id),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
@@ -32,7 +35,7 @@ export default async function CoachBankPage() {
         <p className="mt-0.5 text-[13px] text-[var(--text-faint)]">{tr("coach.bank.sub")}</p>
       </header>
 
-      <BankView items={items} locale={locale} />
+      <BankView items={items} methodology={methodology} locale={locale} />
     </div>
   );
 }

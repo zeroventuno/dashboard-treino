@@ -256,6 +256,38 @@ export async function moveWorkout(tenantId: string, id: string, toDate: string):
   });
 }
 
+// ── Methodology (the professional's working method) ─────────────────────────
+// Also writable from the AI copilot via set_methodology; the panel is the path
+// for a coach who'd rather type it than dictate it. Same jsonb, shallow-merged
+// so neither side clobbers fields the other set.
+
+export interface Methodology {
+  philosophy?: string;
+  periodization?: string;
+  intensity_distribution?: string;
+  defaults?: string;
+  notes?: string;
+  [k: string]: unknown;
+}
+
+export async function getMethodology(staffId: string): Promise<Methodology> {
+  if (!hasProductDb()) return {};
+  const { rows } = await getPool().query<{ methodology: Methodology }>(
+    "select methodology from app.staff where id = $1",
+    [staffId],
+  );
+  return rows[0]?.methodology ?? {};
+}
+
+export async function saveMethodology(staffId: string, patch: Methodology): Promise<boolean> {
+  if (!hasProductDb()) return false;
+  const { rowCount } = await getPool().query(
+    "update app.staff set methodology = methodology || $2::jsonb where id = $1",
+    [staffId, JSON.stringify(patch)],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 // ── Staff management (agency team) ──────────────────────────────────────────
 
 export interface StaffMember {

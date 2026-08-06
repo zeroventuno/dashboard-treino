@@ -187,7 +187,7 @@ function ComparisonTable({ w, tr, units }: { w: Workout; tr: T; units: Units }) 
 }
 
 export function WorkoutModal({
-  w, ftpWatts = null, locale = DEFAULT_LOCALE, units = "metric", onClose, onMove,
+  w, ftpWatts = null, locale = DEFAULT_LOCALE, units = "metric", onClose, onMove, tags,
 }: {
   w: Workout;
   locale?: Locale;
@@ -198,6 +198,8 @@ export function WorkoutModal({
   /** Present when this session can be rescheduled — the touch/keyboard path to
    * the same move that dragging performs on desktop. */
   onMove?: (iso: string) => void;
+  /** Library classification, shown when the coach opens a bank item. */
+  tags?: string[] | null;
 }) {
   const tr = translator(locale);
   const meta = disciplineMeta(w.discipline);
@@ -254,6 +256,15 @@ export function WorkoutModal({
         <ComparisonTable w={w} tr={tr} units={units} />
 
         <div className="space-y-5 p-5">
+          {tags && tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {tags.map((t) => (
+                <span key={t} className="rounded-[6px] bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]">
+                  #{t}
+                </span>
+              ))}
+            </div>
+          )}
           {w.description && (
             <Section label={tr("modal.description")}>
               <pre className="whitespace-pre-wrap font-sans text-[13.5px] leading-relaxed text-[var(--text-muted)]">{w.description}</pre>

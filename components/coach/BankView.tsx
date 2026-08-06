@@ -3,14 +3,53 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { translator, type Locale } from "@/lib/i18n";
-import type { BankWorkout } from "@/lib/product-db";
+import type { BankWorkout, Methodology } from "@/lib/product-db";
+import type { Workout, Discipline, WorkoutBlock } from "@/lib/types";
+import { WorkoutModal } from "@/components/WorkoutModal";
 
 const SPORTS = ["swim", "bike", "run", "strength"] as const;
 const SPORT_LABEL: Record<string, string> = { swim: "Natação", bike: "Bike", run: "Corrida", strength: "Força" };
 // Canonical cycle phases — same strings the season, set_cycle and the bank use.
 const PHASES = ["Base", "Build", "Peak", "Taper"] as const;
+const METHOD_FIELDS = ["philosophy", "periodization", "intensity_distribution", "defaults", "notes"] as const;
 
-export function BankView({ items, locale }: { items: BankWorkout[]; locale: Locale }) {
+/** A library item rendered through the athlete's own workout modal: the coach
+ * reviews exactly what the athlete will see — block list, profile chart, and the
+ * .zwo/.fit the dashboard derives from those blocks. A bank item has no date or
+ * result, so those fields are filled with neutral values. */
+const blockCount = (b: BankWorkout) => (Array.isArray(b.structure) ? b.structure.length : 0);
+
+function asWorkout(b: BankWorkout): Workout {
+  return {
+    id: b.id,
+    date: "",
+    discipline: b.sport as Discipline,
+    title: b.title,
+    description: b.description,
+    garmin_instructions: null,
+    zwo_content: null,
+    status: "planned",
+    planned_duration_min: b.duration_min,
+    actual_duration_min: null,
+    planned_distance_km: null,
+    actual_distance_km: null,
+    planned_tss: b.tss,
+    actual_tss: null,
+    notes: null,
+    nutrition_notes: null,
+    structure: (Array.isArray(b.structure) ? b.structure : null) as WorkoutBlock[] | null,
+  };
+}
+
+export function BankView({
+  items,
+  methodology,
+  locale,
+}: {
+  items: BankWorkout[];
+  methodology: Methodology;
+  locale: Locale;
+}) {
   const tr = translator(locale);
   const router = useRouter();
   const [sel, setSel] = useState<string[]>([...SPORTS]);
@@ -21,6 +60,29 @@ export function BankView({ items, locale }: { items: BankWorkout[]; locale: Loca
   // Tag filter narrows the library (AND: a workout must carry every picked tag).
   // This is what keeps a 500-workout bank browsable.
   const [tagSel, setTagSel] = useState<string[]>([]);
+  const [open, setOpen] = useState<BankWorkout | null>(null);
+  // Methodology is what the leader agent reads before briefing the specialists,
+  // so it belongs next to the button that starts them.
+  const [method, setMethod] = useState<Record<string, string>>(() =>
+    Object.fromEntries(METHOD_FIELDS.map((f) => [f, typeof methodology[f] === "string" ? (methodology[f] as string) : ""])),
+  );
+  const [methodOpen, setMethodOpen] = useState(false);
+  const [methodState, setMethodState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  async function saveMethodology() {
+    setMethodState("saving");
+    try {
+      const res = await fetch("/api/coach/methodology", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(method),
+      });
+      setMethodState(res.ok ? "saved" : "error");
+      if (res.ok) setTimeout(() => setMethodState("idle"), 2000);
+    } catch {
+      setMethodState("error");
+    }
+  }
 
   async function generate() {
     if (sel.length === 0 || phaseSel.length === 0) return;
@@ -69,6 +131,55 @@ export function BankView({ items, locale }: { items: BankWorkout[]; locale: Loca
       <section className="rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] p-5">
         <h2 className="text-[14px] font-bold text-[var(--text)]">{tr("coach.bank.generate")}</h2>
         <p className="mt-0.5 text-[12.5px] text-[var(--text-faint)]">{tr("coach.bank.generateHint")}</p>
+
+        {/* Methodology — read by the leader agent before it briefs the sport
+            specialists, so an empty one means generic workouts. */}
+        <div className="mt-3 rounded-[12px] border border-[var(--border-soft)] bg-[var(--surface-2)]">
+          <button
+            type="button"
+            onClick={() => setMethodOpen((o) => !o)}
+            className="flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left"
+          >
+            <span className="text-[12.5px] font-semibold text-[var(--text)]">
+              {tr("coach.method.title")}{" "}
+              <span className="font-normal text-[var(--text-faint)]">
+                {METHOD_FIELDS.some((f) => method[f]?.trim()) ? "" : `· ${tr("coach.method.empty")}`}
+              </span>
+            </span>
+            <span className="text-[var(--text-faint)]">{methodOpen ? "−" : "+"}</span>
+          </button>
+
+          {methodOpen && (
+            <div className="space-y-2.5 border-t border-[var(--border-soft)] p-3.5">
+              <p className="text-[11.5px] leading-relaxed text-[var(--text-faint)]">{tr("coach.method.hint")}</p>
+              {METHOD_FIELDS.map((f) => (
+                <label key={f} className="block">
+                  <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
+                    {tr(`coach.method.${f}` as Parameters<typeof tr>[0])}
+                  </span>
+                  <textarea
+                    value={method[f] ?? ""}
+                    onChange={(e) => setMethod((m) => ({ ...m, [f]: e.target.value }))}
+                    rows={f === "philosophy" || f === "defaults" || f === "notes" ? 3 : 1}
+                    className="w-full resize-y rounded-[10px] border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2 text-[12.5px] text-[var(--text)] outline-none focus:border-[var(--lime)]"
+                  />
+                </label>
+              ))}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={saveMethodology}
+                  disabled={methodState === "saving"}
+                  className="rounded-[10px] bg-[var(--lime)] px-4 py-2 text-[12.5px] font-bold text-[#0a0b0d] disabled:opacity-40"
+                >
+                  {methodState === "saving" ? "…" : tr("coach.method.save")}
+                </button>
+                {methodState === "saved" && <span className="text-[12px] text-[var(--good)]">{tr("coach.method.saved")}</span>}
+                {methodState === "error" && <span className="text-[12px] text-[var(--bad)]">{tr("coach.method.error")}</span>}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {SPORTS.map((s) => {
@@ -192,14 +303,29 @@ export function BankView({ items, locale }: { items: BankWorkout[]; locale: Loca
                 return (
                   <div key={w.id} className="rounded-[12px] border border-[var(--border-soft)] bg-[var(--surface)] p-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-[13.5px] font-semibold text-[var(--text)]">{w.title}</p>
+                      {/* The title opens the same modal the athlete gets — block
+                          list, profile chart and the watch files — so the coach
+                          validates what they'll actually receive, not a summary. */}
+                      <button
+                        type="button"
+                        onClick={() => setOpen(w)}
+                        className="min-w-0 flex-1 text-left"
+                        title={tr("coach.bank.openHint")}
+                      >
+                        <p className="truncate text-[13.5px] font-semibold text-[var(--text)] transition-colors hover:text-[var(--lime)]">
+                          {w.title}
+                        </p>
                         <p className="mt-0.5 text-[11.5px] text-[var(--text-faint)]">
-                          {[w.phase, w.duration_min ? `${w.duration_min}min` : null, w.tss ? `TSS ${w.tss}` : null]
+                          {[
+                            w.phase,
+                            w.duration_min ? `${w.duration_min}min` : null,
+                            w.tss ? `TSS ${w.tss}` : null,
+                            blockCount(w) ? `${blockCount(w)} ${tr("coach.bank.blocks")}` : tr("coach.bank.noBlocks"),
+                          ]
                             .filter(Boolean)
                             .join(" · ")}
                         </p>
-                      </div>
+                      </button>
                       <span
                         className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase"
                         style={{
@@ -253,6 +379,15 @@ export function BankView({ items, locale }: { items: BankWorkout[]; locale: Loca
             </div>
           </section>
         ))
+      )}
+
+      {open && (
+        <WorkoutModal
+          w={asWorkout(open)}
+          locale={locale}
+          tags={open.tags}
+          onClose={() => setOpen(null)}
+        />
       )}
     </div>
   );
