@@ -152,13 +152,18 @@ ${elements.join("\n")}
 `;
 }
 
-/** "1h40" / "45min" — compact, for block rows. */
+/** "1h40" / "45min" / "45s" — compact, for block rows. Sub-minute matters now
+ * that repeats are expanded one block per effort: a 45-second hill rep rounded
+ * to "1min" misstates the prescription on the very blocks that are shortest. */
 export function fmtBlockDuration(min: number): string {
-  const total = Math.round(min);
-  if (total >= 60) {
-    const h = Math.floor(total / 60);
-    const m = total % 60;
-    return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+  const seconds = Math.round((min ?? 0) * 60);
+  if (seconds < 60) return `${Math.max(0, seconds)}s`;
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return s ? `${m}min${String(s).padStart(2, "0")}` : `${m}min`;
   }
-  return `${total}min`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
 }
