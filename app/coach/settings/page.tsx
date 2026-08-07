@@ -4,7 +4,7 @@
 // roster read-only — their own book is the /coach panel, not this.
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { resolveStaffId, listStaff, listAgencyAthletes } from "@/lib/product-db";
+import { resolveStaffId, listStaff } from "@/lib/product-db";
 import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale, type TKey } from "@/lib/i18n";
 import { CoachNav } from "@/components/coach/CoachNav";
@@ -23,8 +23,6 @@ export default async function CoachSettingsPage() {
   const locale: Locale = pickLocale((await headers()).get("accept-language"));
   const tr = translator(locale);
   const team = await listStaff(staff.agencyId);
-  // Athlete rows carry the price, so they're only fetched for an owner.
-  const athletes = staff.isOwner ? await listAgencyAthletes(staff.agencyId) : [];
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
@@ -42,7 +40,7 @@ export default async function CoachSettingsPage() {
       {staff.isOwner ? (
         <div className="flex flex-col gap-5">
           <AddProfessional locale={locale} />
-          <TeamAdmin team={team} athletes={athletes} currency={staff.currency} locale={locale} />
+          <TeamAdmin team={team} locale={locale} />
         </div>
       ) : (
         // Read-only for a hired professional: seeing who else is on the team is

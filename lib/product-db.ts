@@ -144,6 +144,7 @@ export interface RosterAthlete {
   today_reco: "green" | "yellow" | "red" | null;
   last_checkin: string | null;
   recent_injuries: number;
+  injury_severity: number | null;
 }
 
 /** The whole roster in one query, via the app.roster_summary SECURITY DEFINER
@@ -414,10 +415,60 @@ export async function updateStaff(
 export interface AgencyAthlete {
   tenant_id: string;
   name: string | null;
+  nickname: string | null;
+  phone: string | null;
   email: string;
   monthly_value: string | null;
   created_at: string;
   staff_ids: string[];
+}
+
+/**
+ * Register an athlete under the agency and mint their account key.
+ *
+ * The key is returned in plaintext exactly once — only its hash is stored, so
+ * there is no way to recover it later; the caller must show it to the owner
+ * there and then. Same contract as createStaff.
+ *
+ * The profile row has to be written inside withTenant: `profiles` is under RLS,
+ * and app_writer can only see rows for the tenant currently set on the session.
+ */
+export async function createAthlete(
+  agencyId: string,
+  input: { name: string; email: string; nickname?: string; phone?: string },
+): Promise<{ ok: true; tenantId: string; key: string } | { ok: false; code: "duplicate_email" | "no_db" }> {
+  if (!hasProductDb()) return { ok: false, code: "no_db" };
+
+  const key = "trak_" + randomBytes(24).toString("hex");
+  const hash = createHash("sha256").update(key).digest("hex");
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    const { rows } = await client.query<{ id: string }>(
+      `insert into app.tenants (email, status, plan, api_key_hash, agency_id, athlete_name, nickname, phone)
+       values ($1, 'active', 'agency', $2, $3, $4, $5, $6)
+       on conflict (email) do nothing
+       returning id`,
+      [input.email, hash, agencyId, input.name, input.nickname ?? null, input.phone ?? null],
+    );
+    const tenantId = rows[0]?.id;
+    // The email is unique across the whole product, not just this agency — an
+    // athlete already registered elsewhere has to be moved, not duplicated.
+    if (!tenantId) { await client.query("rollback"); return { ok: false, code: "duplicate_email" }; }
+
+    await client.query("select set_config('app.tenant_id', $1, true)", [tenantId]);
+    await client.query(
+      "insert into profiles (tenant_id, athlete, mode) values ($1, $2, 'race') on conflict (tenant_id) do nothing",
+      [tenantId, input.name],
+    );
+    await client.query("commit");
+    return { ok: true, tenantId, key };
+  } catch (e) {
+    await client.query("rollback");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 /** The athlete admin list — assignment and price live here, not on the
@@ -425,7 +476,7 @@ export interface AgencyAthlete {
 export async function listAgencyAthletes(agencyId: string): Promise<AgencyAthlete[]> {
   if (!hasProductDb()) return [];
   const { rows } = await getPool().query<AgencyAthlete>(
-    `select t.id as tenant_id, t.athlete_name as name, t.email,
+    `select t.id as tenant_id, t.athlete_name as name, t.nickname, t.phone, t.email,
             t.monthly_value, t.created_at,
             coalesce(array_agg(sa.staff_id) filter (where sa.staff_id is not null), '{}') as staff_ids
        from app.tenants t
@@ -446,19 +497,28 @@ export async function listAgencyAthletes(agencyId: string): Promise<AgencyAthlet
 export async function updateAgencyAthlete(
   agencyId: string,
   tenantId: string,
-  patch: { monthlyValue?: number | null; staffIds?: string[]; name?: string },
+  patch: { monthlyValue?: number | null; staffIds?: string[]; name?: string; nickname?: string; phone?: string },
 ): Promise<boolean> {
   if (!hasProductDb()) return false;
   const client = await getPool().connect();
   try {
     await client.query("begin");
     // The agency_id predicate is the authorization boundary on every statement.
+    // Empty strings clear nickname/phone; undefined leaves them alone.
     const { rowCount } = await client.query(
       `update app.tenants
           set monthly_value = case when $3::boolean then $4::numeric else monthly_value end,
-              athlete_name  = coalesce($5, athlete_name)
+              athlete_name  = coalesce($5, athlete_name),
+              nickname      = case when $6::boolean then nullif($7, '') else nickname end,
+              phone         = case when $8::boolean then nullif($9, '') else phone end
         where id = $1 and agency_id = $2`,
-      [tenantId, agencyId, patch.monthlyValue !== undefined, patch.monthlyValue ?? null, patch.name ?? null],
+      [
+        tenantId, agencyId,
+        patch.monthlyValue !== undefined, patch.monthlyValue ?? null,
+        patch.name ?? null,
+        patch.nickname !== undefined, patch.nickname ?? null,
+        patch.phone !== undefined, patch.phone ?? null,
+      ],
     );
     if ((rowCount ?? 0) === 0) { await client.query("rollback"); return false; }
 

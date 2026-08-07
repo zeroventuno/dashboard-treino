@@ -5,6 +5,7 @@
 // rather than a fill, so a red athlete quietly draws the eye.
 import Link from "next/link";
 import { translator, type Locale, type TKey } from "@/lib/i18n";
+import { sevColor } from "@/components/InjuryTracker";
 import { daysBetween } from "@/lib/utils";
 import type { RosterAthlete } from "@/lib/product-db";
 import { Icon, type IconName } from "./icons";
@@ -97,9 +98,23 @@ function Card({ a, todayISO, tr, href }: { a: RosterAthlete; todayISO: string; t
                 ? tr("coach.checkinToday")
                 : tr("coach.checkinAgo").replace("{n}", String(checkinAgo))}
           </span>
+          {/* A cross rather than the word: in a 200-card grid the label ate the
+              width that the athlete's name needs, and severity was invisible —
+              a niggle and a tear looked identical. Same scale the athlete sees
+              on their own dashboard, so a colour means one thing product-wide. */}
           {a.recent_injuries > 0 && (
-            <span className="shrink-0 rounded-full border border-[var(--bad)] px-1.5 text-[9px] font-bold uppercase leading-[15px] text-[var(--bad)]">
-              {tr("coach.injury")}
+            <span
+              className="grid h-[15px] w-[15px] shrink-0 place-items-center rounded-full"
+              style={{
+                color: sevColor(a.injury_severity ?? 1),
+                border: `1px solid ${sevColor(a.injury_severity ?? 1)}`,
+              }}
+              title={`${tr("coach.injury")}${a.injury_severity ? ` · ${a.injury_severity}/5` : ""}`}
+              aria-label={`${tr("coach.injury")} ${a.injury_severity ?? ""}`}
+            >
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8z" />
+              </svg>
             </span>
           )}
         </div>

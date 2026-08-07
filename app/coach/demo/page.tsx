@@ -36,16 +36,17 @@ function mockRoster(): RosterAthlete[] {
     today_reco,
     last_checkin: ago(0),
     recent_injuries: 0,
+    injury_severity: null,
     ...opts,
   });
 
   return [
     a("d1", "Marina", "Base", "green", { sports: ["swim", "bike", "run"], metrics: ["power", "hrv", "bioimpedance"], next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(96) }),
     a("d2", "João", "Base", "yellow", { sports: ["run", "strength"], metrics: ["hrv"], next_race_name: "Maratona do Porto", next_race_date: race(96), last_checkin: ago(1) }),
-    a("d3", "Lucas", "Base", "red", { sports: ["run"], metrics: [], last_checkin: ago(1), recent_injuries: 1 }),
+    a("d3", "Lucas", "Base", "red", { sports: ["run"], metrics: [], last_checkin: ago(1), recent_injuries: 1, injury_severity: 4 }),
     a("d4", "Ana", "Build", "green", { sports: ["swim", "bike", "run", "strength"], metrics: ["power", "hrv", "bioimpedance"], next_race_name: "Triatlo de Aveiro", next_race_date: race(42) }),
     a("d5", "Pedro", "Build", null, { sports: ["bike", "run"], metrics: ["power", "hrv"], last_checkin: ago(5) }),
-    a("d6", "Carla", "Build", "yellow", { sports: ["swim", "bike", "run"], metrics: ["hrv", "bioimpedance"], next_race_name: "Triatlo de Aveiro", next_race_date: race(42), last_checkin: ago(2), recent_injuries: 1 }),
+    a("d6", "Carla", "Build", "yellow", { sports: ["swim", "bike", "run"], metrics: ["hrv", "bioimpedance"], next_race_name: "Triatlo de Aveiro", next_race_date: race(42), last_checkin: ago(2), recent_injuries: 1, injury_severity: 2 }),
     a("d7", "Rafael", "Pico", "green", { sports: ["swim", "bike", "run"], metrics: ["power", "hrv", "bioimpedance"], next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(13) }),
     a("d8", "Bia", "Taper", "green", { sports: ["run"], metrics: ["hrv"], next_race_name: "Meia de Lisboa", next_race_date: race(5) }),
     a("d9", "Diego", null, null, { sports: ["bike"], metrics: ["power"], last_checkin: ago(8) }),

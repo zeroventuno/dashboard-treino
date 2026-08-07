@@ -9,10 +9,19 @@ const AREA_LABEL: Record<string, string> = {
   lower_back: "Lower back",
 };
 
-function sevColor(s: number) {
+/** Severity 1-5 → amber, orange, red. Exported because the coach roster must
+ * colour an injury exactly as the athlete sees it: the same number meaning two
+ * different colours in two screens is worse than no colour at all.
+ *
+ * There is no green here on purpose. A mild niggle is still a niggle, and the
+ * scale used to bottom out at --good, which painted a reassuring green tick on
+ * something that by definition needs watching. The orange is mixed from the two
+ * existing tokens rather than added as a third: it is then guaranteed to sit
+ * between them, and it moves with the palette if those ever change. */
+export function sevColor(s: number) {
   if (s >= 4) return "var(--bad)";
-  if (s >= 3) return "var(--warn)";
-  return "var(--good)";
+  if (s >= 3) return "color-mix(in oklab, var(--warn) 45%, var(--bad))";
+  return "var(--warn)";
 }
 
 export function InjuryTracker({ injuries }: { injuries: InjuryEntry[] }) {

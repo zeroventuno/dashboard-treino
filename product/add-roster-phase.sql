@@ -25,7 +25,8 @@ returns table (
   next_race_date  date,
   today_reco      text,
   last_checkin    date,
-  recent_injuries int
+  recent_injuries int,
+  injury_severity int   -- worst open injury, so the roster can colour it
 )
 language sql
 security definer
@@ -68,7 +69,8 @@ as $$
     r.date                                          as next_race_date,
     ci.recommendation                               as today_reco,
     lc.last_checkin,
-    coalesce(inj.recent_injuries, 0)                as recent_injuries
+    coalesce(inj.recent_injuries, 0)                as recent_injuries,
+    inj.injury_severity
   from app.staff_athletes sa
   join app.tenants t on t.id = sa.tenant_id
   left join public.profiles p on p.tenant_id = t.id
@@ -87,7 +89,7 @@ as $$
     select max(date) as last_checkin from public.checkins where tenant_id = t.id
   ) lc on true
   left join lateral (
-    select count(*)::int as recent_injuries from public.injury_log
+    select count(*)::int as recent_injuries, max(severity)::int as injury_severity from public.injury_log
      where tenant_id = t.id and date >= current_date - 30
   ) inj on true
   where sa.staff_id = p_staff

@@ -6,7 +6,7 @@ import { translator, type Locale, type TKey } from "@/lib/i18n";
 import { Icon } from "./icons";
 import { CoachLogout } from "./CoachLogout";
 
-type Tab = "team" | "bank" | "agency" | "settings" | "notifications";
+type Tab = "team" | "bank" | "agency" | "athletes" | "settings" | "notifications";
 
 const iconBtn =
   "grid h-8 w-8 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] transition-colors hover:border-[var(--text)] hover:text-[var(--text)]";
@@ -53,6 +53,11 @@ export function CoachNav({
           )}
           {/* Everyone gets it — scoped to their own book unless they own the
               agency, in which case it's the whole thing. */}
+          {isOwner && (
+            <Link href="/coach/athletes" className={tabCls(active === "athletes")}>
+              {tr("athletes.link")}
+            </Link>
+          )}
           <Link href="/coach/agency" className={tabCls(active === "agency")}>
             {isOwner ? tr("coach.nav.agency") : tr("agency.myBook")}
           </Link>
