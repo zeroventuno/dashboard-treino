@@ -318,6 +318,87 @@ export async function getAgencyAttention(agencyId: string): Promise<AttentionRow
   return rows;
 }
 
+/**
+ * Put a library workout on athletes' calendars — the step that turns a bank
+ * into leverage.
+ *
+ * The AI path (list_bank → upsert_workout per athlete, in the coach's own chat)
+ * has always been able to do this, and remains the right tool when each athlete
+ * needs different judgment. It is the wrong tool for the mechanical half of the
+ * job: "this threshold session, these forty athletes, Thursday" is one decision
+ * and forty identical writes, and typing it out forty times is how a coach
+ * stays stuck at thirty athletes.
+ *
+ * Authorization is doubled on purpose: the workout must belong to the staff's
+ * agency, and every athlete must already be on that staff member's roster —
+ * ids that fail either test are dropped rather than erroring, so one stale tab
+ * can't cancel a legitimate batch. The count of rows actually written comes
+ * back so the panel reports what happened instead of what was requested.
+ */
+export async function prescribeFromBank(
+  staffId: string,
+  agencyId: string,
+  bankWorkoutId: string,
+  tenantIds: string[],
+  date: string,
+): Promise<{ written: number; skipped: number }> {
+  if (!hasProductDb() || tenantIds.length === 0) return { written: 0, skipped: tenantIds.length };
+
+  const pool = getPool();
+  const { rows: bank } = await pool.query<{
+    sport: string; title: string; description: string | null;
+    structure: unknown; duration_min: number | null; tss: number | null;
+  }>(
+    `select sport, title, description, structure, duration_min, tss
+       from app.workout_bank where id = $1 and agency_id = $2`,
+    [bankWorkoutId, agencyId],
+  );
+  const w = bank[0];
+  if (!w) return { written: 0, skipped: tenantIds.length };
+
+  // Only athletes this professional actually holds.
+  const { rows: allowed } = await pool.query<{ tenant_id: string }>(
+    "select tenant_id from app.staff_athletes where staff_id = $1 and tenant_id = any($2::uuid[])",
+    [staffId, tenantIds],
+  );
+  const targets = allowed.map((r) => r.tenant_id);
+
+  const client = await pool.connect();
+  let written = 0;
+  try {
+    await client.query("begin");
+    for (const tenantId of targets) {
+      // set_config is transaction-local, so re-setting it per athlete keeps RLS
+      // scoped correctly while reusing one connection for the whole batch.
+      await client.query("select set_config('app.tenant_id', $1, true)", [tenantId]);
+      const { rowCount } = await client.query(
+        `insert into workouts
+           (tenant_id, date, discipline, title, status, description, structure,
+            planned_duration_min, planned_tss)
+         values ($1, $2::date, $3, $4, 'planned', $5, $6::jsonb, $7, $8)
+         on conflict (tenant_id, date, discipline, title) do update set
+           description          = coalesce(excluded.description, workouts.description),
+           structure            = coalesce(excluded.structure, workouts.structure),
+           planned_duration_min = coalesce(excluded.planned_duration_min, workouts.planned_duration_min),
+           planned_tss          = coalesce(excluded.planned_tss, workouts.planned_tss)`,
+        [
+          tenantId, date, w.sport, w.title, w.description,
+          w.structure ? JSON.stringify(w.structure) : null,
+          w.duration_min, w.tss,
+        ],
+      );
+      written += rowCount ?? 0;
+    }
+    await client.query("commit");
+  } catch (e) {
+    await client.query("rollback");
+    throw e;
+  } finally {
+    client.release();
+  }
+  return { written, skipped: tenantIds.length - targets.length };
+}
+
 // ── Methodology (the professional's working method) ─────────────────────────
 // Also writable from the AI copilot via set_methodology; the panel is the path
 // for a coach who'd rather type it than dictate it. Same jsonb, shallow-merged

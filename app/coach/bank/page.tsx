@@ -2,11 +2,12 @@
 // Coach-only. Reused when prescribing (list_bank / add_bank_workout tools).
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { resolveStaffId, getBank, getMethodology } from "@/lib/product-db";
+import { resolveStaffId, getBank, getMethodology, getRoster } from "@/lib/product-db";
 import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
 import { CoachNav } from "@/components/coach/CoachNav";
 import { BankView } from "@/components/coach/BankView";
+import { toISO } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +22,11 @@ export default async function CoachBankPage() {
 
   const locale: Locale = pickLocale((await headers()).get("accept-language"));
   const tr = translator(locale);
-  const [items, methodology] = await Promise.all([
+  const [items, methodology, roster] = await Promise.all([
     getBank(staff.agencyId),
     getMethodology(staff.id),
+    // Who a validated workout can be sent to: this coach's own athletes.
+    getRoster(staff.id),
   ]);
 
   return (
@@ -35,7 +38,7 @@ export default async function CoachBankPage() {
         <p className="mt-0.5 text-[13px] text-[var(--text-faint)]">{tr("coach.bank.sub")}</p>
       </header>
 
-      <BankView items={items} methodology={methodology} locale={locale} />
+      <BankView items={items} methodology={methodology} roster={roster} todayISO={toISO(new Date())} locale={locale} />
     </div>
   );
 }

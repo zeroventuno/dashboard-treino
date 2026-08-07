@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { translator, type Locale } from "@/lib/i18n";
-import type { BankWorkout, Methodology } from "@/lib/product-db";
+import type { BankWorkout, Methodology, RosterAthlete } from "@/lib/product-db";
 import type { Workout, Discipline, WorkoutBlock } from "@/lib/types";
 import { WorkoutModal } from "@/components/WorkoutModal";
 import { TagEditor } from "@/components/coach/TagEditor";
+import { PrescribeModal } from "@/components/coach/PrescribeModal";
 
 const SPORTS = ["swim", "bike", "run", "strength"] as const;
 const SPORT_LABEL: Record<string, string> = { swim: "Natação", bike: "Bike", run: "Corrida", strength: "Força" };
@@ -56,10 +57,15 @@ function asWorkout(b: BankWorkout): Workout {
 export function BankView({
   items,
   methodology,
+  roster,
+  todayISO,
   locale,
 }: {
   items: BankWorkout[];
   methodology: Methodology;
+  /** The coach's own athletes — who a validated workout can be sent to. */
+  roster: RosterAthlete[];
+  todayISO: string;
   locale: Locale;
 }) {
   const tr = translator(locale);
@@ -79,6 +85,7 @@ export function BankView({
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "validated">("all");
   const [open, setOpen] = useState<BankWorkout | null>(null);
   const [editingTags, setEditingTags] = useState<string | null>(null);
+  const [prescribing, setPrescribing] = useState<BankWorkout | null>(null);
   // Bulk cleanup: a generation run makes dozens of items, so a bad batch has to
   // be undoable in one sweep. Delete needs a second click (see `confirmDelete`).
   const [picked, setPicked] = useState<string[]>([]);
@@ -636,6 +643,15 @@ export function BankView({
                           {tr("coach.bank.validate")}
                         </button>
                       )}
+                      {validated && (
+                        <button
+                          type="button"
+                          onClick={() => setPrescribing(w)}
+                          className="rounded-[8px] bg-[var(--lime)] px-2.5 py-1 text-[11.5px] font-bold text-[#0a0b0d]"
+                        >
+                          {tr("prescribe.button")}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setStatus(w.id, "archived")}
@@ -654,6 +670,16 @@ export function BankView({
           </section>
           );
         })
+      )}
+
+      {prescribing && (
+        <PrescribeModal
+          workout={prescribing}
+          roster={roster}
+          todayISO={todayISO}
+          locale={locale}
+          onClose={() => setPrescribing(null)}
+        />
       )}
 
       {open && (
