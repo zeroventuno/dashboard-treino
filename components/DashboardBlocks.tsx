@@ -12,6 +12,7 @@ import type { TenantView } from "@/lib/data-product";
 import { HeroBlock } from "@/components/blocks/HeroBlock";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
+import { AvailabilityBlock } from "@/components/blocks/AvailabilityBlock";
 import { SeasonBlock } from "@/components/blocks/SeasonBlock";
 import { MenstrualCycleBlock } from "@/components/blocks/MenstrualCycleBlock";
 import { ZonesBlock } from "@/components/blocks/ZonesBlock";
@@ -48,6 +49,10 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
   fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
   calendar: (p) => (
     <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} units={p.tenant.units} editable={p.editable} />
+  ),
+  availability: (p) => (
+    // Editable only on the athlete's own dashboard; the coach drill-in reads it.
+    <AvailabilityBlock preferences={p.tenant.preferences ?? {}} locale={p.locale} editable={p.editable} />
   ),
   season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   menstrual: (p) => <MenstrualCycleBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,

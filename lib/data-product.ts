@@ -10,6 +10,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n";
 import { hasProductDb, withTenant } from "./product-db";
 import { addDays, parseDate, toISO } from "./utils";
 import { RACE_DATE, RACE_NAME } from "./types";
+import type { Availability } from "./availability";
 import type {
   BodyComposition, Checkin, DailyMeal, DashboardData, InjuryEntry, MenstrualCycle, NutritionRule,
   PerformanceIndicators, PerformanceMilestone, Phase, StrengthSession, TrainingLoad, Workout,
@@ -34,6 +35,9 @@ export interface TenantView {
   cycleName: string | null;
   /** Body figure for the strength map. */
   anatomy: "male" | "female";
+  /** What a training week has to fit around — the athlete fills this in on
+   * their own dashboard, and their AI (B2C) or their coach (B2B) reads it. */
+  preferences: Availability;
   /** Distance/weight display; anything but "imperial" renders metric. */
   units: "metric" | "imperial";
   /** Full cycle, for the hero's week-of-N progress and the season timeline.
@@ -85,6 +89,7 @@ const MOCK_TENANT: TenantView = {
   cycleName: null,
   cycle: null,
   anatomy: "male",
+  preferences: {},
   units: "metric",
 };
 
@@ -182,7 +187,8 @@ export async function getProductDashboardData(
         athlete: string | null;
         anatomy: string | null;
         units: string | null;
-      }>("select locale, metrics, mode, athlete, anatomy, units from profiles where tenant_id=$1 limit 1");
+        preferences: Availability | null;
+      }>("select locale, metrics, mode, athlete, anatomy, units, preferences from profiles where tenant_id=$1 limit 1");
       const locale = isLocale(profile[0]?.locale) ? profile[0].locale : DEFAULT_LOCALE;
 
       // Next A race, else the soonest upcoming, else the most recent past one.
@@ -208,6 +214,7 @@ export async function getProductDashboardData(
       const tenant: TenantView = {
         athlete: profile[0]?.athlete ?? null,
         metrics: (profile[0]?.metrics ?? []) as Metric[],
+        preferences: profile[0]?.preferences ?? {},
         mode: profile[0]?.mode === "cycle" ? "cycle" : "race",
         races,
         raceName: races[0]?.name ?? null,

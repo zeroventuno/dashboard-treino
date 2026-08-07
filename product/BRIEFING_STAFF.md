@@ -38,9 +38,11 @@ Não escreva aluno por aluno do zero. Trabalhe **por cohort de fase**:
 3. **Rascunhe UMA semana do cohort** na minha metodologia, **puxando do meu banco
    de workouts** (`list_bank` por esporte + fase — use só os `validated`). O item
    do banco é um **modelo, não uma sessão fixa**: copie a `structure` e **ajuste o
-   volume ao atleta**. Depois **adapte na margem por atleta**: dias da semana
-   conforme a preferência de cada um, zonas/paces do atleta (`get_profile`), e
-   ajuste por prontidão/lesão.
+   volume ao atleta**. Depois **adapte na margem por atleta**: `get_profile` traz
+   `preferences` — quanto tempo cada um tem em CADA dia da semana (`hours`), qual
+   dia aguenta o longo (`long_day`), horário e equipamento. Respeite: dia com 0 é
+   dia sem treino, e 2h numa terça de 45min é semana que o aluno abandona. Use
+   também as zonas/paces dele e ajuste por prontidão/lesão.
 4. **Me mostre o lote para eu revisar.** Liste, por atleta, o que você vai
    gravar. **Espere minha confirmação explícita.**
 5. Só depois de eu confirmar, grave a semana de cada um com `upsert_workout`

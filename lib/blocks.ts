@@ -17,7 +17,8 @@ export type BlockId =
   | "body"        // body composition (bioimpedance) trends
   | "strength"    // body map / muscle use
   | "watchpoints" // injury log
-  | "lifestyle";  // sleep / hydration / protein rings
+  | "lifestyle"   // sleep / hydration / protein rings
+  | "availability"; // the athlete's own weekly time budget
 
 import type { Metric } from "./tenant-config";
 
@@ -35,6 +36,7 @@ export const BLOCKS: BlockDef[] = [
   { id: "hero",        enabled: true, width: "full" },
   { id: "fitness",     enabled: true, width: "full" },
   { id: "calendar",    enabled: true, width: "full" },
+  { id: "availability",enabled: true, width: "full" },
   { id: "season",      enabled: true, width: "full" },
   { id: "menstrual",   enabled: true, width: "full",  requires: ["menstrual"] },
   { id: "zones",       enabled: true, width: "full",  requires: ["zones"] },

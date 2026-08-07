@@ -29,7 +29,7 @@ function cycleToSeason(
 export async function readProfile(c: PoolClient, tenantId: string) {
   const [profile, races, cycle, phasesTable, indicators, menstrual] = await Promise.all([
     c.query(
-      "select athlete, devices, metrics, mode, locale, units, anatomy, updated_at from profiles where tenant_id=$1 limit 1",
+      "select athlete, devices, metrics, mode, locale, units, anatomy, preferences, updated_at from profiles where tenant_id=$1 limit 1",
       [tenantId],
     ),
     c.query("select name, date, priority from races where tenant_id=$1 order by date", [tenantId]),

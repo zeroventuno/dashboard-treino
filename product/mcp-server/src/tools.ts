@@ -85,7 +85,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
     "set_profile",
     {
       description:
-        "Set/update the athlete config (devices, available metrics, race|cycle mode). Run during onboarding discovery so the dashboard adapts.",
+        "Set/update the athlete config (devices, available metrics, race|cycle mode, training preferences). Run during onboarding discovery so the dashboard adapts, and save a `preference` the moment the athlete mentions a constraint — that is what lets a week be built for them later without asking again.",
       inputSchema: {
         athlete: z.string().optional(),
         devices: z.array(z.string()).optional().describe("omit to keep; [] to clear"),
@@ -104,6 +104,22 @@ export function registerTools(server: McpServer, tenantId: string): void {
           .enum(["male", "female"])
           .optional()
           .describe("body figure in the muscle map; ask the athlete's preference"),
+        // The constraints a week has to respect. Merged, never replaced, so the
+        // ones gathered over past conversations survive.
+        preferences: z
+          .object({
+            days_off: z.array(z.string()).optional().describe("weekdays that never work, e.g. ['tuesday']"),
+            preferred_time: z.string().optional().describe("e.g. 'early morning', 'after 7pm'"),
+            weekly_hours: z.number().optional().describe("realistic training hours per week"),
+            long_day: z.string().optional().describe("weekday that can hold the long session, e.g. 'saturday'"),
+            equipment: z.array(z.string()).optional().describe("what they can reach, e.g. ['trainer','25m pool','gym']"),
+            notes: z.string().optional().describe("anything else a week must respect, in the athlete's words"),
+          })
+          .partial()
+          .optional()
+          .describe(
+            "Training constraints — what a week has to fit around. Save these as soon as they come up in conversation; only the keys you pass are changed, the rest are kept. This is what a coach reads before writing the week, so 'I can't train Tuesdays' never has to be said twice.",
+          ),
       },
     },
     async (a) => {
@@ -123,10 +139,10 @@ export function registerTools(server: McpServer, tenantId: string): void {
           // text — and then refuses to put a text into a text[] column. Every
           // set_profile call failed with a type error the coach saw only as
           // "internal error".
-          `insert into profiles (tenant_id, athlete, devices, metrics, mode, locale, units, anatomy, updated_at)
+          `insert into profiles (tenant_id, athlete, devices, metrics, mode, locale, units, anatomy, preferences, updated_at)
            values ($1, $2, coalesce($3::text[],'{}'::text[]), coalesce($4::text[],'{}'::text[]),
                    coalesce($5::text,'race'), coalesce($6::text,'pt'), coalesce($7::text,'metric'),
-                   coalesce($8::text,'male'), now())
+                   coalesce($8::text,'male'), coalesce($9::jsonb,'{}'::jsonb), now())
            on conflict (tenant_id) do update set
              athlete = coalesce($2::text, profiles.athlete),
              devices = coalesce($3::text[], profiles.devices),
@@ -135,8 +151,12 @@ export function registerTools(server: McpServer, tenantId: string): void {
              locale  = coalesce($6::text, profiles.locale),
              units   = coalesce($7::text, profiles.units),
              anatomy = coalesce($8::text, profiles.anatomy),
+             -- Shallow MERGE, not replace: preferences accumulate over months of
+             -- conversation ("no Tuesdays" in March, "pool is 25m" in July), and
+             -- replacing would quietly drop everything not mentioned this time.
+             preferences = profiles.preferences || coalesce($9::jsonb, '{}'::jsonb),
              updated_at = now()
-           returning athlete, devices, metrics, mode, locale, units, anatomy`,
+           returning athlete, devices, metrics, mode, locale, units, anatomy, preferences`,
           [
             tenantId,
             a.athlete ?? null,
@@ -146,6 +166,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
             a.locale ?? null,
             a.units ?? null,
             a.anatomy ?? null,
+            a.preferences ? JSON.stringify(a.preferences) : null,
           ],
         );
         return rows[0] ?? null;
@@ -162,7 +183,8 @@ export function registerTools(server: McpServer, tenantId: string): void {
       return ok(
         `Profile saved — stored: athlete=${saved.athlete ?? "unset"}, mode=${saved.mode}, ` +
         `locale=${saved.locale}, units=${saved.units}, anatomy=${saved.anatomy}, ` +
-        `devices=[${list(saved.devices)}], metrics=[${list(saved.metrics)}]. ` +
+        `devices=[${list(saved.devices)}], metrics=[${list(saved.metrics)}], ` +
+        `preferences=${JSON.stringify(saved.preferences ?? {})}. ` +
         `Only the blocks whose metrics are listed will show. Fields you omitted were kept.`,
       );
     },

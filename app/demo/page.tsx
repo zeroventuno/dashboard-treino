@@ -18,6 +18,7 @@ import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 import { DemoHero, cycleToPhases } from "@/components/DemoHero";
 import { FitnessBlock } from "@/components/blocks/FitnessBlock";
 import { CalendarBlock } from "@/components/blocks/CalendarBlock";
+import { AvailabilityBlock } from "@/components/blocks/AvailabilityBlock";
 import { SeasonBlock } from "@/components/blocks/SeasonBlock";
 import { MenstrualCycleBlock } from "@/components/blocks/MenstrualCycleBlock";
 import { ZonesBlock } from "@/components/blocks/ZonesBlock";
@@ -36,6 +37,7 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
   hero: (p) => <DemoHero config={p.config} data={p.data} todayISO={p.todayISO} />,
   fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
   calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
+  availability: (p) => <AvailabilityBlock preferences={{}} locale={p.locale} editable={false} />,
   season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   menstrual: (p) => <MenstrualCycleBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
