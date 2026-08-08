@@ -165,7 +165,7 @@ function extendTrainingLoad(load: TrainingLoad[], workouts: Workout[], todayISO:
  */
 export async function getProductDashboardData(
   tenantId: string,
-): Promise<{ data: DashboardData; live: boolean; locale: Locale; tenant: TenantView }> {
+): Promise<{ data: DashboardData; live: boolean; locale: Locale; tenant: TenantView; error?: string }> {
   if (!hasProductDb() || !tenantId) {
     return { data: getMockData(), live: false, locale: DEFAULT_LOCALE, tenant: MOCK_TENANT };
   }
@@ -309,8 +309,18 @@ export async function getProductDashboardData(
 
     return { live: true, ...result };
   } catch (err) {
+    // Falling back to mock is right — a broken read shouldn't blank the page.
+    // Staying SILENT about why was not: a failed query and "no data yet" drew
+    // the identical screen, so a missing migration read as "my data is gone".
+    // The message travels to the UI; console.error is invisible to whoever is
+    // actually looking at the dashboard.
     console.error("[product] read failed, using mock:", err);
-    return { data: getMockData(), live: false, locale: DEFAULT_LOCALE, tenant: MOCK_TENANT };
+    const e = err as { message?: string; code?: string };
+    const detail = [e.code, e.message].filter(Boolean).join(" · ").slice(0, 200);
+    return {
+      data: getMockData(), live: false, locale: DEFAULT_LOCALE, tenant: MOCK_TENANT,
+      error: detail || "unknown",
+    };
   }
 }
 

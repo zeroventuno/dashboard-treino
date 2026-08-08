@@ -77,6 +77,43 @@ export async function healthCheck(): Promise<
   }
 }
 
+/**
+ * Columns this build's queries require, and which migration adds each.
+ *
+ * A deployment can be perfectly reachable and still broken, because the code
+ * ships before the SQL is run by hand. When that happened the read simply threw,
+ * the dashboard fell back to sample data, and it looked to the athlete like
+ * their training history had disappeared. Naming the gap turns that into a
+ * five-second check.
+ *
+ * Add a row here whenever a query starts depending on a new column.
+ */
+const REQUIRED_COLUMNS: { schema: string; table: string; column: string; migration: string }[] = [
+  { schema: "public", table: "profiles",    column: "preferences",   migration: "add-athlete-preferences.sql" },
+  { schema: "public", table: "workouts",    column: "adherence",     migration: "add-workout-adherence.sql" },
+  { schema: "public", table: "workouts",    column: "extra",         migration: "add-workout-extra.sql" },
+  { schema: "app",    table: "tenants",     column: "monthly_value", migration: "add-owner-and-value.sql" },
+  { schema: "app",    table: "tenants",     column: "nickname",      migration: "add-athlete-admin.sql" },
+  { schema: "app",    table: "staff",       column: "is_owner",      migration: "add-owner-and-value.sql" },
+  { schema: "app",    table: "staff",       column: "methodology",   migration: "add-staff-methodology.sql" },
+  { schema: "app",    table: "agencies",    column: "currency",      migration: "add-owner-and-value.sql" },
+];
+
+/** Which required columns are missing, and the migration that adds each. */
+export async function schemaCheck(): Promise<{ column: string; migration: string }[]> {
+  if (!hasProductDb()) return [];
+  const { rows } = await getPool().query<{ table_schema: string; table_name: string; column_name: string }>(
+    `select table_schema, table_name, column_name
+       from information_schema.columns
+      where (table_schema, table_name) in (('public','profiles'),('public','workouts'),
+                                           ('app','tenants'),('app','staff'),('app','agencies'))`,
+  );
+  const present = new Set(rows.map((r) => `${r.table_schema}.${r.table_name}.${r.column_name}`));
+  return REQUIRED_COLUMNS
+    .filter((c) => !present.has(`${c.schema}.${c.table}.${c.column}`))
+    .map((c) => ({ column: `${c.schema}.${c.table}.${c.column}`, migration: c.migration }));
+}
+
 /** account API key → tenant_id (app.tenants is private; app_writer has SELECT). */
 export async function resolveTenantId(accountKey: string): Promise<string | null> {
   if (!hasProductDb()) return null;

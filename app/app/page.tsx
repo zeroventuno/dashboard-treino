@@ -65,7 +65,7 @@ export default async function ProductDashboardPage({
   // Stale/revoked key: send them back to log in rather than showing sample data.
   if (dbConfigured && !tenantId) redirect("/app/login?erro=1");
 
-  const { data, live, locale, tenant } = await getProductDashboardData(tenantId ?? "");
+  const { data, live, locale, tenant, error } = await getProductDashboardData(tenantId ?? "");
 
   const tr = translator(locale);
 
@@ -96,12 +96,17 @@ export default async function ProductDashboardPage({
     );
   }
 
-  // Say exactly WHY we fell back to mock — silent sample data is impossible to debug.
+  // Say exactly WHY we fell back to mock — silent sample data is impossible to
+  // debug. `error` is the case that matters most: a failed read used to draw the
+  // same screen as "nothing logged yet", so a missing migration looked exactly
+  // like the athlete's data having vanished.
   const reason: TKey | null = live
     ? null
     : !dbConfigured
       ? "app.reason.noDb"
-      : "app.reason.empty";
+      : error
+        ? "app.reason.error"
+        : "app.reason.empty";
   const todayISO = toISO(new Date());
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
 
@@ -121,9 +126,21 @@ export default async function ProductDashboardPage({
       </nav>
 
       {!live && reason && (
-        <div className="mb-4 rounded-[14px] border border-[var(--warn)]/40 bg-[var(--surface-2)] px-4 py-3 text-[12.5px] text-[var(--text-muted)]">
-          <span className="font-semibold text-[var(--warn)]">{tr("app.sampleBanner")} · </span>
+        <div
+          className="mb-4 rounded-[14px] border bg-[var(--surface-2)] px-4 py-3 text-[12.5px] text-[var(--text-muted)]"
+          style={{ borderColor: error ? "color-mix(in oklab, var(--bad) 45%, transparent)" : "color-mix(in oklab, var(--warn) 40%, transparent)" }}
+        >
+          <span className="font-semibold" style={{ color: error ? "var(--bad)" : "var(--warn)" }}>
+            {tr("app.sampleBanner")} ·{" "}
+          </span>
           {tr(reason)}
+          {/* The database's own words. Ugly, and far kinder than letting someone
+              conclude their training history is gone. */}
+          {error && (
+            <code className="mt-1.5 block overflow-x-auto rounded-[8px] bg-[var(--bg-soft)] px-2.5 py-1.5 font-mono text-[11.5px] text-[var(--text-faint)]">
+              {error}
+            </code>
+          )}
         </div>
       )}
 
