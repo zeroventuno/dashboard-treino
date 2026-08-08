@@ -2,22 +2,28 @@
 
 import { useState } from "react";
 import { SectionCard } from "../SectionCard";
+import { Icon, type IconName } from "@/components/coach/icons";
 import { translator, type Locale } from "@/lib/i18n";
-import { WEEKDAYS, weeklyHours, normalizeHours, type Availability, type Weekday, type WeekHours } from "@/lib/availability";
+import {
+  WEEKDAYS, HOUR_CHOICES, weeklyHours, longDays, sportsFor,
+  normalizeHours, normalizeSports,
+  type Availability, type Weekday, type WeekHours, type WeekSports,
+} from "@/lib/availability";
 
-const STEPS = [0, 0.5, 1, 1.5, 2, 3];
+const SPORTS: IconName[] = ["swim", "bike", "run", "strength"];
 
 /**
- * The athlete's own week: how much time each day actually holds.
+ * The athlete's own week: how much time each day holds, which days can take a
+ * long session, and which sports they'd rather do when.
  *
  * Editable by the athlete because they are the only one who knows — a coach can
- * infer training days from history, but never "Tuesday I have class". Written
- * once and read forever after: by the athlete's AI in B2C, by their coach in
- * B2B, both through the same profile field.
+ * infer training days from history, but never "Tuesday I have class" or "the
+ * swim squad meets Thursday". Written once, read forever: by the athlete's AI in
+ * B2C, by their coach in B2B, through the same profile field.
  *
- * Hours per day rather than a days-off toggle: "Tuesday off" and "Tuesday, 40
- * minutes" produce different weeks, and only the second tells anyone they can
- * put the recovery run there.
+ * The sports row is a PREFERENCE, never a restriction. All off and all on say
+ * the same thing — "anything goes" — because a blank row is far more likely to
+ * mean the athlete never filled it in than that they refuse to train.
  */
 export function AvailabilityBlock({
   preferences,
@@ -30,17 +36,24 @@ export function AvailabilityBlock({
 }) {
   const tr = translator(locale);
   const [hours, setHours] = useState<WeekHours>(preferences.hours ?? {});
-  const [longDay, setLongDay] = useState<Weekday | null>((preferences.long_day as Weekday) ?? null);
+  const [longs, setLongs] = useState<Weekday[]>(() => longDays(preferences));
+  const [sports, setSports] = useState<WeekSports>(() =>
+    Object.fromEntries(WEEKDAYS.map((d) => [d, sportsFor(preferences, d)])) as WeekSports,
+  );
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
-  async function persist(nextHours: WeekHours, nextLong: Weekday | null) {
+  async function persist(next: { hours?: WeekHours; longs?: Weekday[]; sports?: WeekSports }) {
     if (!editable) return;
     setState("saving");
     try {
       const res = await fetch("/api/app/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hours: normalizeHours(nextHours), long_day: nextLong }),
+        body: JSON.stringify({
+          hours: normalizeHours(next.hours ?? hours),
+          long_days: next.longs ?? longs,
+          sports: normalizeSports(next.sports ?? sports),
+        }),
       });
       setState(res.ok ? "saved" : "error");
       if (res.ok) setTimeout(() => setState("idle"), 1800);
@@ -49,18 +62,26 @@ export function AvailabilityBlock({
     }
   }
 
-  function cycle(day: Weekday) {
-    // Tapping steps through the realistic options instead of asking for a
-    // number: on a phone, at 6am, nobody types "1.5".
-    const current = hours[day] ?? 0;
-    const idx = STEPS.findIndex((s) => s === current);
-    const next = STEPS[(idx + 1) % STEPS.length];
-    const nextHours = { ...hours, [day]: next };
+  function setDayHours(day: Weekday, value: number) {
+    const nextHours = { ...hours, [day]: value };
     setHours(nextHours);
-    // A day with no time can't hold the long session.
-    const nextLong = next === 0 && longDay === day ? null : longDay;
-    if (nextLong !== longDay) setLongDay(nextLong);
-    void persist(nextHours, nextLong);
+    // A day with no time can't hold a long session.
+    const nextLongs = value === 0 ? longs.filter((d) => d !== day) : longs;
+    if (nextLongs !== longs) setLongs(nextLongs);
+    void persist({ hours: nextHours, longs: nextLongs });
+  }
+
+  function toggleLong(day: Weekday) {
+    const next = longs.includes(day) ? longs.filter((d) => d !== day) : [...longs, day];
+    setLongs(next);
+    void persist({ longs: next });
+  }
+
+  function toggleSport(day: Weekday, sport: string) {
+    const current = sports[day] ?? [];
+    const next = { ...sports, [day]: current.includes(sport) ? current.filter((s) => s !== sport) : [...current, sport] };
+    setSports(next);
+    void persist({ sports: next });
   }
 
   const total = weeklyHours({ hours });
@@ -68,42 +89,103 @@ export function AvailabilityBlock({
 
   return (
     <SectionCard title={tr("availability.title")} subtitle={tr("availability.sub")}>
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         {WEEKDAYS.map((d) => {
           const h = hours[d] ?? 0;
           const on = h > 0;
-          const isLong = longDay === d;
+          const isLong = longs.includes(d);
+          const daySports = sports[d] ?? [];
           return (
-            <div key={d} className="flex flex-col items-center gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
-                {tr(`availability.${d}` as Parameters<typeof tr>[0])}
-              </span>
-              <button
-                type="button"
-                onClick={() => cycle(d)}
-                disabled={!editable}
-                aria-label={`${tr(`availability.${d}` as Parameters<typeof tr>[0])}: ${fmt(h)}`}
-                className="flex h-[52px] w-full flex-col items-center justify-center rounded-[10px] border transition-colors disabled:cursor-default"
-                style={{
-                  borderColor: on ? "var(--lime)" : "var(--border)",
-                  background: on ? "color-mix(in oklab, var(--lime) 12%, transparent)" : "var(--bg-soft)",
-                  color: on ? "var(--lime)" : "var(--text-faint)",
-                }}
-              >
-                <span className="tnum text-[13px] font-bold">{fmt(h)}</span>
-                {isLong && <span className="text-[8.5px] font-bold uppercase">{tr("availability.long")}</span>}
-              </button>
-              {/* Marking the long day only makes sense where there is time. */}
-              {editable && on && (
-                <button
-                  type="button"
-                  onClick={() => { const v = isLong ? null : d; setLongDay(v); void persist(hours, v); }}
-                  className="text-[9px] font-medium underline"
-                  style={{ color: isLong ? "var(--lime)" : "var(--text-faint)" }}
+            <div
+              key={d}
+              className="flex flex-col gap-1.5 rounded-[12px] border p-2"
+              style={{
+                borderColor: isLong ? "var(--lime)" : on ? "var(--border)" : "var(--border-soft)",
+                background: on ? "var(--surface-2)" : "var(--bg-soft)",
+              }}
+            >
+              <div className="flex items-baseline justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
+                  {tr(`availability.${d}` as Parameters<typeof tr>[0])}
+                </span>
+                {/* Long day: an explicit toggle. It used to be an underlined
+                    word that read as a label, so nobody pressed it. */}
+                {editable && on && (
+                  <button
+                    type="button"
+                    onClick={() => toggleLong(d)}
+                    title={tr("availability.longHint")}
+                    className="rounded-full px-1.5 text-[9px] font-bold uppercase leading-[15px] transition-colors"
+                    style={{
+                      border: `1px solid ${isLong ? "var(--lime)" : "var(--border)"}`,
+                      color: isLong ? "var(--lime)" : "var(--text-faint)",
+                      background: isLong ? "color-mix(in oklab, var(--lime) 16%, transparent)" : "transparent",
+                    }}
+                  >
+                    {tr("availability.long")}
+                  </button>
+                )}
+                {!editable && isLong && (
+                  <span className="text-[9px] font-bold uppercase text-[var(--lime)]">{tr("availability.long")}</span>
+                )}
+              </div>
+
+              {/* One tap opens the list, one tap picks — instead of tapping
+                  twelve times to walk from 30min to 6h. */}
+              {editable ? (
+                <select
+                  value={h}
+                  onChange={(e) => setDayHours(d, Number(e.target.value))}
+                  aria-label={tr(`availability.${d}` as Parameters<typeof tr>[0])}
+                  className="w-full cursor-pointer rounded-[8px] border bg-transparent px-1.5 py-1.5 text-center text-[15px] font-bold outline-none"
+                  style={{
+                    borderColor: on ? "var(--lime)" : "var(--border)",
+                    color: on ? "var(--lime)" : "var(--text-faint)",
+                  }}
                 >
-                  {tr("availability.setLong")}
-                </button>
+                  {HOUR_CHOICES.map((c) => (
+                    <option key={c} value={c} style={{ color: "var(--text)", background: "var(--surface)" }}>
+                      {fmt(c)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p
+                  className="rounded-[8px] border py-1.5 text-center text-[15px] font-bold"
+                  style={{ borderColor: "var(--border)", color: on ? "var(--lime)" : "var(--text-faint)" }}
+                >
+                  {fmt(h)}
+                </p>
               )}
+
+              {/* Preferred sports. Nothing lit = no preference, which is exactly
+                  what an athlete who skipped this row means. */}
+              <div className="flex items-center justify-center gap-1">
+                {SPORTS.map((s) => {
+                  const lit = daySports.includes(s);
+                  const btn = (
+                    <Icon
+                      name={s}
+                      size={14}
+                      style={{ color: lit ? `var(--${s})` : "var(--text-faint)", opacity: lit ? 1 : 0.3 }}
+                    />
+                  );
+                  return editable ? (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => toggleSport(d, s)}
+                      title={tr(`discipline.${s}` as Parameters<typeof tr>[0])}
+                      aria-label={tr(`discipline.${s}` as Parameters<typeof tr>[0])}
+                      className="rounded p-0.5"
+                    >
+                      {btn}
+                    </button>
+                  ) : (
+                    <span key={s} className="p-0.5">{btn}</span>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
@@ -111,7 +193,7 @@ export function AvailabilityBlock({
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
         <p className="tnum text-[12.5px] text-[var(--text-muted)]">
-          <span className="font-bold text-[var(--text)]">{total}h</span> {tr("availability.perWeek")}
+          <span className="font-bold text-[var(--text)]">{fmt(total)}</span> {tr("availability.perWeek")}
         </p>
         {editable && <p className="text-[11.5px] text-[var(--text-faint)]">{tr("availability.hint")}</p>}
         {state === "saved" && <span className="text-[11.5px] text-[var(--good)]">{tr("availability.saved")}</span>}

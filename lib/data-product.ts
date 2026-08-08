@@ -291,9 +291,14 @@ export async function getProductDashboardData(
       const data: DashboardData = {
         trainingLoad: extendTrainingLoad(trainingLoad, workouts, toISO(new Date())),
         workouts,
-        // An athlete on a cycle has no rows in `phases` — their phases live
-        // inside the cycle. Derive them, or the Season block stays empty.
-        phases: phases.length > 0 ? phases : cycle ? cycleToPhases(cycle) : [],
+        // THE ACTIVE CYCLE WINS. It used to be the other way round, and that
+        // made the Season block quietly ignore the coach: `set_cycle` is the
+        // only way anyone defines a season now — no tool writes the `phases`
+        // TABLE at all — so rows there can only be legacy seed data. A coach
+        // would program a taper into the cycle, watch the chart keep drawing the
+        // old blocks, and have no way to tell why. The table stays as the
+        // fallback for tenants seeded before cycles existed.
+        phases: cycle ? cycleToPhases(cycle) : phases,
         milestones,
         indicators: indicators[0] ?? null,
         strength,

@@ -10,7 +10,10 @@ import { cookies } from "next/headers";
 import { withTenant, hasProductDb } from "@/lib/product-db";
 import { resolveTenantId } from "@/lib/data-product";
 import { APP_COOKIE } from "@/app/api/app-login/route";
-import { normalizeHours, WEEKDAYS, type WeekHours, type Weekday } from "@/lib/availability";
+import {
+  normalizeHours, normalizeSports, WEEKDAYS,
+  type WeekHours, type WeekSports, type Weekday,
+} from "@/lib/availability";
 
 export async function POST(req: Request) {
   const key = (await cookies()).get(APP_COOKIE)?.value;
@@ -19,15 +22,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, code: "unauthorized" }, { status: 401 });
   }
 
-  const body = (await req.json().catch(() => null)) as { hours?: unknown; long_day?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as
+    | { hours?: unknown; long_days?: unknown; long_day?: unknown; sports?: unknown }
+    | null;
   if (!body) return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
 
-  const patch: { hours?: WeekHours; long_day?: Weekday | null } = {};
+  const patch: {
+    hours?: WeekHours; long_days?: Weekday[]; long_day?: Weekday | null; sports?: WeekSports;
+  } = {};
   if (body.hours && typeof body.hours === "object") {
     patch.hours = normalizeHours(body.hours as WeekHours);
   }
-  if (body.long_day === null || (typeof body.long_day === "string" && WEEKDAYS.includes(body.long_day as Weekday))) {
-    patch.long_day = (body.long_day as Weekday) ?? null;
+  if (Array.isArray(body.long_days)) {
+    patch.long_days = body.long_days.filter((d): d is Weekday => WEEKDAYS.includes(d as Weekday));
+    // Clear the older single-value key so a stale one can't outlive the list
+    // and reappear through longDays()'s fallback.
+    patch.long_day = null;
+  }
+  if (body.sports && typeof body.sports === "object") {
+    patch.sports = normalizeSports(body.sports as WeekSports);
   }
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });

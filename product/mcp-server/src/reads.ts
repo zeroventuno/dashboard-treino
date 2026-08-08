@@ -54,12 +54,15 @@ export async function readProfile(c: PoolClient, tenantId: string) {
   // a race athlete whose season lives in `phases` reads back as active_cycle:null
   // and the coach wrongly concludes "no season in the database".
   const activeCycle = cycle.rows[0] ?? null;
-  const season =
-    phasesTable.rows.length > 0
+  // The active cycle wins — same precedence the dashboard draws with, so what a
+  // coach reads here is what the athlete sees. `set_cycle` is the only way to
+  // define a season; nothing writes the `phases` table, so rows there are legacy
+  // seed data and must not override what the coach just programmed.
+  const season = activeCycle
+    ? { source: "cycle", phases: cycleToSeason(activeCycle.start_date, activeCycle.phases ?? []) }
+    : phasesTable.rows.length > 0
       ? { source: "phases", phases: phasesTable.rows }
-      : activeCycle
-        ? { source: "cycle", phases: cycleToSeason(activeCycle.start_date, activeCycle.phases ?? []) }
-        : { source: "none", phases: [] };
+      : { source: "none", phases: [] };
 
   return {
     profile: profile.rows[0] ?? null,

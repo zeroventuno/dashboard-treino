@@ -17,14 +17,37 @@ export type Weekday = (typeof WEEKDAYS)[number];
 /** Hours available per weekday. 0 (or missing) = a day off. */
 export type WeekHours = Partial<Record<Weekday, number>>;
 
+/** Preferred disciplines per weekday. An EMPTY or missing list means "no
+ * preference", never "forbidden" — an athlete who never filled this in must not
+ * end up with a week nobody can write for them. */
+export type WeekSports = Partial<Record<Weekday, string[]>>;
+
 export interface Availability {
   hours?: WeekHours;
-  /** Which day can hold the long session — often not simply the longest slot. */
+  /** Which days can hold a long session. Plural: a triathlete often has two. */
+  long_days?: Weekday[];
+  /** Legacy single value, still read so older profiles keep working. */
   long_day?: Weekday | null;
+  /** Which sports the athlete would rather do on each day. For an agency this
+   * is where group sessions live — the swim squad always meets on Tuesday. */
+  sports?: WeekSports;
   preferred_time?: string;
   equipment?: string[];
   notes?: string;
   [k: string]: unknown;
+}
+
+/** The long days, tolerating the older single-value shape. */
+export function longDays(a: Availability | null | undefined): Weekday[] {
+  if (Array.isArray(a?.long_days)) return a.long_days.filter((d): d is Weekday => WEEKDAYS.includes(d as Weekday));
+  return a?.long_day ? [a.long_day] : [];
+}
+
+/** Sports the athlete prefers on a day. Empty = no preference, so callers must
+ * read it as "anything goes", not as an empty allow-list. */
+export function sportsFor(a: Availability | null | undefined, day: Weekday): string[] {
+  const s = a?.sports?.[day];
+  return Array.isArray(s) ? s : [];
 }
 
 /** Total weekly hours the athlete says they have. */
@@ -38,13 +61,35 @@ export function daysOff(a: Availability | null | undefined): Weekday[] {
   return WEEKDAYS.filter((d) => !(Number(a?.hours?.[d]) > 0));
 }
 
+/** The choices the picker offers. Fine-grained where a normal weekday lives,
+ * coarser at the top — the difference between 6h and 6h30 on a long ride day
+ * doesn't change what anyone prescribes. */
+export const HOUR_CHOICES = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 12] as const;
+
 /** Clamp to something a real day can hold, and drop zeros so the stored object
  * stays the short list of days that actually work. */
 export function normalizeHours(raw: WeekHours): WeekHours {
   const out: WeekHours = {};
   for (const d of WEEKDAYS) {
     const n = Number(raw[d]);
-    if (Number.isFinite(n) && n > 0) out[d] = Math.min(12, Math.round(n * 4) / 4); // quarter-hour steps
+    if (Number.isFinite(n) && n > 0) out[d] = Math.min(24, Math.round(n * 4) / 4); // quarter-hour steps
+  }
+  return out;
+}
+
+const SPORTS = ["swim", "bike", "run", "strength"];
+
+export function normalizeSports(raw: WeekSports): WeekSports {
+  const out: WeekSports = {};
+  for (const d of WEEKDAYS) {
+    const list = raw[d];
+    if (!Array.isArray(list)) continue;
+    const clean = [...new Set(list.filter((s) => SPORTS.includes(String(s))))];
+    // All four means the same as none — "anything" — but it is kept anyway:
+    // dropping it would make four icons the athlete just lit go dark on the
+    // next load. Equivalence is the reader's job, not a reason to discard what
+    // someone deliberately clicked.
+    if (clean.length > 0) out[d] = clean;
   }
   return out;
 }

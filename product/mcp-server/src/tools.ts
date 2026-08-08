@@ -108,17 +108,31 @@ export function registerTools(server: McpServer, tenantId: string): void {
         // ones gathered over past conversations survive.
         preferences: z
           .object({
-            days_off: z.array(z.string()).optional().describe("weekdays that never work, e.g. ['tuesday']"),
+            hours: z
+              .record(z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]), z.number())
+              .optional()
+              .describe("hours available per weekday, e.g. {mon:1.5, tue:0, sat:4}. 0 or absent = a day off."),
+            long_days: z
+              .array(z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]))
+              .optional()
+              .describe("days that can hold a long session — often not simply the longest slots"),
+            sports: z
+              .record(
+                z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]),
+                z.array(z.enum(["swim", "bike", "run", "strength"])),
+              )
+              .optional()
+              .describe(
+                "PREFERRED disciplines per weekday, e.g. {tue:['swim']} when the squad swims on Tuesdays. A PREFERENCE, never a restriction: an empty list (or all four) means anything goes — treat a blank day as 'no preference', never as 'forbidden'.",
+              ),
             preferred_time: z.string().optional().describe("e.g. 'early morning', 'after 7pm'"),
-            weekly_hours: z.number().optional().describe("realistic training hours per week"),
-            long_day: z.string().optional().describe("weekday that can hold the long session, e.g. 'saturday'"),
             equipment: z.array(z.string()).optional().describe("what they can reach, e.g. ['trainer','25m pool','gym']"),
             notes: z.string().optional().describe("anything else a week must respect, in the athlete's words"),
           })
           .partial()
           .optional()
           .describe(
-            "Training constraints — what a week has to fit around. Save these as soon as they come up in conversation; only the keys you pass are changed, the rest are kept. This is what a coach reads before writing the week, so 'I can't train Tuesdays' never has to be said twice.",
+            "Training constraints — what a week has to fit around. The athlete fills most of this in on the 'My week' block of their dashboard; save anything else the moment it comes up in conversation. Only the keys you pass are changed, the rest are kept, so 'I can't train Tuesdays' never has to be said twice.",
           ),
       },
     },
