@@ -6,9 +6,14 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { resolveTenantId } from "@/lib/data-product";
-import { getDeviceLink, saveDeviceLink, markSync, importWorkouts } from "@/lib/product-db";
+import {
+  getDeviceLink, saveDeviceLink, markSync, importWorkouts,
+  saveWorkoutZones, getIndicators,
+} from "@/lib/product-db";
 import { APP_COOKIE } from "@/app/api/app-login/route";
-import { fetchActivities, refreshTokens, toWorkout, hasStrava } from "@/lib/strava";
+import {
+  fetchActivities, fetchStreams, refreshTokens, toWorkout, streamsToZones, hasStrava,
+} from "@/lib/strava";
 
 /** How far back a sync reaches when the athlete has never synced. Deep enough
  * to give the fitness chart something to work with, shallow enough that a first
@@ -17,6 +22,15 @@ const FIRST_SYNC_DAYS = 45;
 /** Overlap on later syncs: an activity edited or uploaded late would fall
  * through a window that started exactly at the last sync. */
 const OVERLAP_DAYS = 3;
+/** Stream calls one athlete may spend in a single sync.
+ *
+ * Strava's allowance — 100 requests per 15 minutes — belongs to the APPLICATION,
+ * so it is shared by every athlete of every agency here. A first connect reaching
+ * back 45 days could otherwise ask for forty streams in one go and starve
+ * everyone else. Whatever is left over gets picked up by the next sync, which is
+ * the right trade: a zone score arriving an hour late costs nothing, a 429
+ * storm costs everybody. */
+const MAX_STREAMS_PER_SYNC = 10;
 
 export async function POST() {
   const key = (await cookies()).get(APP_COOKIE)?.value;
@@ -47,10 +61,30 @@ export async function POST() {
 
     const activities = await fetchActivities(token, after);
     const items = activities.map(toWorkout).filter((w): w is NonNullable<typeof w> => w !== null);
-    const result = await importWorkouts(tenantId, items);
+    const { needsZones, ...result } = await importWorkouts(tenantId, items);
+
+    // Time in zone, but only where it means something. `needsZones` is the set
+    // of sessions that landed on a workout the coach actually structured — the
+    // rest get no stream call, because there is no prescription to compare a
+    // distribution against and the allowance is shared by every athlete here.
+    let scored = 0;
+    if (needsZones.length) {
+      const indicators = await getIndicators(tenantId);
+      const byId = new Map(items.map((i) => [i.external_id, i]));
+      for (const externalId of needsZones.slice(0, MAX_STREAMS_PER_SYNC)) {
+        const item = byId.get(externalId);
+        if (!item) continue;
+        const streams = await fetchStreams(token, externalId.replace("strava:", ""));
+        const zones = streamsToZones(streams, indicators, item.discipline);
+        if (zones) {
+          await saveWorkoutZones(tenantId, externalId, zones);
+          scored++;
+        }
+      }
+    }
 
     await markSync(tenantId, "strava", null);
-    return NextResponse.json({ ok: true, fetched: activities.length, ...result });
+    return NextResponse.json({ ok: true, fetched: activities.length, scored, ...result });
   } catch (err) {
     // Stored, not just logged: a sync that keeps failing has to be visible on
     // the dashboard, or the athlete just sees their sessions quietly stop

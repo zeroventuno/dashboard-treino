@@ -14,7 +14,8 @@
 //  relationship, and Strava couldn't answer it anyway.
 // ────────────────────────────────────────────────────────────────────────────
 
-import type { Discipline } from "./types";
+import type { Discipline, PerformanceIndicators, ZoneSeconds } from "./types";
+import { actualZones, parseBands, type Sample } from "./zone-time";
 
 const API = "https://www.strava.com/api/v3";
 const OAUTH = "https://www.strava.com/oauth";
@@ -94,6 +95,75 @@ export async function fetchActivities(accessToken: string, afterUnix: number): P
   });
   if (!res.ok) throw new Error(`strava activities ${res.status}: ${(await res.text()).slice(0, 200)}`);
   return (await res.json()) as StravaActivity[];
+}
+
+/** The per-second recording. Only the channels time in zone needs — asking for
+ * GPS and altitude would triple the payload for nothing. */
+export interface StravaStreams {
+  time?: { data: number[] };
+  watts?: { data: (number | null)[] };
+  heartrate?: { data: (number | null)[] };
+  moving?: { data: boolean[] };
+}
+
+const STREAM_KEYS = "time,watts,heartrate,moving";
+
+/**
+ * Fetch one activity's stream. This is the expensive call — one per activity, on
+ * an allowance shared by every athlete in the product — so the caller decides
+ * when it's worth spending: see the sync route, which only asks for sessions
+ * that matched something the coach actually prescribed.
+ *
+ * Returns null rather than throwing. A missing stream (an activity logged by
+ * hand, a device that recorded nothing) must not fail the whole import — the
+ * session still counts, it just gets scored the old way.
+ */
+export async function fetchStreams(accessToken: string, activityId: string): Promise<StravaStreams | null> {
+  const p = new URLSearchParams({ keys: STREAM_KEYS, key_by_type: "true" });
+  const res = await fetch(`${API}/activities/${activityId}/streams?${p}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.status === 404) return null; // no recording attached
+  if (!res.ok) {
+    console.warn(`[strava] streams ${activityId} → ${res.status}`);
+    return null;
+  }
+  return (await res.json()) as StravaStreams;
+}
+
+/**
+ * Reduce a stream to seconds per zone — the only thing we keep.
+ *
+ * The per-second recording is thrown away on purpose. It's tens of thousands of
+ * numbers per session, and a coach reading a roster of 100 athletes needs the
+ * six totals, not the raw trace. Storing the trace would mean warehousing Strava
+ * data we'd be obliged to delete if the API relationship ever ended.
+ *
+ * Power for the bike, heart rate for everything else — power is what a cyclist's
+ * zones are actually written in, and it responds instantly where heart rate lags
+ * a couple of minutes behind an interval. Falls back to heart rate when the
+ * athlete has no meter or no power zones set.
+ */
+export function streamsToZones(
+  streams: StravaStreams | null,
+  indicators: PerformanceIndicators | null,
+  discipline: Discipline,
+): ZoneSeconds | null {
+  if (!streams?.time?.data?.length) return null;
+
+  const powerBands = parseBands(indicators?.bike_zones);
+  const hrBands = parseBands(indicators?.hr_zones);
+
+  const usePower = discipline === "bike" && !!streams.watts?.data?.length && powerBands.length > 0;
+  const channel = usePower ? streams.watts?.data : streams.heartrate?.data;
+  const bands = usePower ? powerBands : hrBands;
+  if (!channel?.length || !bands.length) return null;
+
+  const time = streams.time.data;
+  const moving = streams.moving?.data;
+  const samples: Sample[] = time.map((t, i) => ({ t, v: channel[i] ?? null, moving: moving?.[i] }));
+
+  return actualZones(samples, bands);
 }
 
 /** Strava's sport vocabulary → ours. Anything we don't program returns null and

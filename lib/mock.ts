@@ -92,6 +92,10 @@ function buildWeekWorkouts(): Workout[] {
       garmin_instructions: "1. Novo treino de ciclismo (por potência)\n2. Aquecimento 10' subindo até Z2\n3. Repetir 3x: 12' @ 220-230W, 5' @ 130W\n4. Volta à calma 8'",
       zwo_content: SAMPLE_ZWO, status: "done", planned_duration_min: 70, actual_duration_min: 72,
       planned_distance_km: null, actual_distance_km: null, planned_tss: 78, actual_tss: 80, notes: null,
+      // The case the zone comparison exists for: the hour happened, but a chunk
+      // of the sweet-spot work was ridden a zone too easy. Duration and TSS both
+      // say "done"; only the distribution shows what was actually missed.
+      actual_zones: { z0: 0, z1: 780, z2: 1620, z3: 1560, z4: 360, z5: 0 },
       nutrition_notes: "MÉDIO: Água 500ml + banana 30-45min antes. Durante: água pura se <60min. Pós: whey (25-30g) + carboidrato dentro de 30min.",
       created_at: "",
     },

@@ -9,6 +9,7 @@ import type { PoolClient } from "pg";
 import { createHash, randomBytes } from "node:crypto";
 import { normalizeTags } from "./bank-tags";
 import type { AttentionRow } from "./retention";
+import type { PerformanceIndicators, ZoneSeconds } from "./types";
 
 const { Pool, types } = pkg;
 
@@ -92,6 +93,8 @@ const REQUIRED_COLUMNS: { schema: string; table: string; column: string; migrati
   { schema: "public", table: "profiles",    column: "preferences",   migration: "add-athlete-preferences.sql" },
   { schema: "public", table: "workouts",    column: "adherence",     migration: "add-workout-adherence.sql" },
   { schema: "public", table: "workouts",    column: "extra",         migration: "add-workout-extra.sql" },
+  { schema: "public", table: "workouts",    column: "external_id",   migration: "add-device-links.sql" },
+  { schema: "public", table: "workouts",    column: "actual_zones",  migration: "add-zone-time.sql" },
   { schema: "app",    table: "tenants",     column: "monthly_value", migration: "add-owner-and-value.sql" },
   { schema: "app",    table: "tenants",     column: "nickname",      migration: "add-athlete-admin.sql" },
   { schema: "app",    table: "staff",       column: "is_owner",      migration: "add-owner-and-value.sql" },
@@ -517,18 +520,27 @@ export async function importWorkouts(
     actual_duration_min: number; actual_distance_km: number | null;
     actual_pace: string | null; actual_power_watts: string | null;
   }[],
-): Promise<{ matched: number; created: number; updated: number }> {
-  if (!hasProductDb() || items.length === 0) return { matched: 0, created: 0, updated: 0 };
+): Promise<{ matched: number; created: number; updated: number; needsZones: string[] }> {
+  if (!hasProductDb() || items.length === 0) return { matched: 0, created: 0, updated: 0, needsZones: [] };
 
   return withTenant(tenantId, async (c) => {
     let matched = 0, created = 0, updated = 0;
+    // Sessions worth spending a stream call on: they landed on a workout the
+    // coach actually structured, so there is a prescription to compare against.
+    // Fetching the stream of an unplanned dog walk would burn the same shared
+    // allowance to compute a distribution nobody asked for.
+    const needsZones: string[] = [];
 
     for (const it of items) {
-      const { rows: already } = await c.query<{ id: string }>(
-        "select id from workouts where tenant_id = $1 and external_id = $2",
+      const { rows: already } = await c.query<{ id: string; structure: unknown; actual_zones: unknown }>(
+        "select id, structure, actual_zones from workouts where tenant_id = $1 and external_id = $2",
         [tenantId, it.external_id],
       );
       if (already[0]) {
+        // Re-sync: only worth a stream call if it's structured and we never
+        // scored it. Otherwise a nightly sync would re-fetch the same streams
+        // every night for sessions that already have their zones.
+        if (already[0].structure && !already[0].actual_zones) needsZones.push(it.external_id);
         await c.query(
           `update workouts set actual_duration_min = $2, actual_distance_km = $3,
                                actual_pace = $4, actual_power_watts = $5, status = 'done'
@@ -542,8 +554,8 @@ export async function importWorkouts(
       // Prefer the session the coach planned, so the plan gets ticked rather
       // than shadowed. `moved`/`cancelled` are excluded: those are explicitly
       // out of the plan and must not be resurrected by an import.
-      const { rows: planned } = await c.query<{ id: string }>(
-        `select id from workouts
+      const { rows: planned } = await c.query<{ id: string; structure: unknown }>(
+        `select id, structure from workouts
           where tenant_id = $1 and date = $2::date and discipline = $3
             and external_id is null and status in ('planned','skipped')
           order by key_workout desc nulls last
@@ -560,6 +572,7 @@ export async function importWorkouts(
           [planned[0].id, it.external_id, it.actual_duration_min, it.actual_distance_km, it.actual_pace, it.actual_power_watts],
         );
         matched++;
+        if (planned[0].structure) needsZones.push(it.external_id);
       } else {
         await c.query(
           `insert into workouts
@@ -580,8 +593,41 @@ export async function importWorkouts(
         created++;
       }
     }
-    return { matched, created, updated };
+    return { matched, created, updated, needsZones };
   });
+}
+
+/** Attach the reduced stream to an already-imported session. Separate from the
+ * import because the stream costs a call each: the import decides WHICH sessions
+ * deserve one, this writes the answer back. */
+export async function saveWorkoutZones(
+  tenantId: string,
+  externalId: string,
+  zones: ZoneSeconds,
+): Promise<void> {
+  if (!hasProductDb()) return;
+  await withTenant(tenantId, (c) =>
+    c.query(
+      "update workouts set actual_zones = $3::jsonb where tenant_id = $1 and external_id = $2",
+      [tenantId, externalId, JSON.stringify(zones)],
+    ),
+  );
+}
+
+/** The athlete's zone table — needed to turn a raw stream into time in zone. */
+export async function getIndicators(tenantId: string): Promise<PerformanceIndicators | null> {
+  if (!hasProductDb()) return null;
+  const { rows } = await withTenant(tenantId, (c) =>
+    c.query<PerformanceIndicators>(
+      `select id, to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SSOF') as updated_at,
+              ftp_watts, bike_zones, run_pace_zones, swim_pace_per_100m,
+              swim_pace_zones, run_threshold_pace, cadence_run_target, hr_zones
+         from performance_indicators where tenant_id = $1
+        order by updated_at desc limit 1`,
+      [tenantId],
+    ),
+  );
+  return rows[0] ?? null;
 }
 
 // ── Methodology (the professional's working method) ─────────────────────────

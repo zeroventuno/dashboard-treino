@@ -4,6 +4,8 @@ import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
 import { disciplineMeta, fmtDuration, toDistance, distanceUnit, toSpeed, speedUnit, computeAdherence, type Units } from "@/lib/utils";
+import { ZoneCompare } from "@/components/ZoneCompare";
+import { plannedZones } from "@/lib/zone-time";
 import { getWorkoutBlocks, buildZwo } from "@/lib/workout-structure";
 import { buildFitWorkout } from "@/lib/fit-workout";
 import { DEFAULT_LOCALE, translator, type Locale, type T, type TKey } from "@/lib/i18n";
@@ -254,6 +256,10 @@ export function WorkoutModal({
         </div>
 
         <ComparisonTable w={w} tr={tr} units={units} />
+
+        {/* Only when the device gave us a stream to reduce. Everyone else keeps
+            the table above and loses nothing. */}
+        <ZoneCompare planned={plannedZones(blocks)} actual={w.actual_zones ?? null} locale={locale} />
 
         <div className="space-y-5 p-5">
           {tags && tags.length > 0 && (

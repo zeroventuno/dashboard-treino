@@ -20,7 +20,13 @@ export function AdherenceDonut({
 
   return (
     <div className="inline-flex flex-col items-center gap-1" title={label ? `${label}: ${pct}%` : `${pct}%`}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90" role="img" aria-label={`${pct}%`}>
+      {/* The arc is rotated with SVG's own transform attribute rather than a CSS
+          class on the <svg>. The CSS route meant counter-rotating the number to
+          keep it upright, and `transform-origin: center` on an SVG <text> is
+          resolved differently by WebKit — on iOS the number span away from the
+          middle and off the canvas, so the donut drew but the score vanished.
+          Rotating only the arc means the text never needs a transform at all. */}
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${pct}%`}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
@@ -32,14 +38,17 @@ export function AdherenceDonut({
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - pct / 100)}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
+        {/* dy="0.35em" instead of dominant-baseline: the property has been
+            unreliable on iOS Safari, and this centres text in every engine. */}
         <text
-          x="50%"
-          y="50%"
-          dominantBaseline="central"
+          x={size / 2}
+          y={size / 2}
+          dy="0.35em"
           textAnchor="middle"
-          className="rotate-90 font-bold"
-          style={{ fontSize: size * 0.32, fill: color, transformOrigin: "center" }}
+          className="font-bold"
+          style={{ fontSize: size * 0.32, fill: color }}
         >
           {pct}
         </text>
