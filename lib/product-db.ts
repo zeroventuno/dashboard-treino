@@ -436,6 +436,154 @@ export async function prescribeFromBank(
   return { written, skipped: tenantIds.length - targets.length };
 }
 
+// ── Device links (Strava first; provider is open text) ──────────────────────
+
+export interface DeviceLink {
+  provider: string;
+  external_id: string | null;
+  access_token: string;
+  refresh_token: string | null;
+  expires_at: string | null;
+  last_sync_at: string | null;
+  last_error: string | null;
+}
+
+export async function getDeviceLink(tenantId: string, provider: string): Promise<DeviceLink | null> {
+  if (!hasProductDb()) return null;
+  const { rows } = await getPool().query<DeviceLink>(
+    `select provider, external_id, access_token, refresh_token,
+            to_char(expires_at,'YYYY-MM-DD"T"HH24:MI:SSOF') as expires_at,
+            to_char(last_sync_at,'YYYY-MM-DD"T"HH24:MI:SSOF') as last_sync_at, last_error
+       from app.device_links where tenant_id = $1 and provider = $2`,
+    [tenantId, provider],
+  );
+  return rows[0] ?? null;
+}
+
+export async function saveDeviceLink(
+  tenantId: string,
+  provider: string,
+  t: { access_token: string; refresh_token?: string | null; expires_at?: number | null; external_id?: string | null; scope?: string | null },
+): Promise<void> {
+  if (!hasProductDb()) return;
+  await getPool().query(
+    `insert into app.device_links (tenant_id, provider, external_id, access_token, refresh_token, expires_at, scope)
+     values ($1,$2,$3,$4,$5, to_timestamp($6), $7)
+     on conflict (tenant_id, provider) do update set
+       external_id   = coalesce(excluded.external_id, app.device_links.external_id),
+       access_token  = excluded.access_token,
+       refresh_token = coalesce(excluded.refresh_token, app.device_links.refresh_token),
+       expires_at    = excluded.expires_at,
+       scope         = coalesce(excluded.scope, app.device_links.scope),
+       last_error    = null`,
+    [tenantId, provider, t.external_id ?? null, t.access_token, t.refresh_token ?? null, t.expires_at ?? null, t.scope ?? null],
+  );
+}
+
+export async function deleteDeviceLink(tenantId: string, provider: string): Promise<void> {
+  if (!hasProductDb()) return;
+  await getPool().query("delete from app.device_links where tenant_id = $1 and provider = $2", [tenantId, provider]);
+}
+
+export async function markSync(tenantId: string, provider: string, error: string | null): Promise<void> {
+  if (!hasProductDb()) return;
+  await getPool().query(
+    `update app.device_links
+        set last_sync_at = case when $3::text is null then now() else last_sync_at end,
+            last_error   = $3
+      where tenant_id = $1 and provider = $2`,
+    [tenantId, provider, error],
+  );
+}
+
+/**
+ * Write imported sessions into the athlete's calendar.
+ *
+ * The interesting part is not the insert, it's the MATCHING. A coach planned
+ * "Corrida — Intervalos" for Thursday; the athlete ran it; Strava returns
+ * "Afternoon Run". Creating a second row would leave the plan forever unticked
+ * and count the session twice in the weekly box. So, in order:
+ *
+ *   1. Already imported (same external_id) → update it. Re-syncing is safe.
+ *   2. A planned session that day, same discipline → the athlete DID the plan.
+ *      Mark it done and attach the numbers, keeping the coach's title and blocks.
+ *   3. Otherwise → a session nobody planned. Insert it flagged `extra`, which
+ *      already means exactly this: counts in volume, not in the plan's x/y.
+ */
+export async function importWorkouts(
+  tenantId: string,
+  items: {
+    external_id: string; date: string; discipline: string; title: string;
+    actual_duration_min: number; actual_distance_km: number | null;
+    actual_pace: string | null; actual_power_watts: string | null;
+  }[],
+): Promise<{ matched: number; created: number; updated: number }> {
+  if (!hasProductDb() || items.length === 0) return { matched: 0, created: 0, updated: 0 };
+
+  return withTenant(tenantId, async (c) => {
+    let matched = 0, created = 0, updated = 0;
+
+    for (const it of items) {
+      const { rows: already } = await c.query<{ id: string }>(
+        "select id from workouts where tenant_id = $1 and external_id = $2",
+        [tenantId, it.external_id],
+      );
+      if (already[0]) {
+        await c.query(
+          `update workouts set actual_duration_min = $2, actual_distance_km = $3,
+                               actual_pace = $4, actual_power_watts = $5, status = 'done'
+            where id = $1`,
+          [already[0].id, it.actual_duration_min, it.actual_distance_km, it.actual_pace, it.actual_power_watts],
+        );
+        updated++;
+        continue;
+      }
+
+      // Prefer the session the coach planned, so the plan gets ticked rather
+      // than shadowed. `moved`/`cancelled` are excluded: those are explicitly
+      // out of the plan and must not be resurrected by an import.
+      const { rows: planned } = await c.query<{ id: string }>(
+        `select id from workouts
+          where tenant_id = $1 and date = $2::date and discipline = $3
+            and external_id is null and status in ('planned','skipped')
+          order by key_workout desc nulls last
+          limit 1`,
+        [tenantId, it.date, it.discipline],
+      );
+
+      if (planned[0]) {
+        await c.query(
+          `update workouts set status = 'done', external_id = $2,
+                               actual_duration_min = $3, actual_distance_km = $4,
+                               actual_pace = $5, actual_power_watts = $6
+            where id = $1`,
+          [planned[0].id, it.external_id, it.actual_duration_min, it.actual_distance_km, it.actual_pace, it.actual_power_watts],
+        );
+        matched++;
+      } else {
+        await c.query(
+          `insert into workouts
+             (tenant_id, date, discipline, title, status, extra, external_id,
+              actual_duration_min, actual_distance_km, actual_pace, actual_power_watts)
+           values ($1,$2::date,$3,$4,'done',true,$5,$6,$7,$8,$9)
+           on conflict (tenant_id, date, discipline, title) do update set
+             status = 'done', external_id = excluded.external_id,
+             actual_duration_min = excluded.actual_duration_min,
+             actual_distance_km  = excluded.actual_distance_km,
+             actual_pace         = excluded.actual_pace,
+             actual_power_watts  = excluded.actual_power_watts`,
+          [
+            tenantId, it.date, it.discipline, it.title, it.external_id,
+            it.actual_duration_min, it.actual_distance_km, it.actual_pace, it.actual_power_watts,
+          ],
+        );
+        created++;
+      }
+    }
+    return { matched, created, updated };
+  });
+}
+
 // ── Methodology (the professional's working method) ─────────────────────────
 // Also writable from the AI copilot via set_methodology; the panel is the path
 // for a coach who'd rather type it than dictate it. Same jsonb, shallow-merged
