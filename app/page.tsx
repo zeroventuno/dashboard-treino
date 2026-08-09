@@ -1,109 +1,66 @@
-import { getDashboardData } from "@/lib/data";
-import { BlockBoundary } from "@/components/BlockBoundary";
-import { toISO } from "@/lib/utils";
-import { DaysPill } from "@/components/Countdown";
+// The front door — what the world sees when it types mytrakr.fit.
+//
+// Until "/" moved, this address served the owner's personal IRONMAN dashboard
+// behind the shared password, so a product domain answered with a password
+// prompt for one athlete's training data. That dashboard now lives at /me.
+//
+// This is deliberately NOT the marketing landing page. It doesn't claim
+// features, quote prices or promise a trial — none of that is decided yet, and
+// a front door that oversells is worse than one that just opens. It does the
+// one job that matters today: get an athlete and a professional to their own
+// panel without either of them having to know a URL.
+import type { Metadata } from "next";
+import Link from "next/link";
+import { headers } from "next/headers";
+import { pickLocale, translator } from "@/lib/i18n";
 import { Tagline } from "@/components/Tagline";
-import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
-import { RACE_NAME, type DashboardData } from "@/lib/types";
-import { DEFAULT_LOCALE, translator, type Locale } from "@/lib/i18n";
-import { HeroBlock } from "@/components/blocks/HeroBlock";
-import { FitnessBlock } from "@/components/blocks/FitnessBlock";
-import { CalendarBlock } from "@/components/blocks/CalendarBlock";
-import { AvailabilityBlock } from "@/components/blocks/AvailabilityBlock";
-import { SeasonBlock } from "@/components/blocks/SeasonBlock";
-import { MenstrualCycleBlock } from "@/components/blocks/MenstrualCycleBlock";
-import { ZonesBlock } from "@/components/blocks/ZonesBlock";
-import { MealPlanBlock } from "@/components/blocks/MealPlanBlock";
-import { BodyBlock } from "@/components/blocks/BodyBlock";
-import { StrengthBlock } from "@/components/blocks/StrengthBlock";
-import { WatchPointsBlock } from "@/components/blocks/WatchPointsBlock";
-import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
 
-export const revalidate = 60;
-
-// The personal dashboard has exactly one target, so it comes from the constant
-// rather than a lookup (the multi-tenant /app resolves it per athlete).
-export const metadata = { title: `MY TRAKR · ${RACE_NAME}` };
-
-type BlockProps = { data: DashboardData; todayISO: string; locale: Locale };
-
-// id → renderer. Adding/removing a block here + in lib/blocks.ts is all it takes.
-const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
-  hero: (p) => <HeroBlock data={p.data} locale={p.locale} />,
-  fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
-  calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
-  availability: (p) => <AvailabilityBlock preferences={{}} locale={p.locale} editable={false} />,
-  season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
-  menstrual: (p) => <MenstrualCycleBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
-  zones: (p) => <ZonesBlock data={p.data} locale={p.locale} />,
-  mealplan: (p) => <MealPlanBlock data={p.data} locale={p.locale} />,
-  body: (p) => <BodyBlock data={p.data} locale={p.locale} />,
-  strength: (p) => <StrengthBlock data={p.data} locale={p.locale} />,
-  watchpoints: (p) => <WatchPointsBlock data={p.data} locale={p.locale} />,
-  lifestyle: (p) => <LifestyleBlock data={p.data} locale={p.locale} />,
+export const metadata: Metadata = {
+  title: "MY TRAKR",
+  description: "The training dashboard your AI — or your coaching team — fills in for you.",
 };
 
-export default async function DashboardPage() {
-  const { data, live } = await getDashboardData();
-  const props: BlockProps = { data, todayISO: toISO(new Date()), locale: DEFAULT_LOCALE };
-  const tr = translator(DEFAULT_LOCALE);
+export default async function HomePage() {
+  // Nobody is signed in here, so there is no stored preference to read. The
+  // browser's language is the only thing we know about this visitor, and it's
+  // the same signal /app/login already trusts.
+  const locale = pickLocale((await headers()).get("accept-language"));
+  const tr = translator(locale);
 
-  // Day's readiness ("farol") tints the whole dashboard accent via CSS.
-  const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
-
-  // Group consecutive "third" blocks into a single responsive row.
-  // The owner's personal dashboard shows every block unconditionally (it has all
-  // the data) — except the menstrual block, which is an opt-in, tenant-scoped
-  // feature that doesn't apply here.
-  const enabled = BLOCKS.filter((b) => b.enabled && b.id !== "menstrual");
-  const groups: (BlockDef | BlockDef[])[] = [];
-  for (const b of enabled) {
-    const last = groups[groups.length - 1];
-    if (b.width === "third" && Array.isArray(last)) last.push(b);
-    else if (b.width === "third") groups.push([b]);
-    else groups.push(b);
-  }
+  const doors = [
+    { href: "/app", title: tr("home.athlete"), sub: tr("home.athleteSub"), primary: true },
+    { href: "/coach", title: tr("home.coach"), sub: tr("home.coachSub"), primary: false },
+  ];
 
   return (
-    <div data-readiness={readiness} className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
-      {/* sticky top bar */}
-      <nav className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] bg-[rgba(38,43,52,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-9 p-6">
+      <div className="flex flex-col items-center gap-4 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-trakr.svg" alt="MY TRAKR" className="h-[26px] w-auto" />
-        <div className="flex items-center gap-2">
-          <span className="hidden rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-[5px] text-[11.5px] font-semibold text-[var(--text-muted)] sm:inline">
-            IRONMAN 70.3 Costa Navarino
-          </span>
-          <span className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--text-muted)]">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
-            {live ? tr("common.live") : tr("common.sampleData")}
-          </span>
-          <DaysPill />
-        </div>
-      </nav>
-
-      <div className="flex flex-col gap-[22px]">
-        {groups.map((g, i) =>
-          Array.isArray(g) ? (
-            <div key={i} className="grid grid-cols-1 gap-[22px] md:grid-cols-2 lg:grid-cols-3">
-              {g.map((b) => (
-                <BlockBoundary key={b.id} id={b.id} locale={props.locale}>
-                  {REGISTRY[b.id](props)}
-                </BlockBoundary>
-              ))}
-            </div>
-          ) : (
-            <BlockBoundary key={g.id} id={g.id} locale={props.locale}>
-              {REGISTRY[g.id](props)}
-            </BlockBoundary>
-          ),
-        )}
+        <img src="/logo-trakr.svg" alt="MY TRAKR" className="h-[38px] w-auto" />
+        <Tagline />
+        <p className="max-w-[30rem] text-balance text-[14px] leading-relaxed text-[var(--text-muted)]">
+          {tr("home.lead")}
+        </p>
       </div>
 
-      <footer className="mt-9 text-center">
-        <Tagline />
-        <p className="mt-1.5 text-[11px] text-[var(--text-faint)]">{tr("app.footer")}</p>
-      </footer>
-    </div>
+      <div className="grid w-full max-w-[38rem] grid-cols-1 gap-3 sm:grid-cols-2">
+        {doors.map((d) => (
+          <Link
+            key={d.href}
+            href={d.href}
+            className="pop group rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-5 transition-colors hover:border-[var(--lime)]"
+          >
+            <p className="text-[15px] font-extrabold text-[var(--text)]">{d.title}</p>
+            <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">{d.sub}</p>
+            <span
+              className="mt-3 inline-block text-[12px] font-bold"
+              style={{ color: d.primary ? "var(--lime)" : "var(--text-faint)" }}
+            >
+              →
+            </span>
+          </Link>
+        ))}
+      </div>
+    </main>
   );
 }

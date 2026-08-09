@@ -386,6 +386,13 @@ const pt = {
   "app.reason.error": "O painel não conseguiu ler seus dados — eles NÃO foram perdidos. Quase sempre é uma migração de banco que faltou rodar. Mensagem do banco:",
   "app.footer": "Sincronizado automaticamente pelos check-ins diários · painel de treino MY TRAKR",
 
+  // front door
+  "home.lead": "O painel de treino que a sua IA — ou a sua assessoria — preenche por você.",
+  "home.athlete": "Sou atleta",
+  "home.athleteSub": "Entrar no meu painel",
+  "home.coach": "Sou assessoria",
+  "home.coachSub": "Entrar no painel de profissional",
+
   // watch / device connection
   "device.title": "Conectar relógio",
   "device.connected": "Strava conectado",
@@ -766,6 +773,13 @@ const en: Dict = {
   "app.reason.error": "The dashboard couldn't read your data — it is NOT lost. This is almost always a database migration that hasn't been run. The database says:",
   "app.footer": "Synced automatically from daily check-ins · MY TRAKR training dashboard",
 
+  // front door
+  "home.lead": "The training dashboard your AI — or your coaching team — fills in for you.",
+  "home.athlete": "I'm an athlete",
+  "home.athleteSub": "Go to my dashboard",
+  "home.coach": "I'm a coaching team",
+  "home.coachSub": "Go to the professional panel",
+
   // watch / device connection
   "device.title": "Connect your watch",
   "device.connected": "Strava connected",
@@ -1140,6 +1154,13 @@ const it: Dict = {
   "app.reason.empty": "Connesso, ma questo tenant non ha ancora dati.",
   "app.reason.error": "La dashboard non è riuscita a leggere i tuoi dati — NON sono persi. Quasi sempre è una migrazione del database non eseguita. Il database dice:",
   "app.footer": "Sincronizzato automaticamente dai check-in giornalieri · dashboard di allenamento MY TRAKR",
+
+  // front door
+  "home.lead": "La dashboard di allenamento che la tua IA — o il tuo team tecnico — compila per te.",
+  "home.athlete": "Sono un atleta",
+  "home.athleteSub": "Vai alla mia dashboard",
+  "home.coach": "Sono un team tecnico",
+  "home.coachSub": "Vai al pannello professionale",
 
   // watch / device connection
   "device.title": "Collega l'orologio",
@@ -1516,6 +1537,13 @@ const es: Dict = {
   "app.reason.error": "El panel no pudo leer tus datos — NO se han perdido. Casi siempre es una migración de base de datos sin ejecutar. La base de datos dice:",
   "app.footer": "Sincronizado automáticamente desde los check-ins diarios · panel de entrenamiento MY TRAKR",
 
+  // front door
+  "home.lead": "El panel de entrenamiento que tu IA — o tu equipo técnico — completa por ti.",
+  "home.athlete": "Soy atleta",
+  "home.athleteSub": "Ir a mi panel",
+  "home.coach": "Soy equipo técnico",
+  "home.coachSub": "Ir al panel profesional",
+
   // watch / device connection
   "device.title": "Conectar reloj",
   "device.connected": "Strava conectado",
@@ -1890,6 +1918,13 @@ const fr: Dict = {
   "app.reason.empty": "Connecté, mais ce tenant n'a pas encore de données.",
   "app.reason.error": "Le tableau de bord n'a pas pu lire tes données — elles ne sont PAS perdues. C'est presque toujours une migration de base non exécutée. La base dit :",
   "app.footer": "Synchronisé automatiquement depuis les check-ins quotidiens · tableau de bord d'entraînement MY TRAKR",
+
+  // front door
+  "home.lead": "Le tableau de bord d'entraînement que votre IA — ou votre équipe technique — remplit pour vous.",
+  "home.athlete": "Je suis athlète",
+  "home.athleteSub": "Aller à mon tableau de bord",
+  "home.coach": "Je suis une équipe technique",
+  "home.coachSub": "Aller au panneau professionnel",
 
   // watch / device connection
   "device.title": "Connecter la montre",

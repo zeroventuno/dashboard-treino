@@ -9,7 +9,9 @@ function LoginForm() {
   const [busy, setBusy] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
-  const from = params.get("from") || "/";
+  // This login guards the owner's personal dashboard, which lives at /me — "/"
+  // is the product's public front door and needs no password.
+  const from = params.get("from") || "/me";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
