@@ -10,7 +10,7 @@
 // bill goes DOWN as an agency grows: 50 athletes at €9 is €450, and the 51st
 // pushes the whole book to €8, billing €408. Signing one more client would cost
 // the agency's supplier €42, and a calculator on a public page would show that
-// contradiction to every prospect who moved the slider past 50.
+// contradiction to every prospect who dragged the slider past 50.
 import { useState } from "react";
 
 interface Tier {
@@ -50,28 +50,22 @@ function quote(athletes: number) {
 }
 
 export function PriceCalc() {
-  const [athletes, setAthletes] = useState(25);
+  const [athletes, setAthletes] = useState(31);
   const { total, lines, perAthlete } = quote(athletes);
 
   return (
-    <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-7">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--text-faint)]">
-            Sua assessoria
-          </p>
-          <p className="dsp mt-1 text-[34px] font-extrabold leading-none text-[var(--text)]">
-            {athletes} <span className="text-[18px] font-bold text-[var(--text-muted)]">alunos</span>
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="dsp text-[40px] font-extrabold leading-none text-[var(--brand-lime)] tabular-nums">
-            €{total}
-          </p>
-          <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-            por mês · €{perAthlete.toFixed(2)} por aluno
-          </p>
-        </div>
+    <div className="border border-[var(--ld-line)] bg-[rgba(232,234,230,.02)] p-6 sm:p-8" style={{ borderRadius: 2 }}>
+      <p className="ld-label text-[var(--ld-faint)]">Sua assessoria</p>
+
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-5">
+        <p className="ld-dsp text-[64px] font-bold leading-[.9] text-[var(--ld-lime)] tabular-nums sm:text-[76px]">
+          €{total}
+        </p>
+        <p className="ld-dsp pb-1 text-right text-[13px] font-semibold tracking-[.14em] text-[var(--ld-faint)]">
+          <span className="text-[var(--ld-ink)]">{athletes}</span> alunos
+          <br />
+          <span className="text-[var(--ld-ink)]">€{perAthlete.toFixed(2).replace(".", ",")}</span> por aluno
+        </p>
       </div>
 
       <input
@@ -81,23 +75,26 @@ export function PriceCalc() {
         value={athletes}
         onChange={(e) => setAthletes(Number(e.target.value))}
         aria-label="Número de alunos"
-        className="ld-range mt-6 w-full"
+        className="ld-range mt-7 w-full"
       />
 
-      <div className="mt-5 flex flex-col gap-1.5 border-t border-[var(--border-soft)] pt-4">
+      <div className="mt-7 flex flex-col gap-2 border-t border-[var(--ld-line-soft)] pt-5">
         {lines.map((l) => (
           <div key={l.label} className="flex items-baseline justify-between text-[12.5px]">
-            <span className="text-[var(--text-muted)]">
-              {l.label} <span className="text-[var(--text-faint)]">· {l.count} aluno{l.count > 1 ? "s" : ""}</span>
+            <span className="text-[var(--ld-faint)]">
+              {l.label}
+              <span className="ml-2 text-[rgba(232,234,230,.28)]">
+                {l.count} aluno{l.count > 1 ? "s" : ""}
+              </span>
             </span>
-            <span className="tabular-nums font-semibold text-[var(--text-2)]">
+            <span className="ld-dsp text-[13px] font-semibold tracking-[.06em] text-[var(--ld-dim)] tabular-nums">
               {l.count} × €{l.price} = €{l.count * l.price}
             </span>
           </div>
         ))}
       </div>
 
-      <p className="mt-4 text-[11.5px] leading-relaxed text-[var(--text-faint)]">
+      <p className="mt-5 text-[12px] leading-relaxed text-[rgba(232,234,230,.35)]">
         Cada faixa vale só para os alunos dela — os 10 primeiros a €10, os seguintes a €9, e assim por
         diante. Crescer nunca aumenta o preço por aluno.
         {athletes === MAX && " Acima de 100, falamos com você."}
