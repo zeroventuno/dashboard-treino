@@ -19,7 +19,8 @@
 // A blind "reveal after N milliseconds" timer was the obvious fallback and the
 // wrong one: on a page this tall it fires long before the reader scrolls down,
 // so every below-the-fold counter would jump to its final value with no count.
-// The poll only fires when the element is genuinely in view.
+// The poll fires on geometry instead — see `reached` for why "has the reader
+// got here" beats "is it on screen right now".
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 // ── shared fallback ticker ──────────────────────────────────────────────────
@@ -55,10 +56,20 @@ function armFallback(check: () => boolean): () => void {
   };
 }
 
-const onScreen = (el: Element) => {
-  const r = el.getBoundingClientRect();
-  return r.top < window.innerHeight && r.bottom > 0;
-};
+/**
+ * Has the reader reached this element — meaning it has entered the viewport
+ * from below, whether or not it is still on screen.
+ *
+ * The obvious test is "currently visible" (`top < innerHeight && bottom > 0`),
+ * and it silently loses anything jumped past: an anchor link, a restored scroll
+ * position, a flick scroll on a phone. On the fallback path — the one that runs
+ * when IntersectionObserver never fires — that meant a counter the reader had
+ * already scrolled past stayed at 0 permanently.
+ *
+ * Reaching is monotonic, so the check can only ever turn on. Everything above
+ * the fold is revealed by definition.
+ */
+const reached = (el: Element) => el.getBoundingClientRect().top < window.innerHeight;
 
 /** Runs `fire` once the element is visible, by whichever of the three paths
  * gets there first. */
@@ -77,7 +88,7 @@ function useOnVisible<T extends HTMLElement>(fire: (el: T) => void, threshold = 
       return true;
     };
 
-    if (onScreen(el)) {
+    if (reached(el)) {
       run();
       return;
     }
@@ -98,7 +109,7 @@ function useOnVisible<T extends HTMLElement>(fire: (el: T) => void, threshold = 
     );
     io.observe(el);
 
-    const disarm = armFallback(() => (onScreen(el) ? run() : false));
+    const disarm = armFallback(() => (reached(el) ? run() : false));
 
     return () => {
       io.disconnect();

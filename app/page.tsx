@@ -78,17 +78,17 @@ const LAYERS = [
   {
     n: "02",
     title: "Leitura",
-    body: "Fitness, fadiga e forma ao longo do tempo. E tempo real em zona contra o que foi prescrito — porque uma hora fácil e 4x8min no limiar são a mesma hora, e não são o mesmo treino.",
+    body: "Fitness, fadiga e forma ao longo do tempo. E quanto tempo você passou em cada zona, lado a lado com o que o treino pedia — porque duas sessões de uma hora podem ser treinos completamente diferentes, e a duração sozinha não conta essa história.",
   },
   {
     n: "03",
     title: "Decisão",
-    body: "A sua IA lê o histórico inteiro e responde com a semana: treinos, ajustes, check-in e o arquivo pronto para o relógio ou para o rolo.",
+    body: "A sua IA lê o histórico inteiro antes de responder. A semana sai da conversa: treinos, ajustes e o check-in do dia, já organizados no painel.",
   },
   {
     n: "04",
-    title: "Equipe",
-    body: "Treinador, nutricionista e fisioterapeuta na mesma tela do atleta. Carteira ordenada por quem precisa de atenção hoje, não por ordem alfabética.",
+    title: "Volta",
+    body: "O treino vira arquivo — .zwo para o rolo, .fit para o relógio. Você treina, o relógio grava, e a captura recomeça. Ninguém digita nada em lugar nenhum.",
   },
 ];
 
@@ -132,151 +132,214 @@ function Marquee({ items, reverse = false }: { items: string[]; reverse?: boolea
 // leaks whichever athlete's data was on screen when it was taken.
 
 const ZONE_ROWS = [
-  { z: "Z2", planned: "6h20", done: "6h05", p: 100, a: 96, col: "var(--ld-lime)" },
-  { z: "Z4", planned: "52min", done: "30min", p: 62, a: 36, col: "#F4C04E" },
-  { z: "Z5", planned: "12min", done: "12min", p: 22, a: 22, col: "#FF6B5E" },
+  { z: "Z2", planned: "6h20", done: "6h05", p: 100, a: 96, col: "var(--good)" },
+  { z: "Z4", planned: "52min", done: "30min", p: 62, a: 36, col: "var(--warn)" },
+  { z: "Z5", planned: "12min", done: "12min", p: 22, a: 22, col: "var(--bad)" },
 ];
 
+// Phase colours come from the app's own variables, so the mock can never drift
+// from the palette the real season block uses.
 const SEASON = [
-  { w: 4, h: 34, c: "#2DD4BF", phase: "Base" },
-  { w: 4, h: 42, c: "#2DD4BF", phase: "Base" },
-  { w: 4, h: 56, c: "#A6E51A", phase: "Build" },
-  { w: 4, h: 68, c: "#A6E51A", phase: "Build" },
-  { w: 4, h: 82, c: "#A6E51A", phase: "Build" },
-  { w: 4, h: 100, c: "#F4A24E", phase: "Peak" },
-  { w: 4, h: 74, c: "#F4A24E", phase: "Peak" },
-  { w: 4, h: 44, c: "#4FB8FF", phase: "Taper" },
-  { w: 4, h: 26, c: "#FF5F57", phase: "Race" },
+  { h: 30, c: "var(--phase-base)", phase: "Base" },
+  { h: 38, c: "var(--phase-base)", phase: "Base" },
+  { h: 34, c: "var(--phase-base)", phase: "Base" },
+  { h: 46, c: "var(--phase-base)", phase: "Base" },
+  { h: 56, c: "var(--phase-build)", phase: "Build" },
+  { h: 68, c: "var(--phase-build)", phase: "Build" },
+  { h: 62, c: "var(--phase-build)", phase: "Build" },
+  { h: 82, c: "var(--phase-build)", phase: "Build" },
+  { h: 100, c: "var(--phase-peak)", phase: "Peak" },
+  { h: 88, c: "var(--phase-peak)", phase: "Peak" },
+  { h: 60, c: "var(--phase-taper)", phase: "Taper" },
+  { h: 44, c: "var(--phase-taper)", phase: "Taper" },
+  { h: 26, c: "var(--phase-race)", phase: "Race" },
 ];
+
+/** A card in the APP's language, not the landing's.
+ *
+ * This whole section exists to show what is actually on screen today, so it
+ * borrows the dashboard's tokens: --surface on --bg, 20px radii, and the italic
+ * Saira title over a muted subtitle that every real block uses. Rendering it in
+ * the poster's sharp 2px style would be showing a product we don't ship. */
+function AppCard({
+  title,
+  sub,
+  children,
+  className = "",
+}: {
+  title: string;
+  sub?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow)] ${className}`}
+      style={{ borderRadius: "var(--radius)" }}
+    >
+      <p className="dsp text-[17px] font-extrabold italic text-[var(--text)]">{title}</p>
+      {sub && <p className="mt-0.5 text-[11.5px] text-[var(--text-faint)]">{sub}</p>}
+      <div className="mt-4">{children}</div>
+    </div>
+  );
+}
 
 function LivePanel({ days, weeks, restDays }: { days: number; weeks: number; restDays: number }) {
   return (
-    <div className="grid gap-3 lg:grid-cols-[1.15fr_1fr]">
-      {/* countdown */}
-      <div className="border border-[var(--ld-line)] bg-[rgba(232,234,230,.02)] p-6" style={{ borderRadius: 2 }}>
-        <p className="ld-label text-[var(--ld-faint)]">{RACE_NAME}</p>
-        <p className="ld-dsp mt-4 text-[76px] font-bold leading-[.85] text-[var(--ld-lime)] sm:text-[96px]">
-          <Counter to={days} />
-        </p>
-        <p className="ld-label mt-2 text-[var(--ld-faint)]">
-          dias para a prova · {weeks} sem {restDays} d
-        </p>
-      </div>
+    // The app canvas is LIGHTER than the landing — that contrast is what makes
+    // the panel read as a real screen sitting inside the page rather than as
+    // more marketing drawn in the marketing style.
+    <div
+      className="bg-[var(--bg)] p-4 sm:p-6"
+      style={{ borderRadius: 24, border: "1px solid var(--border-soft)" }}
+    >
+      <div className="flex flex-col gap-4">
+        {/* hero: countdown + readiness, exactly the app's top block */}
+        <div
+          className="grid gap-4 border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow)] lg:grid-cols-[1.3fr_1fr]"
+          style={{ borderRadius: "var(--radius)" }}
+        >
+          <div>
+            <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.16em] text-[var(--bad)]">
+              <span className="block h-1.5 w-1.5 rounded-full bg-[var(--bad)]" />
+              {RACE_NAME}
+            </p>
+            <div className="mt-3 flex items-end gap-3">
+              <span className="dsp text-[72px] font-extrabold italic leading-[.8] text-[var(--text)] sm:text-[86px]">
+                <Counter to={days} />
+              </span>
+              <span className="pb-2 text-[13px] leading-tight text-[var(--text-muted)]">
+                dias para
+                <br />o dia da prova
+              </span>
+            </div>
+            <p className="mt-4 text-[11.5px] text-[var(--text-faint)]">
+              25 de out. de 2026 · {weeks} sem {restDays} d
+            </p>
+          </div>
 
-      {/* readiness */}
-      <div className="border border-[var(--ld-line)] bg-[rgba(232,234,230,.02)] p-6" style={{ borderRadius: 2 }}>
-        <div className="flex items-center justify-between">
-          <p className="ld-label text-[var(--ld-faint)]">Prontidão hoje</p>
-          <span
-            className="ld-label px-2.5 py-1 text-[10px]"
-            style={{ background: "rgba(244,192,78,.14)", color: "#F4C04E", borderRadius: 2 }}
+          <div
+            className="bg-[var(--bg-soft)] p-4"
+            style={{ borderRadius: "var(--radius-sm)", border: "1px solid var(--border-soft)" }}
           >
-            Manter
-          </span>
-        </div>
-        <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-          {[
-            { k: "Score", v: <Counter to={78} /> },
-            { k: "HRV", v: <Counter to={62} /> },
-            { k: "Bateria", v: <Counter to={71} /> },
-            { k: "Sono", v: "7h41" },
-          ].map((m) => (
-            <div key={m.k}>
-              <p className="ld-dsp text-[28px] font-bold leading-none text-[var(--ld-ink)]">{m.v}</p>
-              <p className="ld-label mt-1.5 text-[10px] text-[var(--ld-faint)]">{m.k}</p>
+            <p className="text-[9.5px] font-bold uppercase tracking-[0.2em] text-[var(--text-faint)]">
+              Prontidão hoje
+            </p>
+            <p className="dsp mt-1 text-[30px] font-extrabold italic uppercase leading-none text-[var(--warn)]">
+              Manter
+            </p>
+            <div className="mt-4 grid grid-cols-4 gap-2">
+              {[
+                { k: "Score", v: 78 },
+                { k: "HRV", v: 62 },
+                { k: "Bateria", v: 71 },
+              ].map((m) => (
+                <div key={m.k}>
+                  <p className="dsp text-[19px] font-extrabold italic leading-none text-[var(--text)]">
+                    <Counter to={m.v} />
+                  </p>
+                  <p className="mt-1 text-[8.5px] font-bold uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                    {m.k}
+                  </p>
+                </div>
+              ))}
+              <div>
+                <p className="dsp text-[19px] font-extrabold italic leading-none text-[var(--text)]">7h41</p>
+                <p className="mt-1 text-[8.5px] font-bold uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                  Sono
+                </p>
+              </div>
             </div>
-          ))}
+          </div>
         </div>
-      </div>
 
-      {/* fitness */}
-      <div className="border border-[var(--ld-line)] bg-[rgba(232,234,230,.02)] p-6" style={{ borderRadius: 2 }}>
-        <p className="ld-label text-[var(--ld-faint)]">Fitness · fadiga · forma</p>
-        <div className="mt-5 flex items-end gap-7">
-          {[
-            { k: "CTL", v: 58, c: "var(--ld-lime)" },
-            { k: "ATL", v: 40, c: "#F4C04E" },
-            { k: "TSB", v: 18, c: "var(--ld-teal)", sign: "+" },
-          ].map((m) => (
-            <div key={m.k}>
-              <p className="ld-dsp text-[34px] font-bold leading-none" style={{ color: m.c }}>
-                {m.sign}
-                <Counter to={m.v} />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <AppCard title="Condicionamento & Frescor" sub="Fitness, fadiga e forma ao longo do tempo">
+            <div className="flex items-end gap-7">
+              {[
+                { k: "Fitness", v: 58, c: "var(--bad)" },
+                { k: "Fadiga", v: 40, c: "var(--warn)" },
+                { k: "Forma", v: 18, c: "var(--teal)", sign: "+" },
+              ].map((m) => (
+                <div key={m.k}>
+                  <p className="dsp text-[32px] font-extrabold italic leading-none" style={{ color: m.c }}>
+                    {m.sign}
+                    <Counter to={m.v} />
+                  </p>
+                  <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--text-faint)]">
+                    {m.k}
+                  </p>
+                </div>
+              ))}
+              <p className="ml-auto text-right text-[11.5px] leading-snug text-[var(--text-faint)]">
+                VO₂max <span className="text-[var(--text)]">52,4</span>
+                <br />
+                <span className="text-[var(--good)]">▲ 1,4</span> em 3 meses
               </p>
-              <p className="ld-label mt-1.5 text-[10px] text-[var(--ld-faint)]">{m.k}</p>
             </div>
-          ))}
-          <p className="ml-auto text-[12px] leading-snug text-[rgba(232,234,230,.35)]">
-            VO₂max <span className="text-[var(--ld-ink)]">52,4</span>
-            <br />
-            <span className="text-[var(--ld-lime)]">▲ 1,4</span> em 3 meses
-          </p>
-        </div>
-      </div>
+          </AppCard>
 
-      {/* zone comparison — the thing nothing else shows */}
-      <div className="border border-[var(--ld-line)] bg-[rgba(232,234,230,.02)] p-6" style={{ borderRadius: 2 }}>
-        <p className="ld-label text-[var(--ld-faint)]">Tempo em zona · prescrito / feito</p>
-        <div className="mt-5 flex flex-col gap-3">
-          {ZONE_ROWS.map((r) => (
-            <div key={r.z} className="grid grid-cols-[26px_1fr_auto] items-center gap-3">
-              <span className="ld-dsp text-[12px] font-bold" style={{ color: r.col }}>
-                {r.z}
-              </span>
-              <span className="flex flex-col gap-[3px]">
-                <span
-                  className="ld-fill block h-[5px] border"
-                  style={{ ["--to" as string]: `${r.p}%`, borderColor: r.col }}
-                />
-                <span
-                  className="ld-fill block h-[5px]"
-                  style={{ ["--to" as string]: `${r.a}%`, background: r.col }}
-                />
-              </span>
-              <span className="ld-dsp text-[11px] tracking-[.08em] text-[var(--ld-faint)] tabular-nums">
-                {r.planned} / <span className="text-[var(--ld-ink)]">{r.done}</span>
-              </span>
+          <AppCard title="Tempo em Zona" sub="Prescrito × feito — por zona, não só a duração">
+            <div className="flex flex-col gap-3">
+              {ZONE_ROWS.map((r) => (
+                <div key={r.z} className="grid grid-cols-[26px_1fr_auto] items-center gap-3">
+                  <span className="dsp text-[12px] font-extrabold italic" style={{ color: r.col }}>
+                    {r.z}
+                  </span>
+                  <span className="flex flex-col gap-[3px]">
+                    <span
+                      className="ld-fill block h-[5px] rounded-full border"
+                      style={{ ["--to" as string]: `${r.p}%`, borderColor: r.col }}
+                    />
+                    <span
+                      className="ld-fill block h-[5px] rounded-full"
+                      style={{ ["--to" as string]: `${r.a}%`, background: r.col }}
+                    />
+                  </span>
+                  <span className="tnum text-[11px] text-[var(--text-faint)]">
+                    {r.planned} / <span className="text-[var(--text)]">{r.done}</span>
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
+            <p className="mt-4 text-[12px] text-[var(--text-muted)]">
+              <span className="font-bold" style={{ color: "var(--warn)" }}>
+                −22min em Z4
+              </span>{" "}
+              a menos do que foi pedido
+            </p>
+          </AppCard>
         </div>
-        <p className="mt-4 text-[12.5px] text-[rgba(232,234,230,.5)]">
-          <span className="ld-dsp font-bold tracking-[.06em]" style={{ color: "#F4C04E" }}>
-            −22min em Z4
-          </span>{" "}
-          a menos do que foi pedido
-        </p>
-      </div>
 
-      {/* season */}
-      <div className="border border-[var(--ld-line)] bg-[rgba(232,234,230,.02)] p-6 lg:col-span-2" style={{ borderRadius: 2 }}>
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <p className="ld-label text-[var(--ld-faint)]">Temporada · volume semanal por fase</p>
-          <p className="ld-label text-[10px] text-[rgba(232,234,230,.3)]">Race · 25 out</p>
-        </div>
-        <div className="mt-5 flex h-[92px] items-end gap-[6px]">
-          {SEASON.map((s, i) => (
-            <span
-              key={i}
-              className="ld-rise block flex-1"
-              style={{ height: `${s.h}%`, background: s.c, transitionDelay: `${i * 55}ms`, borderRadius: 1 }}
-              title={s.phase}
-            />
-          ))}
-        </div>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-          {[
-            { p: "Base", c: "#2DD4BF" },
-            { p: "Build", c: "#A6E51A" },
-            { p: "Peak", c: "#F4A24E" },
-            { p: "Taper", c: "#4FB8FF" },
-            { p: "Race", c: "#FF5F57" },
-          ].map((l) => (
-            <span key={l.p} className="ld-label flex items-center gap-2 text-[10px] text-[var(--ld-faint)]">
-              <span className="block h-[7px] w-[7px]" style={{ background: l.c }} />
-              {l.p}
-            </span>
-          ))}
-        </div>
+        <AppCard title="Temporada" sub="Volume semanal por fase, da base ao dia da prova">
+          <div className="flex h-[96px] items-end gap-[6px]">
+            {SEASON.map((s, i) => (
+              <span
+                key={i}
+                className="ld-rise block flex-1 rounded-[3px]"
+                style={{ height: `${s.h}%`, background: s.c, transitionDelay: `${i * 55}ms` }}
+                title={s.phase}
+              />
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+            {[
+              { p: "Base", c: "var(--phase-base)" },
+              { p: "Build", c: "var(--phase-build)" },
+              { p: "Peak", c: "var(--phase-peak)" },
+              { p: "Taper", c: "var(--phase-taper)" },
+              { p: "Race", c: "var(--phase-race)" },
+            ].map((l) => (
+              <span
+                key={l.p}
+                className="flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--text-faint)]"
+              >
+                <span className="block h-[7px] w-[7px] rounded-sm" style={{ background: l.c }} />
+                {l.p}
+              </span>
+            ))}
+          </div>
+        </AppCard>
       </div>
     </div>
   );
@@ -491,8 +554,9 @@ export default function LandingPage() {
         <div className="mt-14 grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
           <Reveal delay={80}>
             <p className="text-[15px] leading-[1.75] text-[var(--ld-dim)]">
-              Você já registra tudo. Mesmo assim, na quinta-feira, ninguém sabe dizer por que a perna
-              não subiu. O dado existe — ele só nunca esteve no mesmo lugar.
+              Você já registra tudo. Mas quando a semana rende menos, a resposta está espalhada: o
+              sono num app, a carga em outro, o treino num terceiro e a balança num caderno. O dado
+              existe — ele só nunca esteve no mesmo lugar, no mesmo dia, na mesma escala.
             </p>
           </Reveal>
 
@@ -533,16 +597,35 @@ export default function LandingPage() {
           <SectionLabel n="04">Inteligência</SectionLabel>
         </Reveal>
         <Reveal delay={60}>
-          <Headline className="mt-9">O dado não é o objetivo. O progresso é.</Headline>
+          <Headline className="mt-9">O painel é a cara da sua conversa.</Headline>
         </Reveal>
 
-        <div className="mt-14 grid gap-4 lg:grid-cols-2">
-          {/* athlete */}
+        <div className="mt-14 grid gap-4 lg:grid-cols-[1fr_1fr] lg:gap-10">
+          {/* The claim that has to be unmistakable — for honesty and for the
+              athlete's own safety. MY TRAKR stores and shows; it never decides. */}
           <Reveal delay={100}>
+            <div className="flex h-full flex-col justify-center gap-5 text-[15px] leading-[1.75] text-[var(--ld-dim)]">
+              <p>
+                <span className="text-[var(--ld-ink)]">O MY TRAKR não prescreve treino.</span> Ele é a
+                camada visual da sua conversa com a sua IA: o que vocês dois combinaram vira
+                calendário, gráfico, zona e arquivo — em vez de ficar perdido numa rolagem de chat.
+              </p>
+              <p>
+                Quem escreve o plano é a sua IA, ou o seu treinador. O painel guarda, organiza,
+                compara e devolve o histórico inteiro para a próxima pergunta. Nenhuma decisão de
+                treino nasce aqui.
+              </p>
+              <p className="ld-label pt-2 text-[var(--ld-lime)]">
+                Sua chave · seu chat · seu painel
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={170}>
             <div className="flex h-full flex-col border border-[var(--ld-line)] bg-[rgba(232,234,230,.02)]" style={{ borderRadius: 2 }}>
               <div className="flex items-center justify-between border-b border-[var(--ld-line)] px-6 py-4">
-                <span className="ld-label text-[var(--ld-lime)]">Para o atleta · a sua IA</span>
-                <span className="ld-label text-[10px] text-[rgba(232,234,230,.3)]">MY TRAKR · análise</span>
+                <span className="ld-label text-[var(--ld-lime)]">No seu chat</span>
+                <span className="ld-label text-[10px] text-[rgba(232,234,230,.3)]">Claude · ChatGPT</span>
               </div>
               <div className="flex flex-col gap-4 p-6">
                 <p className="ml-auto max-w-[85%] bg-[rgba(166,229,26,.1)] px-4 py-3 text-[13.5px] leading-relaxed text-[var(--ld-ink)]" style={{ borderRadius: 2 }}>
@@ -553,55 +636,16 @@ export default function LandingPage() {
                   caíram. A intensidade na bike também aumentou — três sessões acima do limiar em
                   oito dias.
                 </p>
+                <p className="ld-label px-1 text-[10px] text-[rgba(232,234,230,.3)]">
+                  ↓ e isso chega no painel assim
+                </p>
                 <div className="border border-[var(--ld-line)] px-4 py-3" style={{ borderRadius: 2 }}>
-                  <p className="ld-label text-[10px] text-[var(--ld-faint)]">Recomendação</p>
+                  <p className="ld-label text-[10px] text-[var(--ld-faint)]">Prontidão hoje</p>
                   <p className="mt-1.5 text-[13.5px] text-[var(--ld-ink)]">
-                    Mantenha hoje aeróbico e reduza a intensidade.
+                    Manter · aeróbico, sem intensidade.
                   </p>
                 </div>
               </div>
-              <p className="ld-label mt-auto border-t border-[var(--ld-line)] px-6 py-4 text-[10px] text-[rgba(232,234,230,.3)]">
-                Sua chave · seu chat · seu painel
-              </p>
-            </div>
-          </Reveal>
-
-          {/* agency */}
-          <Reveal delay={170}>
-            <div className="flex h-full flex-col border border-[var(--ld-line)] bg-[rgba(232,234,230,.02)]" style={{ borderRadius: 2 }}>
-              <div className="flex items-center justify-between border-b border-[var(--ld-line)] px-6 py-4">
-                <span className="ld-label text-[var(--ld-teal)]">Para a assessoria</span>
-                <span className="ld-label text-[10px] text-[rgba(232,234,230,.3)]">Carteira · 31 alunos</span>
-              </div>
-              <div className="flex flex-col">
-                {[
-                  { n: "Marina R.", s: "Caiu de 5 para 1 treino/semana", t: "Em risco", c: "#FF6B5E" },
-                  { n: "Pedro L.", s: "14 dias sem check-in", t: "Em risco", c: "#FF6B5E" },
-                  { n: "Ana C.", s: "Fez a hora, não fez a intensidade", t: "Atenção", c: "#F4C04E" },
-                  { n: "Bruno S.", s: "Constante · 8 treinos em 14 dias", t: "Ativo", c: "#A6E51A" },
-                ].map((a, i) => (
-                  <div
-                    key={a.n}
-                    className={`flex items-center justify-between gap-4 px-6 py-[15px] ${
-                      i < 3 ? "border-b border-[var(--ld-line-soft)]" : ""
-                    }`}
-                  >
-                    <span>
-                      <span className="block text-[13.5px] font-medium text-[var(--ld-ink)]">{a.n}</span>
-                      <span className="block text-[12px] text-[rgba(232,234,230,.4)]">{a.s}</span>
-                    </span>
-                    <span
-                      className="ld-label shrink-0 px-2.5 py-1 text-[9.5px]"
-                      style={{ color: a.c, background: `color-mix(in oklab, ${a.c} 14%, transparent)`, borderRadius: 2 }}
-                    >
-                      {a.t}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="ld-label mt-auto border-t border-[var(--ld-line)] px-6 py-4 text-[10px] text-[rgba(232,234,230,.3)]">
-                Ordenada por quem precisa de atenção hoje
-              </p>
             </div>
           </Reveal>
         </div>
