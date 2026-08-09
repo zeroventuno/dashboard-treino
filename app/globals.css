@@ -149,9 +149,109 @@ body {
 .collapse-grid.open { grid-template-rows: 1fr; }
 .collapse-grid > div { overflow: hidden; }
 
+/* ---------------------------------------------------------------------------
+   LANDING — motion.
+   Scoped with an `ld-` prefix so marketing animation can never leak into the
+   dashboard, where movement is noise: an athlete reading their week does not
+   want the numbers drifting.
+--------------------------------------------------------------------------- */
+
+/* The logo's four ascending bars, breathing left to right. Delays are set
+   inline per bar so the wave reads as one gesture rather than four loops. */
+@keyframes ld-bar {
+  0%, 100% { transform: scaleY(.55); }
+  50%      { transform: scaleY(1); }
+}
+.ld-bar { transform-origin: bottom; animation: ld-bar 2.6s ease-in-out infinite; }
+
+/* Slow drift behind the hero — two lime/teal blooms crossing each other. */
+@keyframes ld-drift {
+  0%   { transform: translate3d(-8%, -4%, 0) scale(1); }
+  50%  { transform: translate3d(8%, 6%, 0) scale(1.15); }
+  100% { transform: translate3d(-8%, -4%, 0) scale(1); }
+}
+.ld-drift { animation: ld-drift 22s ease-in-out infinite; }
+.ld-drift-slow { animation: ld-drift 34s ease-in-out infinite reverse; }
+
+/* Scroll reveal. Elements start hidden and are released by IntersectionObserver
+   adding .ld-in — see components/landing/Reveal.tsx. */
+.ld-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity .7s cubic-bezier(.22,.61,.36,1), transform .7s cubic-bezier(.22,.61,.36,1);
+}
+.ld-reveal.ld-in { opacity: 1; transform: none; }
+
+/* Cards lift toward the cursor. */
+.ld-card {
+  transition: transform .3s cubic-bezier(.22,.61,.36,1), border-color .3s, box-shadow .3s;
+}
+.ld-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in oklab, var(--brand-lime) 55%, transparent);
+  box-shadow: 0 12px 40px rgba(0,0,0,.45), 0 0 0 1px color-mix(in oklab, var(--brand-lime) 18%, transparent);
+}
+
+/* The donut in the product mock draws itself once revealed. */
+@keyframes ld-draw { from { stroke-dashoffset: var(--dash); } to { stroke-dashoffset: var(--dash-end); } }
+.ld-in .ld-draw { animation: ld-draw 1.6s cubic-bezier(.22,.61,.36,1) forwards; }
+
+/* Week bars in the product mock grow from the baseline. */
+@keyframes ld-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.ld-in .ld-grow { transform-origin: bottom; animation: ld-grow .9s cubic-bezier(.22,.61,.36,1) backwards; }
+
+/* Headline gradient sweep. */
+@keyframes ld-sweep { to { background-position: 200% center; } }
+.ld-sweep {
+  background: linear-gradient(90deg, var(--text) 20%, var(--brand-lime) 40%, var(--teal) 55%, var(--text) 75%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ld-sweep 7s linear infinite;
+}
+
+/* Price slider. Styled by hand because the native control ignores the palette
+   and a grey slider on a lime brand page reads as an unfinished form. */
+.ld-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand-lime), var(--teal));
+  outline: none;
+}
+.ld-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--text);
+  border: 3px solid var(--brand-lime);
+  cursor: grab;
+  box-shadow: 0 2px 10px rgba(0,0,0,.5);
+  transition: transform .15s;
+}
+.ld-range::-webkit-slider-thumb:active { transform: scale(1.15); cursor: grabbing; }
+.ld-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--text);
+  border: 3px solid var(--brand-lime);
+  cursor: grab;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rise, .pop, .fade, .growbar, .breathe { animation: none !important; }
   .tcard, .collapse-grid { transition: none !important; }
+  /* Marketing motion is decorative by definition — remove all of it, but leave
+     revealed content visible rather than stuck at opacity 0. */
+  .ld-bar, .ld-drift, .ld-drift-slow, .ld-sweep, .ld-draw, .ld-grow { animation: none !important; }
+  .ld-reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .ld-card:hover { transform: none; }
+  .ld-sweep { color: var(--text); }
 }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
