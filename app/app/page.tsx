@@ -23,7 +23,9 @@ import { AppNotifications } from "@/components/AppNotifications";
 import { coachBriefing, BRIEFING_VERSION } from "@/lib/coach-briefing";
 import { CONNECTOR_VERSION } from "@/lib/connector";
 import { DashboardBlocks } from "@/components/DashboardBlocks";
-import { hasProductDb } from "@/lib/product-db";
+import { DeviceConnect } from "@/components/DeviceConnect";
+import { hasProductDb, getDeviceLink } from "@/lib/product-db";
+import { hasStrava } from "@/lib/strava";
 import { APP_COOKIE } from "@/app/api/app-login/route";
 import { toISO } from "@/lib/utils";
 import { Tagline } from "@/components/Tagline";
@@ -46,9 +48,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ProductDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ key?: string }>;
+  searchParams: Promise<{ key?: string; device?: string }>;
 }) {
-  const { key } = await searchParams;
+  const { key, device } = await searchParams;
 
   // Magic link from the onboarding message: log in, then land on a clean /app
   // so the key never sticks around in the address bar or browser history.
@@ -110,6 +112,12 @@ export default async function ProductDashboardPage({
   const todayISO = toISO(new Date());
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
 
+  // Status only — the tokens must never cross into a client component. Hidden
+  // entirely when the deploy has no Strava app configured, since a connect
+  // button that can only fail is worse than no button.
+  const link = live && hasStrava() && tenantId ? await getDeviceLink(tenantId, "strava") : null;
+  const showDevice = live && hasStrava();
+
   return (
     <div data-readiness={readiness} className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
       <nav className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] bg-[rgba(38,43,52,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
@@ -142,6 +150,16 @@ export default async function ProductDashboardPage({
             </code>
           )}
         </div>
+      )}
+
+      {showDevice && (
+        <DeviceConnect
+          connected={!!link}
+          lastSyncAt={link?.last_sync_at ?? null}
+          lastError={link?.last_error ?? null}
+          locale={locale}
+          notice={device}
+        />
       )}
 
       {/* The athlete owns this dashboard → they can drag a session to another day.
