@@ -1,4 +1,5 @@
 import { RACE_DATE, type Discipline, type MuscleGroup, type Recommendation, type StrengthSession, type Workout } from "./types";
+import { plannedZones, zoneAdherence } from "./zone-time";
 
 // ---- dates -----------------------------------------------------------------
 
@@ -195,6 +196,14 @@ function closeness(actual: number | null | undefined, planned: number | null | u
 export function computeAdherence(w: Workout): number | null {
   if (w.adherence != null) return clampScore(w.adherence);
   if (w.status !== "done") return null;
+
+  // Time in zone first, when the device gave us one. Duration, distance and TSS
+  // only say the session happened; they can't tell 4x8min at threshold from an
+  // hour of easy spinning, and under a polarised method that difference IS the
+  // session. Falls through to the estimate when there's no stream to reduce.
+  const byZone = zoneAdherence(plannedZones(w.structure), w.actual_zones ?? null);
+  if (byZone != null) return byZone;
+
   const parts = [
     closeness(w.actual_duration_min, w.planned_duration_min),
     closeness(w.actual_tss, w.planned_tss),

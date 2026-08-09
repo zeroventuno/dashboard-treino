@@ -7,6 +7,12 @@ export type Discipline = "swim" | "bike" | "run" | "strength" | "rest";
 export type WorkoutStatus = "planned" | "done" | "skipped" | "cancelled" | "moved";
 export type Recommendation = "green" | "yellow" | "red";
 
+/** Seconds spent in each training zone. `z0` is prescribed time with no target
+ * ("easy spin") — it exists so an open block isn't scored as if the coach had
+ * asked for zone 1. Lives here rather than in lib/zone-time because it is a
+ * stored column; the logic that produces it is there. */
+export type ZoneSeconds = { z0: number; z1: number; z2: number; z3: number; z4: number; z5: number };
+
 export interface TrainingLoad {
   date: string; // YYYY-MM-DD
   tss: number | null;
@@ -48,9 +54,15 @@ export interface Workout {
    * the week's done volume — time/distance/TSS — but NOT in the x/y adherence. */
   extra?: boolean | null;
   /** 0-100: how well a DONE workout matched the plan. Set by the coach (their
-   * judgment); if null, the dashboard estimates it from actual vs planned
-   * duration/TSS/distance. Only meaningful when status is "done". */
+   * judgment); if null, the dashboard scores it from time in zone when the
+   * device gave us one, and falls back to actual vs planned duration/TSS/
+   * distance when it didn't. Only meaningful when status is "done". */
   adherence?: number | null;
+  /** Seconds per zone actually recorded, reduced from the device's stream at
+   * import time. The per-second stream itself is not kept: this handful of
+   * numbers is what a coach reads, and it's what makes "did the volume, missed
+   * the intensity" visible. */
+  actual_zones?: ZoneSeconds | null;
   /** Pre-workout: activation/warm-up routine and fueling. */
   activation?: string | null;
   nutrition_pre?: string | null;
