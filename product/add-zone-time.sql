@@ -24,9 +24,16 @@
 
 alter table workouts add column if not exists actual_zones jsonb;
 
--- Six non-negative integers under the expected keys, or nothing. Cheap to check
+-- Six non-negative numbers under the expected keys, or nothing. Cheap to check
 -- on write, and it stops a malformed import from quietly poisoning every
 -- adherence score and weekly 80/20 read that trusts this column.
+--
+-- Spelled out key by key rather than looped: CHECK constraints may not contain
+-- a subquery, so `not exists (select … from jsonb_each(…))` is rejected outright
+-- by Postgres. The `?&` presence test has to come first — without it a missing
+-- key makes jsonb_typeof() return NULL, the comparison returns NULL, and a CHECK
+-- that evaluates to NULL PASSES. The verbose version is the one that actually
+-- rejects bad rows.
 do $$
 begin
   if not exists (
@@ -36,10 +43,12 @@ begin
       actual_zones is null or (
         jsonb_typeof(actual_zones) = 'object'
         and actual_zones ?& array['z0','z1','z2','z3','z4','z5']
-        and not exists (
-          select 1 from jsonb_each(actual_zones) as e(k, v)
-          where jsonb_typeof(v) <> 'number' or (v)::numeric < 0
-        )
+        and jsonb_typeof(actual_zones->'z0') = 'number' and (actual_zones->>'z0')::numeric >= 0
+        and jsonb_typeof(actual_zones->'z1') = 'number' and (actual_zones->>'z1')::numeric >= 0
+        and jsonb_typeof(actual_zones->'z2') = 'number' and (actual_zones->>'z2')::numeric >= 0
+        and jsonb_typeof(actual_zones->'z3') = 'number' and (actual_zones->>'z3')::numeric >= 0
+        and jsonb_typeof(actual_zones->'z4') = 'number' and (actual_zones->>'z4')::numeric >= 0
+        and jsonb_typeof(actual_zones->'z5') = 'number' and (actual_zones->>'z5')::numeric >= 0
       )
     );
   end if;
