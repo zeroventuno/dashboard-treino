@@ -5,8 +5,29 @@
 // film grain — which is what stops a large dark gradient from banding into
 // visible steps on a cheap panel.
 //
-// Four layers, all CSS and one inline SVG. No image request, nothing for the
-// first paint to wait on.
+// Underneath all of it, optionally, a slate photograph. It is the ONLY layer
+// that costs a request, so it is also the only one that is conditional: the
+// file is looked for on disk at render time and the layer simply isn't emitted
+// when it's absent. That keeps a missing texture from becoming a 404 on every
+// page load, and means dropping the file into public/ is the whole install.
+
+import { existsSync } from "node:fs";
+import path from "node:path";
+
+/** Candidates in preference order — the optimised form first. */
+const TEXTURE_CANDIDATES = [
+  "texture-slate.webp",
+  "texture-slate.avif",
+  "texture-slate.jpg",
+  "texture-slate.png",
+];
+
+function findTexture(): string | null {
+  for (const name of TEXTURE_CANDIDATES) {
+    if (existsSync(path.join(process.cwd(), "public", name))) return `/${name}`;
+  }
+  return null;
+}
 
 /** feTurbulence, rendered once by the browser and tiled. 160×160 keeps the
  * repeat invisible while the data URI stays under a kilobyte. */
@@ -23,8 +44,30 @@ const GRAIN =
   );
 
 export function Backdrop() {
+  const texture = findTexture();
+
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 z-[1] overflow-hidden">
+      {/* Slate, at the very bottom of the stack.
+          `cover` inside a FIXED parent, so it holds still while the page scrolls
+          — the effect background-attachment: fixed gives, without the repaint
+          cost that makes that property stutter on iOS.
+          Low opacity plus `screen`: the photograph is near-black with pale
+          cracks, and screen keeps the blacks exactly as they are while lifting
+          only the cracks. Straight opacity would instead wash a grey film over
+          the whole page and flatten the near-black the design is built on. */}
+      {texture && (
+        <div
+          className="absolute inset-0 opacity-[0.42] mix-blend-screen"
+          style={{
+            backgroundImage: `url("${texture}")`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        />
+      )}
+
       {/* Blooms, behind the grid so the lines read as drawn ON the light. */}
       <div
         className="ld-drift absolute -left-[10%] -top-[18%] h-[85vh] w-[80vw]"
