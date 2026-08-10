@@ -1,6 +1,6 @@
 import { RACE_DATE, type Discipline, type MuscleGroup, type Recommendation, type StrengthSession, type Workout } from "./types";
 import { plannedZones, zoneAdherence, unpackZones } from "./zone-time";
-import { writtenMetric } from "./prescription";
+import { writtenMetric, plannedRpe } from "./prescription";
 
 // ---- dates -----------------------------------------------------------------
 
@@ -205,11 +205,23 @@ export function computeAdherence(w: Workout): number | null {
   // or when the two sides were measured in different units, which is refused
   // rather than answered wrongly.
   const measured = unpackZones(w.actual_zones);
+  const plannedMetric = writtenMetric(w.structure);
   const byZone = zoneAdherence(plannedZones(w.structure), measured?.seconds ?? null, {
-    planned: writtenMetric(w.structure),
+    planned: plannedMetric,
     actual: measured?.metric ?? null,
   });
   if (byZone != null) return byZone;
+
+  // Prescribed in RPE and answered in RPE. This is the whole reading available
+  // to an athlete with no device, so it comes before the duration estimate:
+  // "you asked for a 4 and it felt like an 8" is a real answer about the
+  // session, where matching the clock says nothing about the effort.
+  if (w.actual_rpe != null) {
+    const asked = plannedRpe(w.structure);
+    if (asked != null && asked > 0) {
+      return clampScore(Math.max(0, 1 - Math.abs(Number(w.actual_rpe) - asked) / asked) * 100);
+    }
+  }
 
   const parts = [
     closeness(w.actual_duration_min, w.planned_duration_min),

@@ -201,6 +201,35 @@ export function writtenMetric(blocks: WorkoutBlock[] | null | undefined): Unit |
   return best;
 }
 
+/**
+ * The RPE this session asked for, 0-10, weighted by how long each block lasts.
+ *
+ * Duration-weighted because a session is not the average of its instructions:
+ * ten minutes at 9/10 inside an hour at 4/10 is an easy session with a hard
+ * piece in it, and averaging the two numbers unweighted would call it a 6.
+ *
+ * Reads the written target first, and falls back to the percentage — an athlete
+ * with no equipment still sees the block as RPE, so that is what they should be
+ * scored against.
+ */
+export function plannedRpe(blocks: WorkoutBlock[] | null | undefined): number | null {
+  if (!blocks?.length) return null;
+  let weighted = 0;
+  let minutes = 0;
+  for (const b of blocks) {
+    const mins = b.duration_min || 0;
+    if (mins <= 0) continue;
+    let rpe: number | null = null;
+    const m = b.target ? /(\d+(?:[.,]\d)?)\s*\/\s*10/.exec(b.target) : null;
+    if (m) rpe = Number(m[1].replace(",", "."));
+    else if (b.intensity != null) rpe = Math.max(1, Math.min(10, b.intensity / 10));
+    if (rpe == null) continue;
+    weighted += rpe * mins;
+    minutes += mins;
+  }
+  return minutes > 0 ? weighted / minutes : null;
+}
+
 /** The metric a whole session should be judged in: whichever its blocks mostly
  * speak. A session mixing units is judged by the one carrying the most time,
  * since that is where the coach's intent actually lives. */

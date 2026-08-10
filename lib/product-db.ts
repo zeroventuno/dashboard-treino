@@ -95,6 +95,7 @@ const REQUIRED_COLUMNS: { schema: string; table: string; column: string; migrati
   { schema: "public", table: "workouts",    column: "extra",         migration: "add-workout-extra.sql" },
   { schema: "public", table: "workouts",    column: "external_id",   migration: "add-device-links.sql" },
   { schema: "public", table: "workouts",    column: "actual_zones",  migration: "add-zone-time.sql" },
+  { schema: "public", table: "workouts",    column: "actual_rpe",    migration: "add-session-rpe.sql" },
   { schema: "app",    table: "tenants",     column: "monthly_value", migration: "add-owner-and-value.sql" },
   { schema: "app",    table: "tenants",     column: "nickname",      migration: "add-athlete-admin.sql" },
   { schema: "app",    table: "staff",       column: "is_owner",      migration: "add-owner-and-value.sql" },

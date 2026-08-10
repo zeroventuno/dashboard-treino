@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Discipline, PerformanceIndicators, Workout, WorkoutStatus } from "@/lib/types";
-import { prescribe, writtenMetric, type Equipment } from "@/lib/prescription";
+import { prescribe, writtenMetric, plannedRpe, type Equipment } from "@/lib/prescription";
 import { disciplineMeta, fmtDuration, toDistance, distanceUnit, toSpeed, speedUnit, computeAdherence, type Units } from "@/lib/utils";
 import { ZoneCompare } from "@/components/ZoneCompare";
 import { plannedZones, unpackZones } from "@/lib/zone-time";
@@ -157,6 +157,16 @@ function ComparisonTable({ w, tr, units }: { w: Workout; tr: T; units: Units }) 
       planned: w.planned_tss != null ? `${Math.round(Number(w.planned_tss))}` : null,
       actual: w.actual_tss != null ? `${Math.round(Number(w.actual_tss))}` : null,
     },
+    {
+      // The only row an athlete with no device can fill in — and the one their
+      // score depends on when the session was written in effort.
+      label: tr("modal.rpe"),
+      planned: (() => {
+        const asked = plannedRpe(w.structure);
+        return asked != null ? `${Math.round(asked * 10) / 10}/10` : null;
+      })(),
+      actual: w.actual_rpe != null ? `${Number(w.actual_rpe)}/10` : null,
+    },
   ].filter((r) => r.planned != null || r.actual != null);
 
   const score = computeAdherence(w);
@@ -227,7 +237,15 @@ export function WorkoutModal({
   });
   const plannedMetric = writtenMetric(blocks);
   // Coach-supplied file first; else synthesized from the blocks (see buildZwo).
-  const zwo = w.zwo_content ?? (w.discipline === "bike" ? buildZwo(w, blocks) : null);
+  // A .zwo is a POWER file: every block is a fraction of FTP, and a trainer
+  // holds the athlete to it. Handing one to a rider with no meter and no FTP
+  // produces a session built on a threshold nobody measured — a number that
+  // looks precise and is a guess. Offered only when we can honour it, or when
+  // the coach supplied the file themselves, which is their call to make.
+  const canRidePower =
+    !!ftpWatts && (equipment.includes("bike_power") || equipment.includes("trainer"));
+  const zwo =
+    w.zwo_content ?? (w.discipline === "bike" && canRidePower ? buildZwo(w, blocks) : null);
   // Garmin file for the three endurance disciplines — strength workouts are
   // sets and reps, which this encoder doesn't model.
   const fit = ["swim", "bike", "run"].includes(w.discipline) ? buildFitWorkout(w, blocks) : null;
