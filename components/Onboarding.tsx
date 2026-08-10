@@ -101,10 +101,14 @@ export function Onboarding({
   locale,
   athlete,
   connectorUrl,
+  strava = "off",
 }: {
   locale: Locale;
   athlete: string | null;
   connectorUrl: string;
+  /** "off" when the deploy has no Strava app configured — the step is then
+   * hidden entirely rather than offering a button that can only fail. */
+  strava?: "off" | "ready" | "connected";
 }) {
   const tr = translator(locale);
   const router = useRouter();
@@ -232,6 +236,50 @@ export function Onboarding({
             />
           </div>
         </div>
+
+        {/* 4 — the watch. Placed here because this is the screen of an athlete
+            with an empty dashboard, and connecting a watch is by far the fastest
+            way to stop it being empty: 45 days of history arrive without them
+            typing anything. Optional, and last, because the coach connector
+            above is what the product actually needs to work. */}
+        {strava !== "off" && (
+          <div className="mt-6 flex gap-3.5">
+            <span
+              className="mt-[2px] grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold"
+              style={
+                strava === "connected"
+                  ? { background: "var(--lime)", color: "#0a0b0d" }
+                  : { background: "var(--surface-3)", color: "var(--text-faint)" }
+              }
+            >
+              {strava === "connected" ? "✓" : "4"}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-semibold text-[var(--text)]">{tr("onboarding.step4")}</p>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-[var(--text-faint)]">
+                {strava === "connected" ? tr("onboarding.step4.done") : tr("onboarding.step4.why")}
+              </p>
+
+              {strava === "ready" && (
+                // Strava's own artwork, unmodified — see DeviceConnect for why a
+                // lookalike button is not an option.
+                <a
+                  href="/api/app/strava/connect"
+                  className="mt-3 inline-block transition-opacity hover:opacity-85"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/strava/connect-orange.svg"
+                    alt={tr("device.connect")}
+                    width={474}
+                    height={96}
+                    className="block h-[34px] w-auto"
+                  />
+                </a>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Live status: this screen watches for the coach and swaps itself out
             the instant the first data lands. Removes the "did it work?" limbo. */}

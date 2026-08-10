@@ -80,6 +80,10 @@ export default async function ProductDashboardPage({
     // welcome and paste a Portuguese briefing. Fall back to the browser
     // language, exactly like /app/login does before it knows who you are.
     const onboardingLocale = pickLocale((await headers()).get("accept-language"));
+    // An empty dashboard is exactly when connecting a watch pays off most, so
+    // the step is offered here too — but only when the deploy can honour it.
+    const link = hasStrava() && tenantId ? await getDeviceLink(tenantId, "strava") : null;
+    const stravaState = !hasStrava() ? "off" : link ? "connected" : "ready";
     return (
       <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
         <nav className="mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] px-1 py-3">
@@ -93,6 +97,7 @@ export default async function ProductDashboardPage({
           locale={onboardingLocale}
           athlete={tenant.athlete}
           connectorUrl={process.env.MCP_CONNECTOR_URL ?? "https://dashboard-treino-zeroventunos-projects.vercel.app/api/mcp?key=SUA_CHAVE"}
+          strava={stravaState}
         />
       </div>
     );
