@@ -126,7 +126,19 @@ export function registerTools(server: McpServer, tenantId: string): void {
                 "PREFERRED disciplines per weekday, e.g. {tue:['swim']} when the squad swims on Tuesdays. A PREFERENCE, never a restriction: an empty list (or all four) means anything goes — treat a blank day as 'no preference', never as 'forbidden'.",
               ),
             preferred_time: z.string().optional().describe("e.g. 'early morning', 'after 7pm'"),
-            equipment: z.array(z.string()).optional().describe("what they can reach, e.g. ['trainer','25m pool','gym']"),
+            equipment: z
+              .array(z.enum(["bike_power", "run_power", "heart_rate", "gps", "trainer"]))
+              .optional()
+              .describe(
+                "What the athlete can MEASURE — a closed list, because the dashboard reads it to decide which " +
+                "unit every prescribed block is shown and scored in: bike_power (power meter or smart trainer), " +
+                "run_power (Stryd or a watch reporting running power), heart_rate (any strap or wrist HR), " +
+                "gps (a watch measuring pace outdoors), trainer (indoor trainer — makes a .zwo worth exporting). " +
+                "Anything outside this list is DISCARDED, so it used to accept free text and quietly drop it: a " +
+                "25m pool or a gym is a facility, not a measurement — put those in `notes`. The athlete also " +
+                "ticks these on the 'My week' block, and an empty array is a real answer meaning they measure " +
+                "nothing, which puts every workout in perceived effort.",
+              ),
             notes: z.string().optional().describe("anything else a week must respect, in the athlete's words"),
           })
           .partial()
