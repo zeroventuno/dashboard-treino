@@ -75,6 +75,54 @@ export function parseBands(zones: Record<string, [number, number] | string> | nu
   return bands.sort((a, b) => a.min - b.min);
 }
 
+/**
+ * Pace zone tables → bands in SPEED (m/s).
+ *
+ * Converting to speed is what makes pace fit the same machinery as power and
+ * heart rate. Pace runs backwards — 4:30/km is harder than 5:00/km — so bands
+ * read as descending numbers and every comparison downstream would need to know
+ * which metric it was looking at. One conversion here and a higher value means
+ * a harder effort everywhere, exactly like watts.
+ *
+ * `metresPerUnit` is 1000 for running (min/km) and 100 for swimming
+ * (min/100m) — the tables are written in different units and the resulting
+ * speeds have to be comparable to the samples they'll be matched against.
+ */
+export function parsePaceBands(
+  zones: Record<string, [number, number] | string> | null | undefined,
+  metresPerUnit = 1000,
+): Band[] {
+  if (!zones) return [];
+  const speed = (secs: number) => (secs > 0 ? metresPerUnit / secs : 0);
+  const bands: Band[] = [];
+
+  for (const [label, value] of Object.entries(zones)) {
+    const zone = zoneOfLabel(label);
+    if (!zone || typeof value !== "string") continue;
+
+    const open = /^\s*([<>])\s*(\d{1,2}):([0-5]\d)/.exec(value);
+    if (open) {
+      const secs = Number(open[2]) * 60 + Number(open[3]);
+      // "> 2:05" means SLOWER than 2:05, which is a LOWER speed — the operator
+      // flips along with the unit.
+      bands.push(
+        open[1] === ">"
+          ? { zone, min: 0, max: speed(secs) }
+          : { zone, min: speed(secs), max: Infinity },
+      );
+      continue;
+    }
+
+    const range = /(\d{1,2}):([0-5]\d)\s*[-–—]\s*(\d{1,2}):([0-5]\d)/.exec(value);
+    if (!range) continue;
+    const a = speed(Number(range[1]) * 60 + Number(range[2]));
+    const b = speed(Number(range[3]) * 60 + Number(range[4]));
+    bands.push({ zone, min: Math.min(a, b), max: Math.max(a, b) });
+  }
+
+  return bands.sort((x, y) => x.min - y.min);
+}
+
 /** Which zone a reading falls in. Bands stored as 136-183 / 184-220 leave gaps
  * at the boundaries, so a value between two bands snaps to the lower one rather
  * than being thrown away. */
