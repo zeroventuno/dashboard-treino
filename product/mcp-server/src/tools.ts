@@ -2,7 +2,8 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withTenant } from "./db.js";
 import {
-  workoutSchema, runWorkout, mealPlanSchema, runMealPlan, injurySchema, runInjury,
+  workoutSchema, runWorkout, deleteWorkoutSchema, runDeleteWorkout,
+  mealPlanSchema, runMealPlan, injurySchema, runInjury,
 } from "./writes.js";
 import {
   readProfile, readWorkouts, workoutsRangeSchema, readCheckins, checkinsSchema,
@@ -418,6 +419,20 @@ export function registerTools(server: McpServer, tenantId: string): void {
       inputSchema: workoutSchema,
     },
     async (a) => ok(await withTenant(tenantId, (c) => runWorkout(c, tenantId, a))),
+  );
+
+  server.registerTool(
+    "delete_workout",
+    {
+      description:
+        "Remove a session that should never have existed — a mis-typed discipline, a duplicate, an " +
+        "activity entered by hand that the watch later imported properly. NOT the same as cancelling: " +
+        "a cancelled session was planned and then called off, and its struck-through row is the record " +
+        "of that decision. Use status cancelled for that. Only hand-entered sessions can be deleted; " +
+        "anything a device imported is protected, since the next sync would restore it anyway.",
+      inputSchema: deleteWorkoutSchema,
+    },
+    async (a) => ok(await withTenant(tenantId, (c) => runDeleteWorkout(c, tenantId, a))),
   );
 
   server.registerTool(

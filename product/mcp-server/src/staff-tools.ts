@@ -5,7 +5,7 @@ import { pool, withTenant } from "./db.js";
 import type { StaffAuth } from "./auth.js";
 import {
   resolveRosterAthlete,
-  workoutSchema, runWorkout,
+  workoutSchema, runWorkout, deleteWorkoutSchema, runDeleteWorkout,
   mealPlanSchema, runMealPlan,
   injurySchema, runInjury,
 } from "./writes.js";
@@ -193,6 +193,19 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
         inputSchema: { ...workoutSchema, athlete: athleteArg },
       },
       async (a) => forAthlete(staff, a.athlete, (c, tid) => runWorkout(c, tid, a)),
+    );
+
+    server.registerTool(
+      "delete_workout",
+      {
+        description:
+          "Remove a session from one athlete on your roster that should never have existed — a mis-typed " +
+          "discipline, a duplicate, something entered by hand that their watch later imported properly. " +
+          "To call off a session you DID plan, use status cancelled instead: that is a decision, and its " +
+          "struck-through row is the record of it. Device-imported sessions are protected.",
+        inputSchema: { athlete: z.string(), ...deleteWorkoutSchema },
+      },
+      async (a) => forAthlete(staff, a.athlete, (c, tid) => runDeleteWorkout(c, tid, a)),
     );
 
     // ── Workout bank (agency library) — build once, reuse when prescribing ──

@@ -128,6 +128,63 @@ export const workoutSchema = {
 
 export type WorkoutArgs = z.infer<z.ZodObject<typeof workoutSchema>>;
 
+// ── delete_workout ──────────────────────────────────────────────────────────
+
+export const deleteWorkoutSchema = {
+  date: z.string().describe("YYYY-MM-DD of the session to remove"),
+  discipline: z
+    .enum(["swim", "bike", "run", "strength", "rest", "other"])
+    .describe("must match the stored discipline exactly"),
+  title: z
+    .string()
+    .optional()
+    .describe(
+      "Exact title. Omit ONLY when the athlete means every session of that " +
+      "discipline on that day — with several, omitting it removes them all.",
+    ),
+} satisfies z.ZodRawShape;
+
+export type DeleteWorkoutArgs = z.infer<z.ZodObject<typeof deleteWorkoutSchema>>;
+
+/**
+ * Remove a session outright.
+ *
+ * Distinct from status "cancelled", and both are needed. Cancelled is a session
+ * that WAS planned and then called off — it happened as a decision, it drops out
+ * of the week's totals, and the struck-through row is the record of that
+ * decision. This is for a row that should never have existed: a mis-typed
+ * discipline, a duplicate, an activity logged by hand that the watch then
+ * imported properly. Leaving those as cancelled leaves permanent litter on the
+ * calendar describing a choice nobody made.
+ *
+ * Rows the device wrote are protected: `external_id is null` means only
+ * hand-entered sessions can be deleted here, so a mistaken cleanup can never
+ * erase imported history that the next sync would then quietly restore.
+ */
+export async function runDeleteWorkout(
+  c: PoolClient,
+  tenantId: string,
+  a: DeleteWorkoutArgs,
+): Promise<string> {
+  const { rows } = await c.query<{ title: string }>(
+    `delete from workouts
+      where tenant_id = $1 and date = $2::date and discipline = $3
+        and external_id is null
+        and ($4::text is null or title = $4)
+      returning title`,
+    [tenantId, a.date, a.discipline, a.title ?? null],
+  );
+
+  if (rows.length === 0) {
+    return (
+      `Nothing deleted: no hand-entered ${a.discipline} on ${a.date}` +
+      (a.title ? ` titled "${a.title}"` : "") +
+      `. Sessions imported from a device can't be removed this way — check the exact title with get_workouts.`
+    );
+  }
+  return `Deleted ${rows.length} session(s) on ${a.date}: ${rows.map((r) => r.title).join(", ")}.`;
+}
+
 export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs): Promise<string> {
   const { rows } = await c.query(
     `insert into workouts (tenant_id,date,discipline,title,status,description,garmin_instructions,zwo_content,
