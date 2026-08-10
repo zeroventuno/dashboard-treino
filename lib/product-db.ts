@@ -542,8 +542,11 @@ export async function importWorkouts(
         // every night for sessions that already have their zones.
         if (already[0].structure && !already[0].actual_zones) needsZones.push(it.external_id);
         await c.query(
-          `update workouts set actual_duration_min = $2, actual_distance_km = $3,
-                               actual_pace = $4, actual_power_watts = $5, status = 'done'
+          `update workouts set actual_duration_min = coalesce($2, actual_duration_min),
+                               actual_distance_km  = coalesce($3, actual_distance_km),
+                               actual_pace         = coalesce($4, actual_pace),
+                               actual_power_watts  = coalesce($5, actual_power_watts),
+                               status = 'done'
             where id = $1`,
           [already[0].id, it.actual_duration_min, it.actual_distance_km, it.actual_pace, it.actual_power_watts],
         );
@@ -551,23 +554,42 @@ export async function importWorkouts(
         continue;
       }
 
-      // Prefer the session the coach planned, so the plan gets ticked rather
-      // than shadowed. `moved`/`cancelled` are excluded: those are explicitly
-      // out of the plan and must not be resurrected by an import.
+      // Claim the session that is already on the calendar for that day and
+      // sport, so the import lands ON it rather than beside it.
+      //
+      // `done` belongs in this list, and leaving it out is what duplicated a
+      // whole history on the first real sync. An account that has been running
+      // for months has almost nothing still sitting at `planned`: the athlete's
+      // AI, or the athlete, marked each session done as it happened. Matching
+      // only planned/skipped meant every one of those got a second copy from
+      // Strava, and the week showed everything twice.
+      //
+      // `moved` and `cancelled` stay excluded — those are explicitly out of the
+      // plan and must not be resurrected by an import.
+      //
+      // Ordering matters when a day holds more than one candidate: an untouched
+      // planned session is the better claim than one already logged, and among
+      // equals the key workout wins.
       const { rows: planned } = await c.query<{ id: string; structure: unknown }>(
         `select id, structure from workouts
           where tenant_id = $1 and date = $2::date and discipline = $3
-            and external_id is null and status in ('planned','skipped')
-          order by key_workout desc nulls last
+            and external_id is null and status in ('planned','skipped','done')
+          order by (status in ('planned','skipped')) desc,
+                   key_workout desc nulls last
           limit 1`,
         [tenantId, it.date, it.discipline],
       );
 
       if (planned[0]) {
+        // coalesce, not assignment: the device is authoritative for what it
+        // measured, but it doesn't measure everything. A ride reports no pace,
+        // and a plain assignment would erase a pace the coach had typed in.
         await c.query(
           `update workouts set status = 'done', external_id = $2,
-                               actual_duration_min = $3, actual_distance_km = $4,
-                               actual_pace = $5, actual_power_watts = $6
+                               actual_duration_min = coalesce($3, actual_duration_min),
+                               actual_distance_km  = coalesce($4, actual_distance_km),
+                               actual_pace         = coalesce($5, actual_pace),
+                               actual_power_watts  = coalesce($6, actual_power_watts)
             where id = $1`,
           [planned[0].id, it.external_id, it.actual_duration_min, it.actual_distance_km, it.actual_pace, it.actual_power_watts],
         );
