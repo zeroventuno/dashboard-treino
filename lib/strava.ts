@@ -245,8 +245,30 @@ export function toDiscipline(a: StravaActivity): Discipline | null {
   if (t.includes("ride") || t.includes("bike") || t.includes("cycl")) return "bike";
   if (t.includes("run") || t.includes("treadmill")) return "run";
   if (t.includes("weight") || t.includes("workout") || t.includes("crossfit")) return "strength";
+
+  // Endurance-adjacent sports the plan doesn't model. A five-hour hike at 93bpm
+  // is aerobic volume whatever it's called, and dropping it — which is what
+  // returning null did — loses real training. It lands as `other` + `extra`:
+  // counted in the week, never mistaken for a prescribed session.
+  //
+  // Short ones are still skipped. Below the floor these are errands, not
+  // training, and a calendar full of ten-minute walks to the shop is noise that
+  // makes the real sessions harder to find.
+  if (OTHER_SPORTS.test(t)) {
+    return a.moving_time >= MIN_OTHER_SECONDS ? "other" : null;
+  }
   return null;
 }
+
+/** Sports worth importing as `other` — deliberately a list, not a catch-all:
+ * every Strava type we don't name stays out, so a new activity type can't start
+ * filling the calendar without someone deciding it should. */
+const OTHER_SPORTS = /hike|walk|row|ski|snowboard|snowshoe|elliptical|stair|skate|kayak|canoe|surf|climb/;
+
+/** 30 minutes. A judgment call, and the one number here worth arguing about:
+ * high enough to skip the walk to the bakery, low enough to keep a short row or
+ * a gym-machine session that genuinely loaded the athlete. */
+const MIN_OTHER_SECONDS = 30 * 60;
 
 /** "4:35/km", or "1:53/100m" for swimming — the units each sport is read in. */
 export function paceFrom(a: StravaActivity, discipline: Discipline): string | null {

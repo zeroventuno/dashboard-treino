@@ -1,5 +1,6 @@
 import type { Phase, PerformanceMilestone, TrainingLoad } from "@/lib/types";
 import { parseDate, toISO, addDays, startOfWeek, fmtDayMonth } from "@/lib/utils";
+import { phaseColor } from "@/lib/phases";
 
 const METRIC_LABEL: Record<string, string> = {
   FTP: "FTP", swim_pace_100m: "Swim CSS", run_pace_threshold: "Run LT", prova_prep: "Race prep",
@@ -7,25 +8,6 @@ const METRIC_LABEL: Record<string, string> = {
 
 // approximate planned weekly volume (TSS-ish) per phase — used for future weeks
 const EST: Record<string, number> = { Base: 300, Build: 430, Peak: 480, Taper: 250, Race: 110 };
-
-/** The canonical hue per phase, used when the stored colour is missing.
- *
- * Colours come from the `phases` table, written by the coach — this is only the
- * fallback, so a cycle saved without one still reads as a season rather than as
- * five identical lime bars. Names are matched loosely because the coach types
- * them in their own language. */
-const PHASE_HUE: [RegExp, string][] = [
-  [/base/i, "var(--phase-base)"],
-  [/build|constru|costru|desarrollo|développ/i, "var(--phase-build)"],
-  [/peak|pico|picco|pointe/i, "var(--phase-peak)"],
-  [/taper|polim|scarico|affût/i, "var(--phase-taper)"],
-  [/race|prova|gara|carrera|course/i, "var(--phase-race)"],
-];
-
-export function phaseColor(p: { name: string; color?: string | null }): string {
-  if (p.color) return p.color;
-  return PHASE_HUE.find(([re]) => re.test(p.name))?.[1] ?? "var(--brand-lime)";
-}
 
 /** The day-of-month label for a week that straddles a month boundary: the 1st
  * of the incoming month, or the week's own start on the very first bar. */
@@ -119,7 +101,7 @@ export function SeasonBars({
     return ((clamped + 0.5) / weeks.length) * 100;
   };
 
-  const legend = [...new Map(phases.map((p) => [p.name, phaseColor(p)])).entries()];
+  const legend = [...new Map(phases.map((p) => [p.name, phaseColor(p.name, p.color)])).entries()];
 
   return (
     <div>
@@ -136,7 +118,7 @@ export function SeasonBars({
         <div className="flex h-[86px] items-end gap-[3px]">
           {weeks.map((w, i) => {
             const h = Math.max(6, (w.vol / maxVol) * 100);
-            const color = phaseColor(w.phase);
+            const color = phaseColor(w.phase.name, w.phase.color);
             const future = !w.isPast && !w.isCurrent;
             return (
               <div

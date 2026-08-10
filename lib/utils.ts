@@ -114,12 +114,13 @@ export function fmtSleepHours(hours: number | null | undefined): string {
  * (see lib/i18n.ts) once a locale is in hand. */
 export const DISCIPLINE_META: Record<
   Discipline,
-  { label: string; i18nKey: "discipline.swim" | "discipline.bike" | "discipline.run" | "discipline.strength" | "discipline.rest"; color: string; icon: string }
+  { label: string; i18nKey: "discipline.swim" | "discipline.bike" | "discipline.run" | "discipline.strength" | "discipline.rest" | "discipline.other"; color: string; icon: string }
 > = {
   swim: { label: "Swim", i18nKey: "discipline.swim", color: "var(--swim)", icon: "swim" },
   bike: { label: "Bike", i18nKey: "discipline.bike", color: "var(--bike)", icon: "bike" },
   run: { label: "Run", i18nKey: "discipline.run", color: "var(--run)", icon: "run" },
   strength: { label: "Strength", i18nKey: "discipline.strength", color: "var(--strength)", icon: "strength" },
+  other: { label: "Other", i18nKey: "discipline.other", color: "var(--teal)", icon: "rest" },
   rest: { label: "Rest", i18nKey: "discipline.rest", color: "var(--rest)", icon: "rest" },
 };
 

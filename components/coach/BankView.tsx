@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PHASE_COLORS } from "@/lib/phases";
 import { translator, type Locale } from "@/lib/i18n";
 import type { BankWorkout, Methodology, RosterAthlete } from "@/lib/product-db";
 import type { Workout, Discipline, WorkoutBlock } from "@/lib/types";
@@ -18,11 +19,13 @@ const METHOD_FIELDS = ["philosophy", "periodization", "intensity_distribution", 
 const NO_PHASE = "—";
 /** Same colours the athlete's season timeline paints these phases with, so a
  * phase reads the same wherever it appears in the product. */
+// Shared with the season chart so a phase is the same colour wherever it is
+// read — the bank and the timeline used to drift by a shade.
 const PHASE_COLOR: Record<string, string> = {
-  Base: "#2dd4bf",
-  Build: "#c6f24e",
-  Peak: "#f4a24e",
-  Taper: "#4fb8ff",
+  Base: PHASE_COLORS.base,
+  Build: PHASE_COLORS.build,
+  Peak: PHASE_COLORS.peak,
+  Taper: PHASE_COLORS.taper,
   [NO_PHASE]: "var(--text-faint)",
 };
 

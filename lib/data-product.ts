@@ -9,6 +9,7 @@ import { getMockData } from "./mock";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n";
 import { hasProductDb, withTenant } from "./product-db";
 import { addDays, parseDate, toISO } from "./utils";
+import { phaseColor } from "./phases";
 import { RACE_DATE, RACE_NAME } from "./types";
 import type { Availability } from "./availability";
 import type {
@@ -56,7 +57,6 @@ export interface CyclePhase {
  * translation an athlete on a cycle gets an empty Season block forever — /demo
  * has always done it, /app never did. */
 function cycleToPhases(cycle: NonNullable<TenantView["cycle"]>): Phase[] {
-  const colors = ["#2dd4bf", "#c6f24e", "#f4a24e", "#4fb8ff"];
   let cursor = parseDate(cycle.startISO);
   return cycle.phases.map((ph, i) => {
     const start = cursor;
@@ -68,7 +68,9 @@ function cycleToPhases(cycle: NonNullable<TenantView["cycle"]>): Phase[] {
       start_date: toISO(start),
       end_date: toISO(end),
       focus: ph.focus,
-      color: colors[i % colors.length],
+      // By NAME. Positional colours gave a repeated Base block a different
+      // hue each time it came round, and a fifth phase reused the first.
+      color: phaseColor(ph.name),
     };
   });
 }

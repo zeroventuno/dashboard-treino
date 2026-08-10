@@ -1,6 +1,15 @@
 // Domain types — mirror the Supabase schema (see supabase/migrations).
 
-export type Discipline = "swim" | "bike" | "run" | "strength" | "rest";
+// "other" is any sport the plan does not model — a hike, a ski tour, a row, a
+// football match. It is deliberately ONE bucket rather than a growing list:
+// every first-class discipline needs zone tables, a pace ladder and an export
+// path, and none of that exists for trekking. The activity keeps its own name
+// in `title`; this only says "training, but not one of the three".
+//
+// Emphatically NOT "rest": that means a day off, and filing five hours of
+// walking under it makes the calendar claim rest on a day that had none, and
+// corrupts every reading of which days are actually free.
+export type Discipline = "swim" | "bike" | "run" | "strength" | "rest" | "other";
 // planned: scheduled, pending · done: completed (adherence score says how well)
 // skipped: athlete no-showed · cancelled: coach removed it · moved: rescheduled
 // (the struck-through original; the real one lives on the new date).

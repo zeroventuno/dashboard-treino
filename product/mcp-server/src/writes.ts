@@ -40,8 +40,15 @@ export async function resolveRosterAthlete(
 export const workoutSchema = {
   date: z.string(),
   discipline: z
-    .enum(["swim", "bike", "run", "strength", "rest"])
-    .describe("one of: swim, bike, run, strength, rest — never a translated or free-form name"),
+    .enum(["swim", "bike", "run", "strength", "rest", "other"])
+    .describe(
+      "one of: swim, bike, run, strength, rest, other — never a translated or free-form name. " +
+      "USE \"other\" for any sport the plan does not model: a hike, a ski tour, a row, a football " +
+      "match. Put the real activity in the title ('Pontechianale Hiking'), and set extra: true so it " +
+      "counts in the week's volume without pretending to be a prescribed session. Do NOT file these " +
+      "under 'rest' — that means a DAY OFF, and five hours of walking recorded as rest makes the " +
+      "calendar claim the athlete rested on a day they did not.",
+    ),
   title: z.string(),
   status: z
     .enum(["planned", "done", "skipped", "cancelled", "moved"])
