@@ -20,6 +20,7 @@ import {
 import { Onboarding } from "@/components/Onboarding";
 import { LogoutButton } from "@/components/LogoutButton";
 import { AppNotifications } from "@/components/AppNotifications";
+import { AthleteSettings } from "@/components/AthleteSettings";
 import { coachBriefing, BRIEFING_VERSION } from "@/lib/coach-briefing";
 import { CONNECTOR_VERSION } from "@/lib/connector";
 import { DashboardBlocks } from "@/components/DashboardBlocks";
@@ -133,6 +134,7 @@ export default async function ProductDashboardPage({
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
             {live ? tr("common.live") : tenantId ? tr("app.noData") : tr("common.sampleData")}
           </span>
+          <AthleteSettings preferences={tenant.preferences ?? {}} locale={locale} editable={live} />
           <AppNotifications briefing={coachBriefing(locale)} briefingVersion={BRIEFING_VERSION} connectorVersion={CONNECTOR_VERSION} locale={locale} />
           <LogoutButton locale={locale} />
         </div>

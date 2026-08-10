@@ -33,6 +33,11 @@ export interface Availability {
   sports?: WeekSports;
   preferred_time?: string;
   equipment?: string[];
+  /** ISO stamp written when the athlete presses Done in the settings panel.
+   * Distinguishes "answered, and the answer is nothing" from "never opened" —
+   * without it the setup badge could never clear for someone who measures
+   * nothing and trains whenever. */
+  configured_at?: string;
   notes?: string;
   [k: string]: unknown;
 }

@@ -24,13 +24,13 @@ export async function POST(req: Request) {
   }
 
   const body = (await req.json().catch(() => null)) as
-    | { hours?: unknown; long_days?: unknown; long_day?: unknown; sports?: unknown; equipment?: unknown }
+    | { hours?: unknown; long_days?: unknown; long_day?: unknown; sports?: unknown; equipment?: unknown; configured_at?: unknown }
     | null;
   if (!body) return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
 
   const patch: {
     hours?: WeekHours; long_days?: Weekday[]; long_day?: Weekday | null; sports?: WeekSports;
-    equipment?: Equipment[];
+    equipment?: Equipment[]; configured_at?: string;
   } = {};
   if (body.hours && typeof body.hours === "object") {
     patch.hours = normalizeHours(body.hours as WeekHours);
@@ -49,6 +49,12 @@ export async function POST(req: Request) {
   // silently mean "owns nothing" and drop the athlete to RPE.
   if (Array.isArray(body.equipment)) {
     patch.equipment = readEquipment(body.equipment);
+  }
+  // Stamped server-side from the client's claim only in shape, not value: any
+  // string is accepted but stored as a real ISO instant, so a bad clock or a
+  // crafted payload can't plant a date the dashboard would later reason about.
+  if (typeof body.configured_at === "string") {
+    patch.configured_at = new Date().toISOString();
   }
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });

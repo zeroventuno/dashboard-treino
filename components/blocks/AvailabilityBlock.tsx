@@ -30,10 +30,19 @@ export function AvailabilityBlock({
   preferences,
   locale,
   editable,
+  variant = "card",
+  onSaved,
 }: {
   preferences: Availability;
   locale: Locale;
   editable: boolean;
+  /** "card" is the dashboard block a COACH reads on the athlete's drill-in.
+   * "bare" drops the card chrome so the same controls can live inside the
+   * athlete's settings panel — one implementation, two surfaces, because two
+   * copies of a form this fiddly would drift within a week. */
+  variant?: "card" | "bare";
+  /** Fired after a successful write, so a host panel can clear its badge. */
+  onSaved?: () => void;
 }) {
   const tr = translator(locale);
   const [hours, setHours] = useState<WeekHours>(preferences.hours ?? {});
@@ -64,7 +73,10 @@ export function AvailabilityBlock({
         }),
       });
       setState(res.ok ? "saved" : "error");
-      if (res.ok) setTimeout(() => setState("idle"), 1800);
+      if (res.ok) {
+        onSaved?.();
+        setTimeout(() => setState("idle"), 1800);
+      }
     } catch {
       setState("error");
     }
@@ -95,8 +107,8 @@ export function AvailabilityBlock({
   const total = weeklyHours({ hours });
   const fmt = (h: number) => (h === 0 ? "—" : h % 1 === 0 ? `${h}h` : `${Math.floor(h)}h${(h % 1) * 60}`);
 
-  return (
-    <SectionCard title={tr("availability.title")} subtitle={tr("availability.sub")}>
+  const body = (
+    <>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         {WEEKDAYS.map((d) => {
           const h = hours[d] ?? 0;
@@ -252,6 +264,14 @@ export function AvailabilityBlock({
         {state === "saved" && <span className="text-[11.5px] text-[var(--good)]">{tr("availability.saved")}</span>}
         {state === "error" && <span className="text-[11.5px] text-[var(--bad)]">{tr("admin.saveError")}</span>}
       </div>
-    </SectionCard>
+    </>
+  );
+
+  // Bare inside the settings panel, which supplies its own heading; carded on
+  // the coach drill-in, where it is one block among many.
+  return variant === "bare" ? (
+    body
+  ) : (
+    <SectionCard title={tr("availability.title")} subtitle={tr("availability.sub")}>{body}</SectionCard>
   );
 }

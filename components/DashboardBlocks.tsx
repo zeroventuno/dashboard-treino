@@ -60,8 +60,11 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
     />
   ),
   availability: (p) => (
-    // Editable only on the athlete's own dashboard; the coach drill-in reads it.
-    <AvailabilityBlock preferences={p.tenant.preferences ?? {}} locale={p.locale} editable={p.editable} />
+    // Read-only, and ONLY for the coach: on the athlete's own dashboard this
+    // moved behind the settings gear, where configuration belongs. For a coach
+    // it is not configuration, it is what they need to know before writing a
+    // week — so it stays a block on the drill-in.
+    <AvailabilityBlock preferences={p.tenant.preferences ?? {}} locale={p.locale} editable={false} />
   ),
   season: (p) => <SeasonBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   menstrual: (p) => <MenstrualCycleBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
@@ -88,8 +91,15 @@ export function DashboardBlocks({
 }) {
   const props: BlockProps = { data, todayISO, locale, tenant, editable };
 
-  // Only blocks this athlete can actually feed (adaptive gating on declared metrics).
-  const enabled = BLOCKS.filter((b) => b.enabled && blockAvailable(b.requires, tenant.metrics));
+  // Only blocks this athlete can actually feed (adaptive gating on declared
+  // metrics) — minus, on the athlete's OWN dashboard, the one that is settings
+  // rather than reading. "My week" is answered about twice a year and was
+  // competing every day with the calendar and the fitness chart; it now lives
+  // behind the gear in the top bar. The coach's drill-in keeps it, because for
+  // them it is not a setting, it is what they need before writing a week.
+  const enabled = BLOCKS.filter(
+    (b) => b.enabled && blockAvailable(b.requires, tenant.metrics) && !(editable && b.id === "availability"),
+  );
   const groups: (BlockDef | BlockDef[])[] = [];
   for (const b of enabled) {
     const last = groups[groups.length - 1];
