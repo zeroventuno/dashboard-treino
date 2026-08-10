@@ -520,7 +520,7 @@ export async function importWorkouts(
     actual_duration_min: number; actual_distance_km: number | null;
     actual_pace: string | null; actual_power_watts: string | null;
   }[],
-): Promise<{ matched: number; created: number; updated: number; needsZones: string[] }> {
+): Promise<{ matched: number; created: number; updated: number; needsZones: { externalId: string; structure: unknown }[] }> {
   if (!hasProductDb() || items.length === 0) return { matched: 0, created: 0, updated: 0, needsZones: [] };
 
   return withTenant(tenantId, async (c) => {
@@ -529,7 +529,7 @@ export async function importWorkouts(
     // coach actually structured, so there is a prescription to compare against.
     // Fetching the stream of an unplanned dog walk would burn the same shared
     // allowance to compute a distribution nobody asked for.
-    const needsZones: string[] = [];
+    const needsZones: { externalId: string; structure: unknown }[] = [];
 
     for (const it of items) {
       const { rows: already } = await c.query<{ id: string; structure: unknown; actual_zones: unknown }>(
@@ -540,7 +540,7 @@ export async function importWorkouts(
         // Re-sync: only worth a stream call if it's structured and we never
         // scored it. Otherwise a nightly sync would re-fetch the same streams
         // every night for sessions that already have their zones.
-        if (already[0].structure && !already[0].actual_zones) needsZones.push(it.external_id);
+        if (already[0].structure && !already[0].actual_zones) needsZones.push({ externalId: it.external_id, structure: already[0].structure });
         await c.query(
           `update workouts set actual_duration_min = coalesce($2, actual_duration_min),
                                actual_distance_km  = coalesce($3, actual_distance_km),
@@ -594,7 +594,7 @@ export async function importWorkouts(
           [planned[0].id, it.external_id, it.actual_duration_min, it.actual_distance_km, it.actual_pace, it.actual_power_watts],
         );
         matched++;
-        if (planned[0].structure) needsZones.push(it.external_id);
+        if (planned[0].structure) needsZones.push({ externalId: it.external_id, structure: planned[0].structure });
       } else {
         await c.query(
           `insert into workouts
@@ -621,11 +621,15 @@ export async function importWorkouts(
 
 /** Attach the reduced stream to an already-imported session. Separate from the
  * import because the stream costs a call each: the import decides WHICH sessions
- * deserve one, this writes the answer back. */
+ * deserve one, this writes the answer back.
+ *
+ * Takes the packed object — zone seconds plus the metric they were measured in
+ * — because a score is only meaningful against a prescription in the same unit.
+ * See lib/zone-time's packZones. */
 export async function saveWorkoutZones(
   tenantId: string,
   externalId: string,
-  zones: ZoneSeconds,
+  zones: Record<string, number | string>,
 ): Promise<void> {
   if (!hasProductDb()) return;
   await withTenant(tenantId, (c) =>
@@ -634,6 +638,19 @@ export async function saveWorkoutZones(
       [tenantId, externalId, JSON.stringify(zones)],
     ),
   );
+}
+
+/** The athlete's stored preferences — needed here for the equipment list, which
+ * decides which unit a session is measured in. */
+export async function getPreferences(tenantId: string): Promise<Record<string, unknown>> {
+  if (!hasProductDb()) return {};
+  const { rows } = await withTenant(tenantId, (c) =>
+    c.query<{ preferences: Record<string, unknown> | null }>(
+      "select preferences from profiles where tenant_id = $1 limit 1",
+      [tenantId],
+    ),
+  );
+  return rows[0]?.preferences ?? {};
 }
 
 /** The athlete's zone table — needed to turn a raw stream into time in zone.

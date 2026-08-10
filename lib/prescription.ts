@@ -130,6 +130,106 @@ export interface Prescribed {
 }
 
 /**
+ * Which unit a coach's hand-written target is expressed in.
+ *
+ * Text, because that's what a coach types. "250W" is a power instruction,
+ * "4:45/km" a pace one, "155bpm" a heart-rate one — and the unit they chose is
+ * the one the session has to be judged in later, whatever kit the athlete owns.
+ */
+export function inferUnit(target: string): Unit | null {
+  const t = target.toLowerCase();
+  if (/\d\s*w\b|watt/.test(t)) return "power";
+  if (/bpm|\bfc\b|\bhr\b|batimento/.test(t)) return "heart_rate";
+  if (/\/\s*km|\/\s*100\s*m|\bpace\b|min\/km/.test(t)) return "pace";
+  if (/\/\s*10\b|rpe|pse|percep/.test(t)) return "rpe";
+  return null;
+}
+
+/**
+ * The metric this block was PRESCRIBED in — the one it must be scored against.
+ *
+ * This is the fix for a brick run that scored 4 out of 100. The coach asked for
+ * 12 minutes at 6:20-6:40/km; the athlete ran 6:49/km on tired legs with their
+ * heart rate at 152. Measuring by pace, they did exactly as told. Measuring by
+ * heart rate, they were three zones too hard — and an elevated heart rate at an
+ * easy pace off the bike is precisely the response a brick is designed to
+ * produce. Judged against an instruction nobody gave, obedience looked like
+ * failure.
+ *
+ * Order matters: what the coach actually wrote outranks what we would have
+ * chosen for this athlete, because they may have had a reason.
+ */
+export function metricOf(
+  block: WorkoutBlock,
+  discipline: Discipline,
+  owns: Equipment[],
+  indicators: PerformanceIndicators | null,
+): Unit {
+  if (block.target) {
+    const written = inferUnit(block.target);
+    if (written) return written;
+  }
+  return pickUnit(discipline, block.duration_min, owns, indicators);
+}
+
+/**
+ * The metric the coach actually WROTE this session in, from the target text
+ * alone — no equipment, no zone tables, no athlete.
+ *
+ * Deliberately separate from `sessionMetric`: this is the one callers can use
+ * where none of that context is available, which is most of them. Returns null
+ * when nothing was written in a recognisable unit, and null means "don't know",
+ * never "no unit" — the difference decides whether a comparison is refused or
+ * simply allowed.
+ */
+export function writtenMetric(blocks: WorkoutBlock[] | null | undefined): Unit | null {
+  if (!blocks?.length) return null;
+  const minutes = new Map<Unit, number>();
+  for (const b of blocks) {
+    if (!b.target) continue;
+    const u = inferUnit(b.target);
+    if (u) minutes.set(u, (minutes.get(u) ?? 0) + (b.duration_min || 0));
+  }
+  let best: Unit | null = null;
+  let most = 0;
+  for (const [u, m] of minutes) {
+    if (m > most) {
+      most = m;
+      best = u;
+    }
+  }
+  return best;
+}
+
+/** The metric a whole session should be judged in: whichever its blocks mostly
+ * speak. A session mixing units is judged by the one carrying the most time,
+ * since that is where the coach's intent actually lives. */
+export function sessionMetric(
+  blocks: WorkoutBlock[] | null | undefined,
+  discipline: Discipline,
+  owns: Equipment[],
+  indicators: PerformanceIndicators | null,
+): Unit {
+  if (!blocks?.length) {
+    return pickUnit(discipline, 60, owns, indicators);
+  }
+  const minutes = new Map<Unit, number>();
+  for (const b of blocks) {
+    const u = metricOf(b, discipline, owns, indicators);
+    minutes.set(u, (minutes.get(u) ?? 0) + (b.duration_min || 0));
+  }
+  let best: Unit = "rpe";
+  let most = -1;
+  for (const [u, m] of minutes) {
+    if (m > most) {
+      most = m;
+      best = u;
+    }
+  }
+  return best;
+}
+
+/**
  * Render one block for one athlete.
  *
  * A target the coach typed by hand always wins — they may know something the

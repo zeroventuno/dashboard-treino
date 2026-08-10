@@ -62,7 +62,7 @@ export interface Workout {
    * import time. The per-second stream itself is not kept: this handful of
    * numbers is what a coach reads, and it's what makes "did the volume, missed
    * the intensity" visible. */
-  actual_zones?: ZoneSeconds | null;
+  actual_zones?: (ZoneSeconds & { metric?: string }) | null;
   /** Pre-workout: activation/warm-up routine and fueling. */
   activation?: string | null;
   nutrition_pre?: string | null;

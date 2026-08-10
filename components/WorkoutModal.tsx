@@ -3,10 +3,10 @@
 import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Discipline, PerformanceIndicators, Workout, WorkoutStatus } from "@/lib/types";
-import { prescribe, type Equipment } from "@/lib/prescription";
+import { prescribe, writtenMetric, type Equipment } from "@/lib/prescription";
 import { disciplineMeta, fmtDuration, toDistance, distanceUnit, toSpeed, speedUnit, computeAdherence, type Units } from "@/lib/utils";
 import { ZoneCompare } from "@/components/ZoneCompare";
-import { plannedZones } from "@/lib/zone-time";
+import { plannedZones, unpackZones } from "@/lib/zone-time";
 import { getWorkoutBlocks, buildZwo } from "@/lib/workout-structure";
 import { buildFitWorkout } from "@/lib/fit-workout";
 import { DEFAULT_LOCALE, translator, type Locale, type T, type TKey } from "@/lib/i18n";
@@ -217,11 +217,15 @@ export function WorkoutModal({
   // whichever unit this athlete can actually measure. `prescribe` returns the
   // coach's own wording untouched when they wrote one, so this map is safe to
   // run over everything.
+  // What the device recorded, and in which unit — the two travel together so a
+  // pace prescription is never scored against a heart-rate execution.
+  const measured = unpackZones(w.actual_zones);
   const blocks = getWorkoutBlocks(w, ftpWatts).map((b) => {
     if (b.target) return b;
     const p = prescribe(b, w.discipline, equipment, indicators);
     return p ? { ...b, target: p.target } : b;
   });
+  const plannedMetric = writtenMetric(blocks);
   // Coach-supplied file first; else synthesized from the blocks (see buildZwo).
   const zwo = w.zwo_content ?? (w.discipline === "bike" ? buildZwo(w, blocks) : null);
   // Garmin file for the three endurance disciplines — strength workouts are
@@ -274,7 +278,16 @@ export function WorkoutModal({
 
         {/* Only when the device gave us a stream to reduce. Everyone else keeps
             the table above and loses nothing. */}
-        <ZoneCompare planned={plannedZones(blocks)} actual={w.actual_zones ?? null} locale={locale} />
+        <ZoneCompare
+          planned={plannedZones(blocks)}
+          actual={measured?.seconds ?? null}
+          metric={measured?.metric ?? null}
+          // Both sides have to be the same unit or the bars invite a comparison
+          // the numbers can't support. Unknown on either side is permissive —
+          // rows written before the metric was recorded still draw.
+          comparable={!plannedMetric || !measured?.metric || plannedMetric === measured.metric}
+          locale={locale}
+        />
 
         <div className="space-y-5 p-5">
           {tags && tags.length > 0 && (

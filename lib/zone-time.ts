@@ -237,8 +237,23 @@ export const totalSeconds = (z: ZoneSeconds): number =>
  * `z0` — time the coach left open — absorbs whatever the athlete did in it. If
  * no target was given, no target can be missed.
  */
-export function zoneAdherence(planned: ZoneSeconds | null, actual: ZoneSeconds | null): number | null {
+export function zoneAdherence(
+  planned: ZoneSeconds | null,
+  actual: ZoneSeconds | null,
+  /** The metric each side is expressed in. When they disagree the comparison is
+   * refused — see below. Omit both to compare unconditionally. */
+  metrics?: { planned?: string | null; actual?: string | null },
+): number | null {
   if (!planned || !actual) return null;
+
+  // Two metrics are not one scale. A brick run prescribed at 6:20-6:40/km and
+  // measured by heart rate scored 4 out of 100 — the athlete ran exactly the
+  // pace asked, on tired legs, and an elevated heart rate at an easy pace off
+  // the bike is the whole point of a brick. Returning null here drops the
+  // caller back to the duration estimate, which is vaguer and true. A confident
+  // wrong number is worse than an honest rough one.
+  if (metrics?.planned && metrics?.actual && metrics.planned !== metrics.actual) return null;
+
   const totalP = totalSeconds(planned);
   const totalA = totalSeconds(actual);
   if (totalP <= 0 || totalA <= 0) return null;
@@ -284,6 +299,36 @@ export function intensitySplit(weeks: ZoneSeconds[]): { easyPct: number; hardPct
     hardPct: Math.round((hard / total) * 100),
     seconds: total,
   };
+}
+
+// ── Remembering how it was measured ─────────────────────────────────────────
+
+/**
+ * Zone seconds plus the metric they were measured in, as stored.
+ *
+ * The metric rides inside the same jsonb rather than in a new column: the
+ * CHECK constraint asks that z0-z5 are present and numeric, and tolerates extra
+ * keys, so this needs no migration. Rows written before the metric existed
+ * simply read back as null — unknown, not wrong.
+ */
+export function packZones(seconds: ZoneSeconds, metric: string): Record<string, number | string> {
+  return { ...seconds, metric };
+}
+
+export function unpackZones(raw: unknown): { seconds: ZoneSeconds; metric: string | null } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const out = zeroed();
+  let any = false;
+  for (const k of ["z0", ...ZONE_KEYS] as const) {
+    const v = o[k];
+    if (typeof v === "number" && Number.isFinite(v)) {
+      out[k] = v;
+      any = true;
+    }
+  }
+  if (!any) return null;
+  return { seconds: out, metric: typeof o.metric === "string" ? o.metric : null };
 }
 
 /** Add up zone time across sessions. */

@@ -8,9 +8,12 @@ import { cookies } from "next/headers";
 import { resolveTenantId } from "@/lib/data-product";
 import {
   getDeviceLink, saveDeviceLink, markSync, importWorkouts,
-  saveWorkoutZones, getIndicators,
+  saveWorkoutZones, getIndicators, getPreferences,
 } from "@/lib/product-db";
 import { APP_COOKIE } from "@/app/api/app-login/route";
+import type { WorkoutBlock } from "@/lib/types";
+import { packZones } from "@/lib/zone-time";
+import { readEquipment, sessionMetric } from "@/lib/prescription";
 import {
   fetchActivities, fetchStreams, refreshTokens, toWorkout, streamsToZones, hasStrava,
 } from "@/lib/strava";
@@ -78,15 +81,31 @@ export async function POST() {
     let warning: string | null = null;
     try {
       if (needsZones.length) {
-        const indicators = await getIndicators(tenantId);
+        const [indicators, preferences] = await Promise.all([
+          getIndicators(tenantId),
+          getPreferences(tenantId),
+        ]);
+        const equipment = readEquipment(preferences.equipment);
         const byId = new Map(items.map((i) => [i.external_id, i]));
-        for (const externalId of needsZones.slice(0, MAX_STREAMS_PER_SYNC)) {
+
+        for (const { externalId, structure } of needsZones.slice(0, MAX_STREAMS_PER_SYNC)) {
           const item = byId.get(externalId);
           if (!item) continue;
+
+          // Measure in the unit the session was WRITTEN in. Picking the richest
+          // channel instead is what scored a brick run at 4 out of 100: the
+          // coach asked for 6:20-6:40/km, the athlete ran 6:49/km on tired legs,
+          // and heart rate — which is supposed to be high off the bike — put it
+          // three zones too hard.
+          const blocks = Array.isArray(structure) ? (structure as WorkoutBlock[]) : null;
+          const want = sessionMetric(blocks, item.discipline, equipment, indicators);
+
           const streams = await fetchStreams(token, externalId.replace("strava:", ""));
-          const zones = streamsToZones(streams, indicators, item.discipline);
-          if (zones) {
-            await saveWorkoutZones(tenantId, externalId, zones);
+          const measured = streamsToZones(streams, indicators, item.discipline, want);
+          if (measured) {
+            // The metric travels with the numbers, so nothing downstream can
+            // compare a pace prescription against a heart-rate execution.
+            await saveWorkoutZones(tenantId, externalId, packZones(measured.seconds, measured.metric));
             scored++;
           }
         }

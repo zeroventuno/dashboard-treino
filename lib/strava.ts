@@ -17,6 +17,7 @@
 import type { Discipline, PerformanceIndicators, ZoneSeconds } from "./types";
 import { actualZones, parseBands, parsePaceBands, type Sample } from "./zone-time";
 import { adjustedSpeed } from "./gap";
+import type { Unit } from "./prescription";
 
 const API = "https://www.strava.com/api/v3";
 const OAUTH = "https://www.strava.com/oauth";
@@ -156,7 +157,12 @@ export function streamsToZones(
   streams: StravaStreams | null,
   indicators: PerformanceIndicators | null,
   discipline: Discipline,
-): ZoneSeconds | null {
+  /** The metric the session was PRESCRIBED in. Measurement follows the
+   * instruction rather than picking the richest channel available: a run
+   * written in pace has to be judged in pace, even for an athlete wearing a
+   * strap. Omit to fall back to the best channel for the sport. */
+  want?: Unit,
+): { seconds: ZoneSeconds; metric: Unit } | null {
   if (!streams?.time?.data?.length) return null;
 
   const time = streams.time.data;
@@ -164,47 +170,68 @@ export function streamsToZones(
   const build = (value: (i: number) => number | null): Sample[] =>
     time.map((t, i) => ({ t, v: value(i), moving: moving?.[i] }));
 
-  // The ladder, per sport, best first — the same order a coach would trust.
-
-  // Bike: power. It is the unit a cyclist's zones are written in, and it moves
-  // the instant the effort does where heart rate lags a whole interval behind.
-  if (discipline === "bike") {
+  // Each measurable metric, and how to read it from this recording. Returning
+  // null means "this athlete's data can't answer in that unit".
+  const byPower = (): ZoneSeconds | null => {
     const bands = parseBands(indicators?.bike_zones);
     const watts = streams.watts?.data;
-    if (bands.length && watts?.length) return actualZones(build((i) => watts[i] ?? null), bands);
-  }
+    if (!bands.length || !watts?.length) return null;
+    return actualZones(build((i) => watts[i] ?? null), bands);
+  };
 
-  // Run: pace, corrected for the hill. Raw pace would score a threshold rep run
-  // up a climb as a steady jog — see lib/gap.
-  if (discipline === "run") {
-    const bands = parsePaceBands(indicators?.run_pace_zones, 1000);
+  const byPace = (): ZoneSeconds | null => {
+    const metres = discipline === "swim" ? 100 : 1000;
+    const table = discipline === "swim" ? indicators?.swim_pace_zones : indicators?.run_pace_zones;
+    const bands = parsePaceBands(table, metres);
     const speed = streams.velocity_smooth?.data;
+    if (!bands.length || !speed?.length) return null;
     const grade = streams.grade_smooth?.data;
-    if (bands.length && speed?.length) {
-      return actualZones(
-        build((i) => {
-          const v = speed[i];
-          if (v == null || v <= 0) return null;
-          // Strava reports grade as a percentage; the model wants a ratio.
-          return adjustedSpeed(v, (grade?.[i] ?? 0) / 100);
-        }),
-        bands,
-      );
-    }
+    return actualZones(
+      build((i) => {
+        const v = speed[i];
+        if (v == null || v <= 0) return null;
+        // Running is corrected for the hill; in the pool there is none.
+        // Strava reports grade as a percentage, the model wants a ratio.
+        return discipline === "run" ? adjustedSpeed(v, (grade?.[i] ?? 0) / 100) : v;
+      }),
+      bands,
+    );
+  };
+
+  const byHeartRate = (): ZoneSeconds | null => {
+    const bands = parseBands(indicators?.hr_zones);
+    const hr = streams.heartrate?.data;
+    if (!bands.length || !hr?.length) return null;
+    return actualZones(build((i) => hr[i] ?? null), bands);
+  };
+
+  const read: Partial<Record<Unit, () => ZoneSeconds | null>> = {
+    power: byPower,
+    pace: byPace,
+    heart_rate: byHeartRate,
+  };
+
+  // What was asked for, first.
+  if (want && read[want]) {
+    const seconds = read[want]!();
+    if (seconds) return { seconds, metric: want };
+    // Asked for a unit this recording can't answer in. Fall through rather than
+    // return nothing — a measurement in another unit is still worth storing,
+    // and the metric travels with it so nothing compares them by accident.
   }
 
-  // Swim: pace per 100m. No grade to correct, and no power to speak of.
-  if (discipline === "swim") {
-    const bands = parsePaceBands(indicators?.swim_pace_zones, 100);
-    const speed = streams.velocity_smooth?.data;
-    if (bands.length && speed?.length) return actualZones(build((i) => speed[i] ?? null), bands);
-  }
+  // No instruction, or the instruction couldn't be honoured: the sport's own
+  // ladder, best first.
+  const ladder: Unit[] =
+    discipline === "bike" ? ["power", "heart_rate"]
+    : discipline === "swim" ? ["pace", "heart_rate"]
+    : ["pace", "heart_rate"];
 
-  // Heart rate catches everything else, and every athlete who owns a strap but
-  // no meter — which is still most of them.
-  const hrBands = parseBands(indicators?.hr_zones);
-  const hr = streams.heartrate?.data;
-  if (hrBands.length && hr?.length) return actualZones(build((i) => hr[i] ?? null), hrBands);
+  for (const unit of ladder) {
+    if (unit === want) continue; // already tried
+    const seconds = read[unit]?.();
+    if (seconds) return { seconds, metric: unit };
+  }
 
   return null;
 }
