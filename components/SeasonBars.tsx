@@ -8,6 +8,25 @@ const METRIC_LABEL: Record<string, string> = {
 // approximate planned weekly volume (TSS-ish) per phase — used for future weeks
 const EST: Record<string, number> = { Base: 300, Build: 430, Peak: 480, Taper: 250, Race: 110 };
 
+/** The canonical hue per phase, used when the stored colour is missing.
+ *
+ * Colours come from the `phases` table, written by the coach — this is only the
+ * fallback, so a cycle saved without one still reads as a season rather than as
+ * five identical lime bars. Names are matched loosely because the coach types
+ * them in their own language. */
+const PHASE_HUE: [RegExp, string][] = [
+  [/base/i, "var(--phase-base)"],
+  [/build|constru|costru|desarrollo|développ/i, "var(--phase-build)"],
+  [/peak|pico|picco|pointe/i, "var(--phase-peak)"],
+  [/taper|polim|scarico|affût/i, "var(--phase-taper)"],
+  [/race|prova|gara|carrera|course/i, "var(--phase-race)"],
+];
+
+export function phaseColor(p: { name: string; color?: string | null }): string {
+  if (p.color) return p.color;
+  return PHASE_HUE.find(([re]) => re.test(p.name))?.[1] ?? "var(--brand-lime)";
+}
+
 /** The day-of-month label for a week that straddles a month boundary: the 1st
  * of the incoming month, or the week's own start on the very first bar. */
 export function monthFirstDay(start: Date, end: Date): number {
@@ -48,12 +67,9 @@ export function SeasonBars({
 }) {
   if (phases.length === 0) return null;
 
-  const starts = phases.map((p) => parseDate(p.start_date).getTime());
-  const ends = phases.map((p) => parseDate(p.end_date).getTime());
-  const min = Math.min(...starts);
-  const max = Math.max(...ends);
-  const span = Math.max(1, max - min);
-  const pct = (t: number) => ((t - min) / span) * 100;
+  // Only the last date is still needed: the bars are laid out in week columns,
+  // and everything positioned over them is placed by week index.
+  const max = Math.max(...phases.map((p) => parseDate(p.end_date).getTime()));
   const todayT = parseDate(todayISO).getTime();
 
   // weekly real TSS
@@ -87,7 +103,23 @@ export function SeasonBars({
   }
   const maxVol = Math.max(1, ...weeks.map((w) => w.vol));
 
-  const legend = [...new Map(phases.map((p) => [p.name, p.color])).entries()];
+  /**
+   * A date → its horizontal centre, in the SAME coordinate space as the bars.
+   *
+   * The bars are equal-width week columns starting at the Monday before the
+   * season, so a marker has to be placed by week INDEX, not by how far the date
+   * sits along the raw calendar span. Those two differ by however many days the
+   * season starts after a Monday, and by every week the last phase runs past
+   * its own end — enough to slide a race marker a full bar away from race week.
+   */
+  const weekPct = (t: number): number => {
+    const first = weeks[0].wkStart.getTime();
+    const idx = Math.floor((t - first) / (7 * 86_400_000));
+    const clamped = Math.min(weeks.length - 1, Math.max(0, idx));
+    return ((clamped + 0.5) / weeks.length) * 100;
+  };
+
+  const legend = [...new Map(phases.map((p) => [p.name, phaseColor(p)])).entries()];
 
   return (
     <div>
@@ -104,7 +136,8 @@ export function SeasonBars({
         <div className="flex h-[86px] items-end gap-[3px]">
           {weeks.map((w, i) => {
             const h = Math.max(6, (w.vol / maxVol) * 100);
-            const color = w.phase.color ?? "var(--lime)";
+            const color = phaseColor(w.phase);
+            const future = !w.isPast && !w.isCurrent;
             return (
               <div
                 key={i}
@@ -112,11 +145,21 @@ export function SeasonBars({
                 style={{
                   height: `${h}%`,
                   animationDelay: `${i * 22}ms`,
-                  background: w.isCurrent ? "var(--lime)" : color,
-                  opacity: w.isCurrent ? 1 : w.isPast ? 0.85 : 0.4,
-                  boxShadow: w.isCurrent ? "0 0 12px var(--lime)" : "none",
+                  // Done is filled, still to come is outlined — the same
+                  // language the zone comparison uses for prescribed vs
+                  // executed. It replaced a 40% opacity that changed the HUE:
+                  // lime at 40% on this background reads khaki and blue reads
+                  // slate, so the legend dot and its own bars stopped matching.
+                  // An outline says "not yet" without touching the colour.
+                  background: future ? "transparent" : color,
+                  border: future ? `1.5px solid ${color}` : "none",
+                  // Today keeps its PHASE colour and is marked by a ring
+                  // instead. It used to be painted var(--lime), which the
+                  // readiness tint remaps — so the current week turned orange
+                  // on a yellow day and collided with the Peak phase.
+                  boxShadow: w.isCurrent ? `0 0 0 2px var(--text), 0 0 10px ${color}` : "none",
                 }}
-                title={`${w.phase.name} · week of ${fmtDayMonth(toISO(w.wkStart))}`}
+                title={`${w.phase.name} · ${fmtDayMonth(toISO(w.wkStart))}`}
               />
             );
           })}
@@ -198,10 +241,15 @@ export function SeasonBars({
         ))}
       </div>
 
-      {/* milestones */}
+      {/* Milestones, placed in WEEK space.
+          They used to be positioned over the raw span of the phase dates while
+          the bars are laid out from the Monday BEFORE the season starts to the
+          last week — two different origins, so every marker drifted from the
+          bar it belongs to. Now a date is resolved to its week column and
+          centred on it, which is the only way a dot can point at a bar. */}
       <div className="relative mt-3 h-14">
         {[...milestones].sort((a, b) => (a.date < b.date ? -1 : 1)).map((m, i) => {
-          const left = Math.min(96, Math.max(1, pct(parseDate(m.date).getTime())));
+          const left = weekPct(parseDate(m.date).getTime());
           const past = parseDate(m.date).getTime() < todayT;
           return (
             <div key={m.id} className="absolute flex -translate-x-1/2 flex-col items-center" style={{ left: `${left}%`, top: i % 2 ? 26 : 0 }}>
