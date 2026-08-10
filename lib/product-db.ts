@@ -447,7 +447,8 @@ export interface DeviceLink {
   external_id: string | null;
   access_token: string;
   refresh_token: string | null;
-  expires_at: string | null;
+  /** Unix SECONDS, as Strava issues it — never a formatted string. */
+  expires_at: number | null;
   last_sync_at: string | null;
   last_error: string | null;
 }
@@ -455,9 +456,18 @@ export interface DeviceLink {
 export async function getDeviceLink(tenantId: string, provider: string): Promise<DeviceLink | null> {
   if (!hasProductDb()) return null;
   const { rows } = await getPool().query<DeviceLink>(
+    // Formatted with 'OF', these came back as "…T17:23:45+00" — a two-digit
+    // offset, which is not valid ISO 8601. Date.parse returned NaN, and NaN
+    // fails every comparison silently, so the token refresh below decided the
+    // token was fine and never ran. Six hours later Strava answered 401. The
+    // same NaN also rendered the athlete's "last synced" as Invalid Date.
+    //
+    // Expiry comes back as epoch seconds — a number needs no parsing and cannot
+    // be ambiguous — and the display timestamp as explicit UTC with a Z.
     `select provider, external_id, access_token, refresh_token,
-            to_char(expires_at,'YYYY-MM-DD"T"HH24:MI:SSOF') as expires_at,
-            to_char(last_sync_at,'YYYY-MM-DD"T"HH24:MI:SSOF') as last_sync_at, last_error
+            extract(epoch from expires_at) as expires_at,
+            to_char(last_sync_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') as last_sync_at,
+            last_error
        from app.device_links where tenant_id = $1 and provider = $2`,
     [tenantId, provider],
   );

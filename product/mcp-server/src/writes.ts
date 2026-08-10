@@ -79,6 +79,17 @@ export const workoutSchema = {
   actual_pace: z.string().optional(),
   planned_power_watts: z.string().optional(),
   actual_power_watts: z.string().optional(),
+  actual_rpe: z
+    .number()
+    .min(0)
+    .max(10)
+    .optional()
+    .describe(
+      "How hard the session actually FELT, 0-10 (Borg CR10). Ask for it whenever the athlete tells you how a " +
+      "session went — and always for an athlete with no power meter, no HR strap and no GPS, because for them " +
+      "this is the only measurement that exists and their adherence score depends on it. Per session, not per " +
+      "day: a morning swim and an evening ride are two different efforts.",
+    ),
   notes: z.string().optional(),
   nutrition_notes: z.string().optional(),
   key_workout: z.boolean().optional(),

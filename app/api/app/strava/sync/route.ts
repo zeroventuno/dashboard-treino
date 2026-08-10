@@ -46,10 +46,10 @@ export async function POST() {
 
   try {
     let token = link.access_token;
-    // Strava's tokens last six hours, so a refresh is the normal path, not an
-    // edge case. Persist the new pair or the next sync repeats the dance.
-    const expiresAt = link.expires_at ? Date.parse(link.expires_at) : 0;
-    if (link.refresh_token && expiresAt - Date.now() < 5 * 60_000) {
+
+    /** Swap the refresh token for a fresh access token and persist the pair. */
+    const refresh = async (): Promise<boolean> => {
+      if (!link.refresh_token) return false;
       const t = await refreshTokens(link.refresh_token);
       token = t.access_token;
       await saveDeviceLink(tenantId, "strava", {
@@ -57,12 +57,38 @@ export async function POST() {
         refresh_token: t.refresh_token,
         expires_at: t.expires_at,
       });
-    }
+      return true;
+    };
+
+    // Strava's tokens last six hours, so refreshing is the normal path, not an
+    // edge case.
+    //
+    // The condition is deliberately "unless we are CONFIDENT it is still
+    // valid", not "if we are confident it expired". Those differ on unknowns,
+    // and the unknown is what broke this: an unparseable expiry made the old
+    // check `NaN - now < 5min`, which is false, so the refresh was skipped and
+    // the sync 401'd six hours after connecting. Written this way, anything we
+    // can't read leads to a refresh — a wasted call at worst.
+    const expiresAtMs = link.expires_at != null ? Number(link.expires_at) * 1000 : NaN;
+    const stillValid = expiresAtMs - Date.now() > 5 * 60_000;
+    if (!stillValid) await refresh();
 
     const sinceDays = link.last_sync_at ? OVERLAP_DAYS : FIRST_SYNC_DAYS;
     const after = Math.floor((Date.now() - sinceDays * 86_400_000) / 1000);
 
-    const activities = await fetchActivities(token, after);
+    // One retry behind a refresh. The expiry check above is a prediction, and
+    // predictions are wrong for reasons outside our control: a revoked and
+    // re-granted authorisation, clock drift, Strava expiring a token early.
+    // The token being rejected is the only authoritative answer, so treat it as
+    // one instead of failing a sync that a single extra call would have saved.
+    let activities;
+    try {
+      activities = await fetchActivities(token, after);
+    } catch (err) {
+      const is401 = err instanceof Error && err.message.includes("401");
+      if (!is401 || !(await refresh())) throw err;
+      activities = await fetchActivities(token, after);
+    }
     const items = activities.map(toWorkout).filter((w): w is NonNullable<typeof w> => w !== null);
     const { needsZones, ...result } = await importWorkouts(tenantId, items);
 
