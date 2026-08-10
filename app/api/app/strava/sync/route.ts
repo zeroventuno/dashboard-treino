@@ -67,24 +67,37 @@ export async function POST() {
     // of sessions that landed on a workout the coach actually structured — the
     // rest get no stream call, because there is no prescription to compare a
     // distribution against and the allowance is shared by every athlete here.
+    //
+    // Isolated in its own try/catch because it is an ENRICHMENT, and the import
+    // above has already committed. Letting it throw meant a bad query in here
+    // discarded the report of a sync that had genuinely worked: the sessions
+    // were on the dashboard while the athlete was told the sync failed and the
+    // next run had no last_sync_at to start from. A missing zone breakdown is a
+    // detail; a successful import reported as a failure is a lie.
     let scored = 0;
-    if (needsZones.length) {
-      const indicators = await getIndicators(tenantId);
-      const byId = new Map(items.map((i) => [i.external_id, i]));
-      for (const externalId of needsZones.slice(0, MAX_STREAMS_PER_SYNC)) {
-        const item = byId.get(externalId);
-        if (!item) continue;
-        const streams = await fetchStreams(token, externalId.replace("strava:", ""));
-        const zones = streamsToZones(streams, indicators, item.discipline);
-        if (zones) {
-          await saveWorkoutZones(tenantId, externalId, zones);
-          scored++;
+    let warning: string | null = null;
+    try {
+      if (needsZones.length) {
+        const indicators = await getIndicators(tenantId);
+        const byId = new Map(items.map((i) => [i.external_id, i]));
+        for (const externalId of needsZones.slice(0, MAX_STREAMS_PER_SYNC)) {
+          const item = byId.get(externalId);
+          if (!item) continue;
+          const streams = await fetchStreams(token, externalId.replace("strava:", ""));
+          const zones = streamsToZones(streams, indicators, item.discipline);
+          if (zones) {
+            await saveWorkoutZones(tenantId, externalId, zones);
+            scored++;
+          }
         }
       }
+    } catch (err) {
+      warning = err instanceof Error ? err.message.slice(0, 200) : "zone step failed";
+      console.error("[strava] zone enrichment failed:", err);
     }
 
     await markSync(tenantId, "strava", null);
-    return NextResponse.json({ ok: true, fetched: activities.length, scored, ...result });
+    return NextResponse.json({ ok: true, fetched: activities.length, scored, warning, ...result });
   } catch (err) {
     // Stored, not just logged: a sync that keeps failing has to be visible on
     // the dashboard, or the athlete just sees their sessions quietly stop

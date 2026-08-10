@@ -614,16 +614,18 @@ export async function saveWorkoutZones(
   );
 }
 
-/** The athlete's zone table — needed to turn a raw stream into time in zone. */
+/** The athlete's zone table — needed to turn a raw stream into time in zone.
+ *
+ * `select *`, matching how data-product.ts and the MCP server already read this
+ * table. The hand-written column list this replaced asked for `id`, which the
+ * type carries but the table does not: performance_indicators is keyed on
+ * tenant_id alone, one row per athlete. Postgres answered `column "id" does not
+ * exist` and the whole sync failed after the import had already succeeded. */
 export async function getIndicators(tenantId: string): Promise<PerformanceIndicators | null> {
   if (!hasProductDb()) return null;
   const { rows } = await withTenant(tenantId, (c) =>
     c.query<PerformanceIndicators>(
-      `select id, to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SSOF') as updated_at,
-              ftp_watts, bike_zones, run_pace_zones, swim_pace_per_100m,
-              swim_pace_zones, run_threshold_pace, cadence_run_target, hr_zones
-         from performance_indicators where tenant_id = $1
-        order by updated_at desc limit 1`,
+      "select * from performance_indicators where tenant_id = $1 limit 1",
       [tenantId],
     ),
   );
