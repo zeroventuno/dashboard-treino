@@ -8,6 +8,36 @@ const METRIC_LABEL: Record<string, string> = {
 // approximate planned weekly volume (TSS-ish) per phase — used for future weeks
 const EST: Record<string, number> = { Base: 300, Build: 430, Peak: 480, Taper: 250, Race: 110 };
 
+/** The day-of-month label for a week that straddles a month boundary: the 1st
+ * of the incoming month, or the week's own start on the very first bar. */
+export function monthFirstDay(start: Date, end: Date): number {
+  return end.getMonth() !== start.getMonth() ? 1 : start.getDate();
+}
+
+/** Consecutive weeks grouped by the month they mostly belong to.
+ *
+ * "Mostly" is the whole trick. A week split across two months has to be counted
+ * once or the bands drift out of step with the bars above them, so it goes to
+ * whichever month holds its Thursday — the midpoint, and the same rule ISO
+ * weeks use to decide which year they belong to. */
+export function monthSpans(weeks: { wkStart: Date; isCurrent: boolean }[]) {
+  const MONTHS = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+  const out: { label: string; weeks: number; hasToday: boolean }[] = [];
+
+  for (const w of weeks) {
+    const mid = new Date(w.wkStart.getTime() + 3 * 86_400_000);
+    const label = MONTHS[mid.getMonth()];
+    const last = out[out.length - 1];
+    if (last && last.label === label) {
+      last.weeks++;
+      last.hasToday ||= w.isCurrent;
+    } else {
+      out.push({ label, weeks: 1, hasToday: w.isCurrent });
+    }
+  }
+  return out;
+}
+
 export function SeasonBars({
   phases, trainingLoad, milestones, todayISO,
 }: {
@@ -91,6 +121,71 @@ export function SeasonBars({
             );
           })}
         </div>
+      </div>
+
+      {/* ── The calendar under the bars ──────────────────────────────────────
+          The bars are WEEKS, so a month almost never starts where one begins.
+          Labelling points on a weekly axis would put "SET" next to a bar that
+          is four days of August — so months are drawn as SPANS instead, each
+          one exactly as wide as the weeks it owns. The eye gets the month from
+          the band and the day from the tick, without either lying.
+
+          A tick sits under every week that contains a 1st, carrying the month's
+          first day; today's week gets its own date. Everything else stays a
+          hairline, so the row reads as a ruler rather than a list. */}
+      <div className="mt-1.5 flex gap-[3px]">
+        {weeks.map((w, i) => {
+          // Does a month turn over inside this week?
+          const end = new Date(w.wkStart.getTime() + 6 * 86_400_000);
+          const turns = end.getMonth() !== w.wkStart.getMonth() || i === 0;
+          return (
+            <div key={i} className="flex flex-1 flex-col items-center gap-[3px]">
+              <span
+                className="w-px"
+                style={{
+                  height: turns ? 6 : 3,
+                  background: w.isCurrent
+                    ? "var(--lime)"
+                    : turns
+                      ? "var(--text-faint)"
+                      : "var(--border)",
+                }}
+              />
+              {(turns || w.isCurrent) && (
+                <span
+                  className="tnum text-[8.5px] leading-none"
+                  style={{ color: w.isCurrent ? "var(--lime)" : "var(--text-faint)" }}
+                >
+                  {w.isCurrent ? new Date().getDate() : monthFirstDay(w.wkStart, end)}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Month bands: one segment per month, spanning its weeks. Grown with
+          flex-grow so they stay locked to the bars at any width — a percentage
+          would drift by a pixel per week and stop lining up. */}
+      <div className="mt-[3px] flex gap-[3px]">
+        {monthSpans(weeks).map((m, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-center overflow-hidden border-t pt-1"
+            style={{
+              flexGrow: m.weeks,
+              flexBasis: 0,
+              borderColor: m.hasToday ? "var(--lime)" : "var(--border)",
+            }}
+          >
+            <span
+              className="truncate text-[9px] font-bold uppercase tracking-[0.1em]"
+              style={{ color: m.hasToday ? "var(--lime)" : "var(--text-faint)" }}
+            >
+              {m.label}
+            </span>
+          </div>
+        ))}
       </div>
 
       {/* phase legend */}

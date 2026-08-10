@@ -155,10 +155,45 @@ export function MenstrualCycleView({
             style={{ left: `${todayPct}%` }}
           />
         </div>
-        {/* day scale */}
-        <div className="mt-1 flex justify-between text-[9.5px] tabular-nums text-[var(--text-faint)]">
-          <span>1</span>
-          <span>{L}</span>
+        {/* ── Day ruler ─────────────────────────────────────────────────────
+            "1" at one end and "28" at the other left every day in between to
+            be estimated off the bar's width. One tick per day makes the scale
+            countable: a taller mark every seven days gives the week rhythm the
+            phases actually follow, and today gets its own so the flag above has
+            something to land on. Numbers only on the week marks — a number
+            under all twenty-eight would be noise, not precision. */}
+        <div className="mt-1.5 flex gap-px">
+          {Array.from({ length: L }, (_, i) => {
+            const day = i + 1;
+            const isWeek = day === 1 || day % 7 === 0;
+            const isToday = day === d.cycleDay;
+            return (
+              <div key={day} className="flex flex-1 flex-col items-center gap-1">
+                <span
+                  className="w-px"
+                  style={{
+                    height: isToday ? 8 : isWeek ? 6 : 3,
+                    background: isToday
+                      ? "var(--text)"
+                      : isWeek
+                        ? "var(--text-faint)"
+                        : "var(--border)",
+                  }}
+                />
+                {(isWeek || isToday) && (
+                  <span
+                    className="text-[8.5px] leading-none tabular-nums"
+                    style={{
+                      color: isToday ? "var(--text)" : "var(--text-faint)",
+                      fontWeight: isToday ? 700 : 400,
+                    }}
+                  >
+                    {day}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
