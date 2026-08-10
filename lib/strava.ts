@@ -15,7 +15,8 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import type { Discipline, PerformanceIndicators, ZoneSeconds } from "./types";
-import { actualZones, parseBands, type Sample } from "./zone-time";
+import { actualZones, parseBands, parsePaceBands, type Sample } from "./zone-time";
+import { adjustedSpeed } from "./gap";
 
 const API = "https://www.strava.com/api/v3";
 const OAUTH = "https://www.strava.com/oauth";
@@ -98,15 +99,22 @@ export async function fetchActivities(accessToken: string, afterUnix: number): P
 }
 
 /** The per-second recording. Only the channels time in zone needs — asking for
- * GPS and altitude would triple the payload for nothing. */
+ * GPS traces and raw altitude would multiply the payload for nothing.
+ *
+ * `velocity_smooth` and `grade_smooth` are here for running: pace zones are
+ * scored on grade-adjusted speed, so the gradient has to come along with it.
+ * Strava reports grade already smoothed, in PERCENT, which saves differentiating
+ * a noisy altitude trace ourselves. */
 export interface StravaStreams {
   time?: { data: number[] };
   watts?: { data: (number | null)[] };
   heartrate?: { data: (number | null)[] };
   moving?: { data: boolean[] };
+  velocity_smooth?: { data: (number | null)[] };
+  grade_smooth?: { data: (number | null)[] };
 }
 
-const STREAM_KEYS = "time,watts,heartrate,moving";
+const STREAM_KEYS = "time,watts,heartrate,moving,velocity_smooth,grade_smooth";
 
 /**
  * Fetch one activity's stream. This is the expensive call — one per activity, on
@@ -151,19 +159,54 @@ export function streamsToZones(
 ): ZoneSeconds | null {
   if (!streams?.time?.data?.length) return null;
 
-  const powerBands = parseBands(indicators?.bike_zones);
-  const hrBands = parseBands(indicators?.hr_zones);
-
-  const usePower = discipline === "bike" && !!streams.watts?.data?.length && powerBands.length > 0;
-  const channel = usePower ? streams.watts?.data : streams.heartrate?.data;
-  const bands = usePower ? powerBands : hrBands;
-  if (!channel?.length || !bands.length) return null;
-
   const time = streams.time.data;
   const moving = streams.moving?.data;
-  const samples: Sample[] = time.map((t, i) => ({ t, v: channel[i] ?? null, moving: moving?.[i] }));
+  const build = (value: (i: number) => number | null): Sample[] =>
+    time.map((t, i) => ({ t, v: value(i), moving: moving?.[i] }));
 
-  return actualZones(samples, bands);
+  // The ladder, per sport, best first — the same order a coach would trust.
+
+  // Bike: power. It is the unit a cyclist's zones are written in, and it moves
+  // the instant the effort does where heart rate lags a whole interval behind.
+  if (discipline === "bike") {
+    const bands = parseBands(indicators?.bike_zones);
+    const watts = streams.watts?.data;
+    if (bands.length && watts?.length) return actualZones(build((i) => watts[i] ?? null), bands);
+  }
+
+  // Run: pace, corrected for the hill. Raw pace would score a threshold rep run
+  // up a climb as a steady jog — see lib/gap.
+  if (discipline === "run") {
+    const bands = parsePaceBands(indicators?.run_pace_zones, 1000);
+    const speed = streams.velocity_smooth?.data;
+    const grade = streams.grade_smooth?.data;
+    if (bands.length && speed?.length) {
+      return actualZones(
+        build((i) => {
+          const v = speed[i];
+          if (v == null || v <= 0) return null;
+          // Strava reports grade as a percentage; the model wants a ratio.
+          return adjustedSpeed(v, (grade?.[i] ?? 0) / 100);
+        }),
+        bands,
+      );
+    }
+  }
+
+  // Swim: pace per 100m. No grade to correct, and no power to speak of.
+  if (discipline === "swim") {
+    const bands = parsePaceBands(indicators?.swim_pace_zones, 100);
+    const speed = streams.velocity_smooth?.data;
+    if (bands.length && speed?.length) return actualZones(build((i) => speed[i] ?? null), bands);
+  }
+
+  // Heart rate catches everything else, and every athlete who owns a strap but
+  // no meter — which is still most of them.
+  const hrBands = parseBands(indicators?.hr_zones);
+  const hr = streams.heartrate?.data;
+  if (hrBands.length && hr?.length) return actualZones(build((i) => hr[i] ?? null), hrBands);
+
+  return null;
 }
 
 /** Strava's sport vocabulary → ours. Anything we don't program returns null and
