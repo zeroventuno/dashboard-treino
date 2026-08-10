@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { SectionCard } from "../SectionCard";
 import { Icon, type IconName } from "@/components/coach/icons";
-import { translator, type Locale } from "@/lib/i18n";
+import { translator, type Locale, type TKey } from "@/lib/i18n";
+import { EQUIPMENT, readEquipment, type Equipment } from "@/lib/prescription";
 import {
   WEEKDAYS, HOUR_CHOICES, weeklyHours, longDays, sportsFor,
   normalizeHours, normalizeSports,
@@ -40,9 +41,15 @@ export function AvailabilityBlock({
   const [sports, setSports] = useState<WeekSports>(() =>
     Object.fromEntries(WEEKDAYS.map((d) => [d, sportsFor(preferences, d)])) as WeekSports,
   );
+  const [kit, setKit] = useState<Equipment[]>(() => readEquipment(preferences.equipment));
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
-  async function persist(next: { hours?: WeekHours; longs?: Weekday[]; sports?: WeekSports }) {
+  async function persist(next: {
+    hours?: WeekHours;
+    longs?: Weekday[];
+    sports?: WeekSports;
+    kit?: Equipment[];
+  }) {
     if (!editable) return;
     setState("saving");
     try {
@@ -53,6 +60,7 @@ export function AvailabilityBlock({
           hours: normalizeHours(next.hours ?? hours),
           long_days: next.longs ?? longs,
           sports: normalizeSports(next.sports ?? sports),
+          equipment: next.kit ?? kit,
         }),
       });
       setState(res.ok ? "saved" : "error");
@@ -189,6 +197,51 @@ export function AvailabilityBlock({
             </div>
           );
         })}
+      </div>
+
+      {/* What the athlete can measure. It lives here, next to the hours, because
+          both answer the same question — what does a realistic week look like
+          for THIS person — and because this is the block they already open to
+          correct things about themselves.
+
+          It is not decoration: it decides whether a prescribed block reaches
+          them as watts, a pace, a heart-rate band or an RPE. Ticking nothing is
+          a valid answer and yields RPE, which needs no equipment at all. */}
+      <div className="mt-4 border-t border-[var(--border-soft)] pt-3.5">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+          {tr("availability.kit")}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {EQUIPMENT.map((e) => {
+            const on = kit.includes(e);
+            return (
+              <button
+                key={e}
+                type="button"
+                disabled={!editable}
+                onClick={() => {
+                  // Optimistic, like the sport toggles: deriving from the server
+                  // prop meant two fast taps both started from stale state and
+                  // the second undid the first.
+                  const next = on ? kit.filter((x) => x !== e) : [...kit, e];
+                  setKit(next);
+                  void persist({ kit: next });
+                }}
+                className="rounded-full border px-3 py-1 text-[11.5px] font-semibold transition-colors disabled:opacity-60"
+                style={{
+                  borderColor: on ? "var(--lime)" : "var(--border)",
+                  background: on ? "var(--lime)" : "transparent",
+                  color: on ? "#0a0b0d" : "var(--text-muted)",
+                }}
+              >
+                {tr(`equipment.${e}` as TKey)}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-faint)]">
+          {tr("availability.kitHint")}
+        </p>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">

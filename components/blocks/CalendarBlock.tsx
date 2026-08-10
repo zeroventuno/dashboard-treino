@@ -1,4 +1,5 @@
 import type { DashboardData } from "@/lib/types";
+import type { Equipment } from "@/lib/prescription";
 import { DEFAULT_LOCALE, translator, type Locale } from "@/lib/i18n";
 import type { Units } from "@/lib/utils";
 import { SectionCard } from "../SectionCard";
@@ -10,6 +11,7 @@ export function CalendarBlock({
   locale = DEFAULT_LOCALE,
   units = "metric",
   editable = false,
+  equipment = [],
 }: {
   data: DashboardData;
   todayISO: string;
@@ -17,6 +19,8 @@ export function CalendarBlock({
   units?: Units;
   /** Athlete viewing their own dashboard → sessions can be dragged to another day. */
   editable?: boolean;
+  /** What this athlete can measure — decides the unit each block is shown in. */
+  equipment?: Equipment[];
 }) {
   const tr = translator(locale);
   return (
@@ -28,6 +32,8 @@ export function CalendarBlock({
         locale={locale}
         units={units}
         ftpWatts={data.indicators?.ftp_watts ?? null}
+        indicators={data.indicators}
+        equipment={equipment}
         editable={editable}
       />
     </SectionCard>

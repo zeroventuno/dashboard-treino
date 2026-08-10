@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { withTenant, hasProductDb } from "@/lib/product-db";
 import { resolveTenantId } from "@/lib/data-product";
+import { readEquipment, type Equipment } from "@/lib/prescription";
 import { APP_COOKIE } from "@/app/api/app-login/route";
 import {
   normalizeHours, normalizeSports, WEEKDAYS,
@@ -23,12 +24,13 @@ export async function POST(req: Request) {
   }
 
   const body = (await req.json().catch(() => null)) as
-    | { hours?: unknown; long_days?: unknown; long_day?: unknown; sports?: unknown }
+    | { hours?: unknown; long_days?: unknown; long_day?: unknown; sports?: unknown; equipment?: unknown }
     | null;
   if (!body) return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
 
   const patch: {
     hours?: WeekHours; long_days?: Weekday[]; long_day?: Weekday | null; sports?: WeekSports;
+    equipment?: Equipment[];
   } = {};
   if (body.hours && typeof body.hours === "object") {
     patch.hours = normalizeHours(body.hours as WeekHours);
@@ -41,6 +43,12 @@ export async function POST(req: Request) {
   }
   if (body.sports && typeof body.sports === "object") {
     patch.sports = normalizeSports(body.sports as WeekSports);
+  }
+  // Filtered against the known list, never stored raw: this drives which unit
+  // every prescribed block is rendered in, so an unrecognised string here would
+  // silently mean "owns nothing" and drop the athlete to RPE.
+  if (Array.isArray(body.equipment)) {
+    patch.equipment = readEquipment(body.equipment);
   }
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });

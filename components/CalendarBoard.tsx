@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Workout, Discipline } from "@/lib/types";
+import type { PerformanceIndicators, Workout, Discipline } from "@/lib/types";
+import type { Equipment } from "@/lib/prescription";
 import { DISCIPLINE_META, disciplineMeta, fmtDuration, parseDate, startOfWeek, addDays, toISO, toDistance, distanceUnit, computeAdherence, avg, type Units } from "@/lib/utils";
 import { DisciplineIcon } from "./Icons";
 import { WorkoutModal } from "./WorkoutModal";
@@ -54,6 +55,8 @@ export function CalendarBoard({
   workouts,
   todayISO,
   ftpWatts = null,
+  indicators = null,
+  equipment = [],
   locale = DEFAULT_LOCALE,
   units = "metric",
   editable = false,
@@ -64,6 +67,10 @@ export function CalendarBoard({
   units?: Units;
   /** Athlete's threshold power — converts .zwo power fractions into watts. */
   ftpWatts?: number | null;
+  /** Zone tables + what the athlete can measure, so a block prescribed as a
+   * bare percentage reaches them in watts, pace, bpm or RPE. */
+  indicators?: PerformanceIndicators | null;
+  equipment?: Equipment[];
   /** Viewer owns this dashboard → sessions can be dragged to another day. */
   editable?: boolean;
 }) {
@@ -246,6 +253,8 @@ export function CalendarBoard({
         <WorkoutModal
           w={open}
           ftpWatts={ftpWatts}
+          indicators={indicators}
+          equipment={equipment}
           locale={locale}
           units={units}
           onClose={() => setOpen(null)}

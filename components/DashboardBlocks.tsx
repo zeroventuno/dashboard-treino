@@ -5,6 +5,7 @@
 import type React from "react";
 import { BlockBoundary } from "@/components/BlockBoundary";
 import { blockAvailable } from "@/lib/tenant-config";
+import { readEquipment } from "@/lib/prescription";
 import { BLOCKS, type BlockDef, type BlockId } from "@/lib/blocks";
 import type { DashboardData } from "@/lib/types";
 import type { Locale } from "@/lib/i18n";
@@ -48,7 +49,15 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
   ),
   fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
   calendar: (p) => (
-    <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} units={p.tenant.units} editable={p.editable} />
+    <CalendarBlock
+      data={p.data}
+      todayISO={p.todayISO}
+      locale={p.locale}
+      units={p.tenant.units}
+      // Decides whether a block reads "242-258W", "4:25-4:15/km" or "7/10".
+      equipment={readEquipment(p.tenant.preferences?.equipment)}
+      editable={p.editable}
+    />
   ),
   availability: (p) => (
     // Editable only on the athlete's own dashboard; the coach drill-in reads it.

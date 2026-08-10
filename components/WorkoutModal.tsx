@@ -2,7 +2,8 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Discipline, Workout, WorkoutStatus } from "@/lib/types";
+import type { Discipline, PerformanceIndicators, Workout, WorkoutStatus } from "@/lib/types";
+import { prescribe, type Equipment } from "@/lib/prescription";
 import { disciplineMeta, fmtDuration, toDistance, distanceUnit, toSpeed, speedUnit, computeAdherence, type Units } from "@/lib/utils";
 import { ZoneCompare } from "@/components/ZoneCompare";
 import { plannedZones } from "@/lib/zone-time";
@@ -190,12 +191,18 @@ function ComparisonTable({ w, tr, units }: { w: Workout; tr: T; units: Units }) 
 
 export function WorkoutModal({
   w, ftpWatts = null, locale = DEFAULT_LOCALE, units = "metric", onClose, onMove, tags,
+  indicators = null, equipment = [],
 }: {
   w: Workout;
   locale?: Locale;
   units?: Units;
   /** Athlete's threshold power — .zwo stores power as a fraction of it. */
   ftpWatts?: number | null;
+  /** The athlete's zone tables, and what they can measure. Together these turn
+   * a block's bare percentage into a target they can act on — watts, pace, bpm
+   * or RPE. See lib/prescription. */
+  indicators?: PerformanceIndicators | null;
+  equipment?: Equipment[];
   onClose: () => void;
   /** Present when this session can be rescheduled — the touch/keyboard path to
    * the same move that dragging performs on desktop. */
@@ -206,7 +213,15 @@ export function WorkoutModal({
   const tr = translator(locale);
   const meta = disciplineMeta(w.discipline);
   // coach-authored blocks, else derived from the .zwo (free for bike workouts)
-  const blocks = getWorkoutBlocks(w, ftpWatts);
+  // Fill in a target for every block the coach left as a bare percentage, in
+  // whichever unit this athlete can actually measure. `prescribe` returns the
+  // coach's own wording untouched when they wrote one, so this map is safe to
+  // run over everything.
+  const blocks = getWorkoutBlocks(w, ftpWatts).map((b) => {
+    if (b.target) return b;
+    const p = prescribe(b, w.discipline, equipment, indicators);
+    return p ? { ...b, target: p.target } : b;
+  });
   // Coach-supplied file first; else synthesized from the blocks (see buildZwo).
   const zwo = w.zwo_content ?? (w.discipline === "bike" ? buildZwo(w, blocks) : null);
   // Garmin file for the three endurance disciplines — strength workouts are
