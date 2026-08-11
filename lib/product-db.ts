@@ -10,6 +10,9 @@ import { createHash, randomBytes } from "node:crypto";
 import { normalizeTags } from "./bank-tags";
 import type { AttentionRow } from "./retention";
 import type { PerformanceIndicators, ZoneSeconds } from "./types";
+import { distribute, type BlockSession, type PlanWeek } from "./plan-block";
+import { WEEKDAYS, type Availability } from "./availability";
+import { addDays, parseDate, startOfWeek, toISO } from "./utils";
 
 const { Pool, types } = pkg;
 
@@ -437,6 +440,176 @@ export async function getRosterPlanAhead(staffId: string): Promise<RosterPlanAhe
  * can't cancel a legitimate batch. The count of rows actually written comes
  * back so the panel reports what happened instead of what was requested.
  */
+// ── Plan blocks (multi-week templates) ──────────────────────────────────────
+
+export interface PlanBlockRow {
+  id: string;
+  name: string;
+  phase: string | null;
+  notes: string | null;
+  weeks: PlanWeek[];
+  status: string;
+}
+
+export async function listPlanBlocks(agencyId: string): Promise<PlanBlockRow[]> {
+  if (!hasProductDb()) return [];
+  try {
+    const { rows } = await getPool().query<PlanBlockRow>(
+      `select id, name, phase, notes, weeks, status
+         from app.plan_blocks
+        where agency_id = $1 and status <> 'archived'
+        order by phase nulls last, name`,
+      [agencyId],
+    );
+    return rows;
+  } catch (err) {
+    console.warn("[coach] plan_blocks unavailable — run add-plan-blocks.sql:", err);
+    return [];
+  }
+}
+
+export async function savePlanBlock(
+  agencyId: string,
+  staffId: string,
+  block: { id?: string; name: string; phase?: string | null; notes?: string | null; weeks: PlanWeek[]; status?: string },
+): Promise<string> {
+  const { rows } = await getPool().query<{ id: string }>(
+    `insert into app.plan_blocks (id, agency_id, created_by, name, phase, notes, weeks, status)
+     values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7::jsonb, coalesce($8,'draft'))
+     on conflict (id) do update set
+       name = excluded.name, phase = excluded.phase, notes = excluded.notes,
+       weeks = excluded.weeks, status = excluded.status, updated_at = now()
+     returning id`,
+    [block.id ?? null, agencyId, staffId, block.name, block.phase ?? null, block.notes ?? null,
+     JSON.stringify(block.weeks), block.status ?? null],
+  );
+  return rows[0].id;
+}
+
+/** One athlete's block, laid out on real dates — computed, never written.
+ *
+ * The preview exists because the honest answer is sometimes "this doesn't fit".
+ * A template built for eight hours applied to an athlete with five has to lose
+ * something, and the coach is the one who should decide what — so they see the
+ * placement, and what fell off, BEFORE anything reaches a calendar. */
+export interface BlockPreview {
+  tenantId: string;
+  name: string;
+  /** date → the sessions landing on it. */
+  days: { dateISO: string; session: BlockSession }[];
+  unplaced: { week: number; session: BlockSession }[];
+}
+
+/**
+ * Lay a block over a roster without writing anything.
+ *
+ * Availability comes from each athlete's own "My week", which is why this can't
+ * be a single SQL statement: the same template produces a different calendar per
+ * person, and that difference is the entire point.
+ */
+export async function previewPlanBlock(
+  staffId: string,
+  agencyId: string,
+  blockId: string,
+  tenantIds: string[],
+  startISO: string,
+): Promise<BlockPreview[]> {
+  if (!hasProductDb() || tenantIds.length === 0) return [];
+
+  const pool = getPool();
+  const { rows: blocks } = await pool.query<{ weeks: PlanWeek[] }>(
+    "select weeks from app.plan_blocks where id = $1 and agency_id = $2",
+    [blockId, agencyId],
+  );
+  const weeks = blocks[0]?.weeks ?? [];
+  if (weeks.length === 0) return [];
+
+  // Roster boundary: only athletes this professional actually holds.
+  const { rows: allowed } = await pool.query<{ tenant_id: string; name: string; preferences: Availability | null }>(
+    `select sa.tenant_id,
+            coalesce(t.athlete_name, t.email) as name,
+            p.preferences
+       from app.staff_athletes sa
+       join app.tenants t on t.id = sa.tenant_id
+       left join public.profiles p on p.tenant_id = sa.tenant_id
+      where sa.staff_id = $1 and sa.tenant_id = any($2::uuid[])`,
+    [staffId, tenantIds],
+  );
+
+  const monday = startOfWeek(parseDate(startISO));
+
+  return allowed.map(({ tenant_id, name, preferences }) => {
+    const days: BlockPreview["days"] = [];
+    const unplaced: BlockPreview["unplaced"] = [];
+
+    weeks.forEach((week, i) => {
+      const { placed, unplaced: missed } = distribute(week, preferences ?? {});
+      for (const p of placed) {
+        const offset = i * 7 + WEEKDAYS.indexOf(p.day);
+        days.push({ dateISO: toISO(addDays(monday, offset)), session: p.session });
+      }
+      for (const s of missed) unplaced.push({ week: i + 1, session: s });
+    });
+
+    days.sort((a, b) => (a.dateISO < b.dateISO ? -1 : 1));
+    return { tenantId: tenant_id, name, days, unplaced };
+  });
+}
+
+/** Write a previewed block. Takes the SAME previews the coach approved rather
+ * than recomputing, so what lands on the calendar is exactly what they saw. */
+export async function applyPlanBlock(
+  staffId: string,
+  previews: BlockPreview[],
+): Promise<{ written: number; athletes: number }> {
+  if (!hasProductDb() || previews.length === 0) return { written: 0, athletes: 0 };
+
+  const pool = getPool();
+  const { rows: allowed } = await pool.query<{ tenant_id: string }>(
+    "select tenant_id from app.staff_athletes where staff_id = $1 and tenant_id = any($2::uuid[])",
+    [staffId, previews.map((p) => p.tenantId)],
+  );
+  const ok = new Set(allowed.map((r) => r.tenant_id));
+
+  const client = await pool.connect();
+  let written = 0;
+  let athletes = 0;
+  try {
+    await client.query("begin");
+    for (const preview of previews) {
+      if (!ok.has(preview.tenantId)) continue;
+      athletes++;
+      // Transaction-local, so re-setting per athlete keeps RLS scoped while one
+      // connection serves the whole batch.
+      await client.query("select set_config('app.tenant_id', $1, true)", [preview.tenantId]);
+      for (const { dateISO, session } of preview.days) {
+        const { rowCount } = await client.query(
+          `insert into workouts
+             (tenant_id, date, discipline, title, status, structure, planned_duration_min, key_workout)
+           values ($1, $2::date, $3, $4, 'planned', $5::jsonb, $6, coalesce($7,false))
+           on conflict (tenant_id, date, discipline, title) do update set
+             structure            = coalesce(excluded.structure, workouts.structure),
+             planned_duration_min = coalesce(excluded.planned_duration_min, workouts.planned_duration_min),
+             key_workout          = coalesce(excluded.key_workout, workouts.key_workout)`,
+          [
+            preview.tenantId, dateISO, session.discipline, session.title,
+            session.structure ? JSON.stringify(session.structure) : null,
+            session.duration_min, session.key_workout ?? false,
+          ],
+        );
+        written += rowCount ?? 0;
+      }
+    }
+    await client.query("commit");
+  } catch (e) {
+    await client.query("rollback");
+    throw e;
+  } finally {
+    client.release();
+  }
+  return { written, athletes };
+}
+
 export async function prescribeFromBank(
   staffId: string,
   agencyId: string,

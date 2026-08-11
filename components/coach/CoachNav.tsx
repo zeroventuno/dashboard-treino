@@ -51,6 +51,13 @@ export function CoachNav({
               {tr("coach.bank.link")}
             </Link>
           )}
+          {/* Blocks sit beside the bank because they are the same library at a
+              bigger grain: single sessions there, multi-week templates here. */}
+          {isCoach && (
+            <Link href="/coach/blocks" className={tabCls(false)}>
+              {tr("blocks.title")}
+            </Link>
+          )}
           {/* Everyone gets it — scoped to their own book unless they own the
               agency, in which case it's the whole thing. */}
           {isOwner && (

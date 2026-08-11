@@ -247,6 +247,71 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
     );
 
     server.registerTool(
+      "save_plan_block",
+      {
+        description:
+          "Save a MULTI-WEEK block to the agency library — the unit a coach actually decides in. " +
+          "Prescribing session by session does not scale past a few dozen athletes; 'this cohort starts " +
+          "a four-week Base block on Monday' does. " +
+          "IMPORTANT: the sessions carry NO weekday. Which day each lands on is decided per athlete when " +
+          "the block is applied, from the availability they filled in themselves — Tuesday is 45 minutes " +
+          "for one athlete and three hours for another, and the swim squad meets Thursday for some of " +
+          "them and never for the rest. Say how many sessions of what, and let the panel place them. " +
+          "Mark the week's long ride or long run with long: true so it lands on a day that can hold it.",
+        inputSchema: {
+          name: z.string().describe("e.g. 'Base 4 semanas — triatleta 8h'"),
+          phase: z.string().optional().describe("Base | Build | Peak | Taper — the cohort it's written for"),
+          notes: z.string().optional(),
+          weeks: z
+            .array(
+              z.object({
+                focus: z.string().optional().describe("what this week is for, e.g. 'recuperação — segurar'"),
+                sessions: z.array(
+                  z.object({
+                    discipline: z.enum(["swim", "bike", "run", "strength", "rest", "other"]),
+                    title: z.string(),
+                    duration_min: z.number(),
+                    long: z
+                      .boolean()
+                      .optional()
+                      .describe("the week's long session — needs one of the athlete's long days"),
+                    key_workout: z.boolean().optional(),
+                    structure: z
+                      .array(
+                        z.object({
+                          label: z.string(),
+                          duration_min: z.number(),
+                          intensity: z.number().optional(),
+                          target: z.string().optional(),
+                          note: z.string().optional(),
+                        }),
+                      )
+                      .optional(),
+                  }),
+                ),
+              }),
+            )
+            .describe("One entry per week, in order. The array length IS the block length."),
+          status: z.enum(["draft", "active"]).optional(),
+        },
+      },
+      async (a) => {
+        const { rows } = await pool.query<{ id: string }>(
+          `insert into app.plan_blocks (agency_id, created_by, name, phase, notes, weeks, status)
+           values ($1,$2,$3,$4,$5,$6::jsonb,coalesce($7,'draft'))
+           returning id`,
+          [staff.agencyId, staff.id, a.name, a.phase ?? null, a.notes ?? null, JSON.stringify(a.weeks), a.status ?? null],
+        );
+        const sessions = a.weeks.reduce((n, w) => n + w.sessions.length, 0);
+        return ok(
+          `Plan block "${a.name}" saved (${a.weeks.length} weeks, ${sessions} sessions, id ${rows[0].id}). ` +
+          `Apply it to a cohort from the panel — it previews where each session lands for each athlete, ` +
+          `and what doesn't fit, before anything reaches a calendar.`,
+        );
+      },
+    );
+
+    server.registerTool(
       "add_bank_workout",
       {
         description:
