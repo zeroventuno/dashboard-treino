@@ -10,6 +10,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n";
 import { hasProductDb, withTenant } from "./product-db";
 import { addDays, parseDate, toISO } from "./utils";
 import { phaseColor } from "./phases";
+import { withComputedStress } from "./stress";
 import { RACE_DATE, RACE_NAME } from "./types";
 import type { Availability } from "./availability";
 import type {
@@ -290,9 +291,15 @@ export async function getProductDashboardData(
         "select last_period_start, cycle_length, period_length, notes from menstrual_cycle where tenant_id=$1 limit 1",
       );
 
+      // Fill in the stress of every completed session the coach didn't score.
+      // Nothing else ever wrote actual_tss, so the fitness curve — which is
+      // built from exactly these numbers — stayed flat unless someone typed one
+      // per session by hand. A coach's own value always wins; see lib/stress.
+      const scored = withComputedStress(workouts, indicators[0] ?? null);
+
       const data: DashboardData = {
-        trainingLoad: extendTrainingLoad(trainingLoad, workouts, toISO(new Date())),
-        workouts,
+        trainingLoad: extendTrainingLoad(trainingLoad, scored, toISO(new Date())),
+        workouts: scored,
         // THE ACTIVE CYCLE WINS. It used to be the other way round, and that
         // made the Season block quietly ignore the coach: `set_cycle` is the
         // only way anyone defines a season now — no tool writes the `phases`

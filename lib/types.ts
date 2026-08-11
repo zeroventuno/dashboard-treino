@@ -75,6 +75,9 @@ export interface Workout {
   /** How hard the session actually felt, Borg CR10 (0-10). The only reading an
    * athlete with no device can give, and the one their score depends on. */
   actual_rpe?: number | null;
+  /** How actual_tss was arrived at when the dashboard computed it: "power",
+   * "zones" or "pace". Absent when the coach typed the number themselves. */
+  tss_method?: string | null;
   /** Pre-workout: activation/warm-up routine and fueling. */
   activation?: string | null;
   nutrition_pre?: string | null;
