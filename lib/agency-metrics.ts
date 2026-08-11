@@ -21,6 +21,9 @@ export interface StaffInfo {
   name: string | null;
   role: string;
   isOwner?: boolean;
+  /** Modalidades que este profissional programa. VAZIO = sem restrição
+   * declarada, nunca "nenhuma" — mesma regra do resto do painel. */
+  sports?: string[];
   /** Quantos alunos esta pessoa aguenta. Nulo = a assessoria não declarou. */
   maxAthletes?: number | null;
   payModel?: PayModel | null;

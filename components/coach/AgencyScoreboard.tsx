@@ -82,7 +82,12 @@ export function AgencyScoreboard({
             </button>
           ))}
         </div>
-        <span className="text-[11.5px] text-[var(--text-faint)]">{tr("agency.rank.hint")}</span>
+        <div className="flex items-center gap-3">
+          <Link href="/coach/agency/roster" className="text-[12px] font-semibold text-[var(--lime)] hover:underline">
+            {tr("roster.title")}
+          </Link>
+          <span className="text-[11.5px] text-[var(--text-faint)]">{tr("agency.rank.hint")}</span>
+        </div>
       </div>
 
       <ul className="flex flex-col gap-1.5">

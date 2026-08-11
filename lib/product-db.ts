@@ -395,6 +395,70 @@ export async function staffCanAccess(staffId: string, tenantId: string): Promise
   return rows.length > 0;
 }
 
+/** One athlete changing hands: off `from`'s book, onto `to`'s. */
+export interface Reassignment {
+  tenantId: string;
+  fromStaffId: string;
+  toStaffId: string;
+}
+
+/**
+ * Apply a batch of roster moves.
+ *
+ * ONE transaction for the whole batch. Reallocating a book is a decision the
+ * owner makes as a whole — half of it landing would leave a distribution nobody
+ * chose, and the preview they just approved would describe a state that never
+ * existed.
+ *
+ * Both staff ids are re-checked against THIS agency inside the statement rather
+ * than trusted from the request: the ids come from the browser, and the whole
+ * point of the screen is that they are user-supplied. An athlete of another
+ * agency, or a staff id from another agency, matches nothing and moves nothing.
+ */
+export async function reassignAthletes(
+  agencyId: string,
+  moves: Reassignment[],
+): Promise<{ ok: boolean; moved: number }> {
+  if (!hasProductDb() || moves.length === 0) return { ok: true, moved: 0 };
+
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    let moved = 0;
+    for (const m of moves) {
+      // Delete first: an athlete already on the destination's book would make
+      // the insert a no-op, and doing it in this order means a move onto a book
+      // that already holds them still cleanly LEAVES the source.
+      const del = await client.query(
+        `delete from app.staff_athletes sa
+          using app.staff s, app.tenants t
+          where sa.staff_id = s.id and sa.tenant_id = t.id
+            and sa.staff_id = $1 and sa.tenant_id = $2
+            and s.agency_id = $3 and t.agency_id = $3`,
+        [m.fromStaffId, m.tenantId, agencyId],
+      );
+      if ((del.rowCount ?? 0) === 0) continue; // not this agency's to move
+
+      await client.query(
+        `insert into app.staff_athletes (staff_id, tenant_id)
+         select s.id, t.id from app.staff s, app.tenants t
+          where s.id = $1 and t.id = $2 and s.agency_id = $3 and t.agency_id = $3
+            and s.status = 'active'
+         on conflict do nothing`,
+        [m.toStaffId, m.tenantId, agencyId],
+      );
+      moved++;
+    }
+    await client.query("commit");
+    return { ok: true, moved };
+  } catch (e) {
+    await client.query("rollback");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 // ── Workout bank (agency library) ───────────────────────────────────────────
 
 export interface BankWorkout {
