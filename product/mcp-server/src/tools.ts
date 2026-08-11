@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withTenant } from "./db.js";
 import {
   workoutSchema, runWorkout, deleteWorkoutSchema, runDeleteWorkout,
+  relinkSchema, runRelink,
   mealPlanSchema, runMealPlan, injurySchema, runInjury,
 } from "./writes.js";
 import {
@@ -433,6 +434,20 @@ export function registerTools(server: McpServer, tenantId: string): void {
       inputSchema: deleteWorkoutSchema,
     },
     async (a) => ok(await withTenant(tenantId, (c) => runDeleteWorkout(c, tenantId, a))),
+  );
+
+  server.registerTool(
+    "relink_activity",
+    {
+      description:
+        "Move an imported activity from one session to another on the SAME day — for when the watch " +
+        "import attached it to the wrong one, which happens when a day holds two sessions of the same " +
+        "sport. Moves the numbers with it: the actuals and the time-in-zone all describe that one " +
+        "recording. The session it leaves goes back to planned, keeping its title and blocks, because " +
+        "it was never done — that was the mistake.",
+      inputSchema: relinkSchema,
+    },
+    async (a) => ok(await withTenant(tenantId, (c) => runRelink(c, tenantId, a))),
   );
 
   server.registerTool(

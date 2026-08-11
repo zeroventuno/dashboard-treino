@@ -6,6 +6,7 @@ import type { StaffAuth } from "./auth.js";
 import {
   resolveRosterAthlete,
   workoutSchema, runWorkout, deleteWorkoutSchema, runDeleteWorkout,
+  relinkSchema, runRelink,
   mealPlanSchema, runMealPlan,
   injurySchema, runInjury,
 } from "./writes.js";
@@ -206,6 +207,18 @@ export function registerStaffTools(server: McpServer, staff: StaffAuth): void {
         inputSchema: { athlete: z.string(), ...deleteWorkoutSchema },
       },
       async (a) => forAthlete(staff, a.athlete, (c, tid) => runDeleteWorkout(c, tid, a)),
+    );
+
+    server.registerTool(
+      "relink_activity",
+      {
+        description:
+          "Move an imported activity between two sessions on the same day for one athlete on your " +
+          "roster — for when the watch import attached it to the wrong one. The numbers travel with it; " +
+          "the session it leaves returns to planned with its title and blocks intact.",
+        inputSchema: { athlete: z.string(), ...relinkSchema },
+      },
+      async (a) => forAthlete(staff, a.athlete, (c, tid) => runRelink(c, tid, a)),
     );
 
     // ── Workout bank (agency library) — build once, reuse when prescribing ──

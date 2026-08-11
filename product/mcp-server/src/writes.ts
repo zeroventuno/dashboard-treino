@@ -130,6 +130,76 @@ export type WorkoutArgs = z.infer<z.ZodObject<typeof workoutSchema>>;
 
 // ── delete_workout ──────────────────────────────────────────────────────────
 
+// ── relink_activity ─────────────────────────────────────────────────────────
+
+export const relinkSchema = {
+  date: z.string().describe("YYYY-MM-DD of the day both sessions are on"),
+  discipline: z.enum(["swim", "bike", "run", "strength", "rest", "other"]),
+  from_title: z.string().describe("Exact title of the session that WRONGLY received the imported activity"),
+  to_title: z.string().describe("Exact title of the session it actually belongs to"),
+} satisfies z.ZodRawShape;
+
+export type RelinkArgs = z.infer<z.ZodObject<typeof relinkSchema>>;
+
+/**
+ * Move an imported activity from one session to another on the same day.
+ *
+ * The importer has to guess when a day holds two sessions of one sport, and no
+ * heuristic gets every case: two rides of similar length, an athlete who names
+ * everything "Morning Ride". Without a way to correct it the athlete is stuck
+ * with a wrong adherence score and a session that never got its numbers, and
+ * their only recourse is asking someone to run SQL.
+ *
+ * Moves the measurements with the link — the external_id, the actuals and the
+ * zone breakdown all describe the same recording, and leaving any of them
+ * behind would put half a session on each row. The source keeps its title,
+ * structure and blocks, and goes back to `planned`: it wasn't done, that was the
+ * whole mistake.
+ */
+export async function runRelink(c: PoolClient, tenantId: string, a: RelinkArgs): Promise<string> {
+  const { rows } = await c.query<{ id: string; title: string; external_id: string | null }>(
+    `select id, title, external_id from workouts
+      where tenant_id = $1 and date = $2::date and discipline = $3 and title = any($4::text[])`,
+    [tenantId, a.date, a.discipline, [a.from_title, a.to_title]],
+  );
+
+  const from = rows.find((r) => r.title === a.from_title);
+  const to = rows.find((r) => r.title === a.to_title);
+  if (!from) return `No ${a.discipline} session titled "${a.from_title}" on ${a.date}.`;
+  if (!to) return `No ${a.discipline} session titled "${a.to_title}" on ${a.date}.`;
+  if (!from.external_id) {
+    return `"${a.from_title}" has no imported activity attached — nothing to move. Only sessions the watch filled in can be relinked.`;
+  }
+
+  await c.query(
+    `update workouts dst set
+       external_id         = src.external_id,
+       status              = 'done',
+       actual_duration_min = src.actual_duration_min,
+       actual_distance_km  = src.actual_distance_km,
+       actual_pace         = src.actual_pace,
+       actual_power_watts  = src.actual_power_watts,
+       actual_tss          = src.actual_tss,
+       actual_zones        = src.actual_zones
+     from workouts src
+     where dst.id = $2 and src.id = $1`,
+    [from.id, to.id],
+  );
+
+  // Cleared only after the copy, and in this order: the unique index on
+  // (tenant_id, external_id) would reject two rows holding the same one.
+  await c.query(
+    `update workouts set
+       external_id = null, status = 'planned',
+       actual_duration_min = null, actual_distance_km = null, actual_pace = null,
+       actual_power_watts = null, actual_tss = null, actual_zones = null
+     where id = $1`,
+    [from.id],
+  );
+
+  return `Moved the imported activity from "${a.from_title}" to "${a.to_title}" on ${a.date}. "${a.from_title}" is planned again, with its own title and blocks intact.`;
+}
+
 export const deleteWorkoutSchema = {
   date: z.string().describe("YYYY-MM-DD of the session to remove"),
   discipline: z

@@ -12,6 +12,7 @@ import type { AttentionRow } from "./retention";
 import type { PerformanceIndicators, ZoneSeconds } from "./types";
 import { distribute, type BlockSession, type PlanWeek } from "./plan-block";
 import { WEEKDAYS, type Availability } from "./availability";
+import { pickMatch, type Candidate } from "./match-activity";
 import { addDays, parseDate, startOfWeek, toISO } from "./utils";
 
 const { Pool, types } = pkg;
@@ -815,15 +816,23 @@ export async function importWorkouts(
       // Ordering matters when a day holds more than one candidate: an untouched
       // planned session is the better claim than one already logged, and among
       // equals the key workout wins.
-      const { rows: planned } = await c.query<{ id: string; structure: unknown }>(
-        `select id, structure from workouts
+      // Every candidate on the day, then chosen by RESEMBLANCE in code.
+      //
+      // This used to be `order by … key_workout desc limit 1`, which picked by
+      // importance — and on a day holding a short HIIT and a long endurance
+      // ride, the ride was the key workout, so it claimed a 32-minute recording
+      // and scored 33% adherence while the session it actually was sat
+      // untouched. Which session matters most to the week says nothing about
+      // which one was just recorded. See lib/match-activity.
+      const { rows: candidates } = await c.query<Candidate>(
+        `select id, title, status, key_workout, planned_duration_min, structure
+           from workouts
           where tenant_id = $1 and date = $2::date and discipline = $3
-            and external_id is null and status in ('planned','skipped','done')
-          order by (status in ('planned','skipped')) desc,
-                   key_workout desc nulls last
-          limit 1`,
+            and external_id is null and status in ('planned','skipped','done')`,
         [tenantId, it.date, it.discipline],
       );
+      const planned = [pickMatch(candidates, { title: it.title, actual_duration_min: it.actual_duration_min })]
+        .filter((x): x is Candidate => x !== null);
 
       if (planned[0]) {
         // coalesce, not assignment: the device is authoritative for what it
