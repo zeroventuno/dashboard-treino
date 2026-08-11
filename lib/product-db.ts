@@ -813,6 +813,8 @@ export async function importWorkouts(
     external_id: string; date: string; discipline: string; title: string;
     actual_duration_min: number; actual_distance_km: number | null;
     actual_pace: string | null; actual_power_watts: string | null;
+    /** Athlete marked it a commute on the provider — never matched, always extra. */
+    commute?: boolean;
   }[],
 ): Promise<{ matched: number; created: number; updated: number; needsZones: { externalId: string; structure: unknown }[] }> {
   if (!hasProductDb() || items.length === 0) return { matched: 0, created: 0, updated: 0, needsZones: [] };
@@ -872,13 +874,23 @@ export async function importWorkouts(
       // and scored 33% adherence while the session it actually was sat
       // untouched. Which session matters most to the week says nothing about
       // which one was just recorded. See lib/match-activity.
-      const { rows: candidates } = await c.query<Candidate>(
-        `select id, title, status, key_workout, planned_duration_min, structure
-           from workouts
-          where tenant_id = $1 and date = $2::date and discipline = $3
-            and external_id is null and status in ('planned','skipped','done')`,
-        [tenantId, it.date, it.discipline],
-      );
+      //
+      // A commute is exempt from all of it. Strava has a documented `commute`
+      // flag the athlete sets themselves, and it settles the question that no
+      // amount of duration/title scoring can: a 25-minute ride to work on a day
+      // whose planned HIIT is 31 minutes looks like a match by every heuristic
+      // and is not one. Where the athlete has told us outright, guessing is
+      // strictly worse than listening. It still gets imported — as an `extra`,
+      // which is where a ride to work belongs.
+      const { rows: candidates } = it.commute
+        ? { rows: [] as Candidate[] }
+        : await c.query<Candidate>(
+            `select id, title, status, key_workout, planned_duration_min, structure
+               from workouts
+              where tenant_id = $1 and date = $2::date and discipline = $3
+                and external_id is null and status in ('planned','skipped','done')`,
+            [tenantId, it.date, it.discipline],
+          );
       const planned = [pickMatch(candidates, { title: it.title, actual_duration_min: it.actual_duration_min })]
         .filter((x): x is Candidate => x !== null);
 

@@ -55,7 +55,7 @@ export function titleOverlap(a: string, b: string): number {
 }
 
 /**
- * Score a candidate against the activity. Higher wins.
+ * How much this candidate LOOKS like the activity, 0..85. Evidence only.
  *
  * Duration carries the most weight because it is always present and hard to
  * argue with: a 32-minute recording is not a 100-minute session, whatever
@@ -68,12 +68,8 @@ export function titleOverlap(a: string, b: string): number {
  * the week, which has no bearing on which one was just recorded, and using it
  * is precisely how a long ride swallowed a short one.
  */
-export function matchScore(c: Candidate, a: ImportedActivity): number {
+export function resemblance(c: Candidate, a: ImportedActivity): number {
   let score = 0;
-
-  // Still expected beats already logged: an untouched planned session is the
-  // more likely subject than one someone has already reconciled.
-  if (c.status === "planned" || c.status === "skipped") score += 20;
 
   const planned = Number(c.planned_duration_min ?? 0);
   if (planned > 0 && a.actual_duration_min > 0) {
@@ -88,23 +84,49 @@ export function matchScore(c: Candidate, a: ImportedActivity): number {
 }
 
 /**
+ * Ranking score: resemblance plus a nudge for sessions nobody has touched yet.
+ *
+ * The status bonus breaks ties BETWEEN plausible candidates — it is not
+ * evidence, which is why it lives here and not in `resemblance`, and why the
+ * threshold below is applied to resemblance alone. Being still on the calendar
+ * cannot make an implausible match plausible.
+ */
+export function matchScore(c: Candidate, a: ImportedActivity): number {
+  const bonus = c.status === "planned" || c.status === "skipped" ? 20 : 0;
+  return resemblance(c, a) + bonus;
+}
+
+/**
+ * Below this much resemblance the activity is not any of the day's sessions.
+ *
+ * Roughly 30% of the available evidence. A commute — 25 minutes on a day whose
+ * planned ride is two hours, sharing no distinctive word — scores about 8 and
+ * is refused. A session recorded under a useless name ("Morning Ride") but the
+ * right length scores about 39 and is accepted, because duration alone is real
+ * evidence.
+ */
+export const MIN_RESEMBLANCE = 25;
+
+/**
  * The session this activity belongs to, or null when nothing on the day fits.
  *
- * With a single candidate this returns it — the point is only to stop guessing
- * wrongly when there are several, not to start refusing the ordinary case.
+ * Returning null is the whole point of this function existing, and it used to
+ * be impossible: a single candidate was returned unscored, so a ride to work,
+ * a walk or a hike was pinned onto whatever was planned for that sport that
+ * day, wrecking its adherence. The caller already knows what to do with a null
+ * — it inserts the activity as an `extra`, which is exactly where a commute
+ * belongs.
  */
 export function pickMatch(candidates: Candidate[], activity: ImportedActivity): Candidate | null {
-  if (candidates.length === 0) return null;
-  if (candidates.length === 1) return candidates[0];
-
-  let best = candidates[0];
-  let bestScore = matchScore(best, activity);
-  for (const c of candidates.slice(1)) {
+  let best: Candidate | null = null;
+  let bestScore = -1;
+  for (const c of candidates) {
     const s = matchScore(c, activity);
     if (s > bestScore) {
       bestScore = s;
       best = c;
     }
   }
-  return best;
+  if (!best) return null;
+  return resemblance(best, activity) >= MIN_RESEMBLANCE ? best : null;
 }

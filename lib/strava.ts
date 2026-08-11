@@ -88,6 +88,10 @@ export interface StravaActivity {
   average_heartrate?: number;
   total_elevation_gain?: number;
   trainer?: boolean;
+  /** Athlete ticked "mark as commute". Documented Strava field: a ride to work
+   * is never a prescribed session, however closely its length happens to
+   * resemble one. */
+  commute?: boolean;
 }
 
 export async function fetchActivities(accessToken: string, afterUnix: number): Promise<StravaActivity[]> {
@@ -290,6 +294,8 @@ export interface ImportedWorkout {
   actual_distance_km: number | null;
   actual_pace: string | null;
   actual_power_watts: string | null;
+  /** Marked as a commute on Strava — import it, but never onto a planned session. */
+  commute?: boolean;
 }
 
 /**
@@ -315,5 +321,7 @@ export function toWorkout(a: StravaActivity): ImportedWorkout | null {
     actual_distance_km: km,
     actual_pace: paceFrom(a, discipline),
     actual_power_watts: discipline === "bike" && watts ? `${Math.round(watts)}W` : null,
+    // Carried through so the importer can refuse to match it against anything.
+    commute: a.commute === true,
   };
 }
