@@ -359,6 +359,38 @@ export async function getAgencyAttention(agencyId: string): Promise<AttentionRow
   return rows;
 }
 
+/** When each athlete on a professional's roster last had a threshold measured.
+ *
+ * Dates only — the "is it overdue" judgment lives in lib/testing, so the same
+ * rule applies here and on the athlete's own dashboard rather than being
+ * written twice with two different definitions of six weeks. */
+export interface RosterTestDates {
+  tenant_id: string;
+  ftp_at: string | null;
+  run_at: string | null;
+  swim_at: string | null;
+}
+
+export async function getRosterTestDates(staffId: string): Promise<RosterTestDates[]> {
+  if (!hasProductDb()) return [];
+  try {
+    const { rows } = await getPool().query<RosterTestDates>(
+      `select tenant_id,
+              to_char(ftp_at,'YYYY-MM-DD')  as ftp_at,
+              to_char(run_at,'YYYY-MM-DD')  as run_at,
+              to_char(swim_at,'YYYY-MM-DD') as swim_at
+         from app.roster_test_dates($1)`,
+      [staffId],
+    );
+    return rows;
+  } catch (err) {
+    // The panel is worth more without this column than not at all: an agency
+    // whose migration hasn't run yet still gets its roster, minus the badges.
+    console.warn("[coach] roster_test_dates unavailable — run add-test-due.sql:", err);
+    return [];
+  }
+}
+
 /**
  * Put a library workout on athletes' calendars — the step that turns a bank
  * into leverage.
