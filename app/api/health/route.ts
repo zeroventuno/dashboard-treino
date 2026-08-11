@@ -43,9 +43,10 @@ export async function GET() {
   }
 
   // Reachable and populated, but a migration this build depends on hasn't been
-  // run: every read that touches the missing column throws, the dashboard falls
-  // back to sample data, and it reads as lost data. Fail loudly here so a deploy
-  // can be verified before anyone opens the app and panics.
+  // run: every read that touches the missing column, table or function throws,
+  // the dashboard falls back to sample data, and it reads as lost data. Fail
+  // loudly here so a deploy can be verified before anyone opens the app and
+  // panics.
   const missing = await schemaCheck();
   if (missing.length > 0) {
     return NextResponse.json(

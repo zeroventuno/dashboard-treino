@@ -107,19 +107,67 @@ const REQUIRED_COLUMNS: { schema: string; table: string; column: string; migrati
   { schema: "app",    table: "agencies",    column: "currency",      migration: "add-owner-and-value.sql" },
 ];
 
-/** Which required columns are missing, and the migration that adds each. */
-export async function schemaCheck(): Promise<{ column: string; migration: string }[]> {
+/**
+ * Tables and functions this build calls, and which migration creates each.
+ *
+ * Columns alone were never enough. Half the B2B migrations don't add a column at
+ * all — they create a SECURITY DEFINER function or a whole table — so a build
+ * could report a clean schema while `app.roster_test_dates` didn't exist and the
+ * coach panel silently lost a section. The check has to cover every KIND of
+ * object a migration can create, not just the kind that happened to break first.
+ */
+const REQUIRED_OBJECTS: { kind: "table" | "function"; schema: string; name: string; migration: string }[] = [
+  { kind: "table",    schema: "app", name: "agencies",            migration: "add-b2b-staff.sql" },
+  { kind: "table",    schema: "app", name: "staff",               migration: "add-b2b-staff.sql" },
+  { kind: "table",    schema: "app", name: "staff_athletes",      migration: "add-b2b-staff.sql" },
+  { kind: "table",    schema: "app", name: "device_links",        migration: "add-device-links.sql" },
+  { kind: "table",    schema: "app", name: "workout_bank",        migration: "add-workout-bank.sql" },
+  { kind: "table",    schema: "app", name: "plan_blocks",         migration: "add-plan-blocks.sql" },
+  { kind: "function", schema: "app", name: "roster_summary",      migration: "add-roster-summary.sql" },
+  { kind: "function", schema: "app", name: "agency_attention",    migration: "add-agency-attention.sql" },
+  { kind: "function", schema: "app", name: "roster_test_dates",   migration: "add-test-due.sql" },
+  { kind: "function", schema: "app", name: "roster_planned_ahead", migration: "add-planned-ahead.sql" },
+];
+
+/** Which required columns, tables and functions are missing, with their migration. */
+export async function schemaCheck(): Promise<{ object: string; migration: string }[]> {
   if (!hasProductDb()) return [];
-  const { rows } = await getPool().query<{ table_schema: string; table_name: string; column_name: string }>(
-    `select table_schema, table_name, column_name
-       from information_schema.columns
-      where (table_schema, table_name) in (('public','profiles'),('public','workouts'),
-                                           ('app','tenants'),('app','staff'),('app','agencies'))`,
-  );
-  const present = new Set(rows.map((r) => `${r.table_schema}.${r.table_name}.${r.column_name}`));
-  return REQUIRED_COLUMNS
-    .filter((c) => !present.has(`${c.schema}.${c.table}.${c.column}`))
-    .map((c) => ({ column: `${c.schema}.${c.table}.${c.column}`, migration: c.migration }));
+  const pool = getPool();
+
+  const [cols, objs] = await Promise.all([
+    pool.query<{ table_schema: string; table_name: string; column_name: string }>(
+      `select table_schema, table_name, column_name
+         from information_schema.columns
+        where (table_schema, table_name) in (('public','profiles'),('public','workouts'),
+                                             ('app','tenants'),('app','staff'),('app','agencies'))`,
+    ),
+    // pg_class/pg_proc rather than information_schema: information_schema.routines
+    // only shows functions the CURRENT role may execute, so a missing GRANT would
+    // read here as a missing function and send someone chasing the wrong fix.
+    pool.query<{ kind: string; schema: string; name: string }>(
+      `select 'table' as kind, n.nspname as schema, c.relname as name
+         from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'app' and c.relkind in ('r','p')
+       union all
+       select 'function', n.nspname, p.proname
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'app'`,
+    ),
+  ]);
+
+  const presentCols = new Set(cols.rows.map((r) => `${r.table_schema}.${r.table_name}.${r.column_name}`));
+  const presentObjs = new Set(objs.rows.map((r) => `${r.kind}:${r.schema}.${r.name}`));
+
+  return [
+    ...REQUIRED_COLUMNS.filter((c) => !presentCols.has(`${c.schema}.${c.table}.${c.column}`)).map((c) => ({
+      object: `${c.schema}.${c.table}.${c.column}`,
+      migration: c.migration,
+    })),
+    ...REQUIRED_OBJECTS.filter((o) => !presentObjs.has(`${o.kind}:${o.schema}.${o.name}`)).map((o) => ({
+      object: `${o.schema}.${o.name} (${o.kind})`,
+      migration: o.migration,
+    })),
+  ];
 }
 
 /** account API key → tenant_id (app.tenants is private; app_writer has SELECT). */
