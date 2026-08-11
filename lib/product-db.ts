@@ -170,6 +170,136 @@ export async function schemaCheck(): Promise<{ object: string; migration: string
   ];
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+//  Correcting an import that landed on the wrong session.
+//
+//  The matcher refuses implausible activities now, and Strava's `commute` flag
+//  settles the cases the athlete already declared. Neither is enough on its own:
+//  most people never tick "commute", and a ride to work that happens to be the
+//  length of the day's easy spin is a genuinely ambiguous recording. So the
+//  athlete needs to be able to say so afterwards, from the panel, without asking
+//  anyone to run SQL or having to phrase it to an AI.
+//
+//  ORDER OF WRITES, in both functions below: the row holding `external_id` is
+//  cleared BEFORE any row is given it. `workouts_external_uniq` is a plain
+//  partial unique index, so Postgres enforces it per statement — two rows
+//  holding the same external_id, even for the duration of one transaction, is
+//  rejected outright. Getting this backwards is exactly what broke
+//  relink_activity in production. See product/probe-relink-order.sql.
+// ────────────────────────────────────────────────────────────────────────────
+
+type LinkResult = { ok: true } | { ok: false; code: "not_found" | "not_linked" | "target_linked" | "no_db" };
+
+interface LinkedRow {
+  id: string; date: string; discipline: string; title: string; external_id: string | null;
+  actual_duration_min: number | null; actual_distance_km: string | null;
+  actual_pace: string | null; actual_power_watts: string | null;
+  actual_tss: string | null; actual_zones: unknown; actual_rpe: number | null;
+}
+
+const LINKED_COLS = `id, date, discipline, title, external_id, actual_duration_min,
+                     actual_distance_km, actual_pace, actual_power_watts,
+                     actual_tss, actual_zones, actual_rpe`;
+
+/** Everything the recording contributed, wiped. The plan — title, blocks, targets — stays. */
+const CLEAR_ACTUALS = `external_id = null, status = 'planned',
+                       actual_duration_min = null, actual_distance_km = null, actual_pace = null,
+                       actual_power_watts = null, actual_tss = null, actual_zones = null,
+                       actual_rpe = null, adherence = null`;
+
+/**
+ * Detach the imported activity from a session and keep it as an `extra`.
+ *
+ * The activity is NOT discarded. The athlete really did ride to work, so it
+ * belongs in the week's volume — and if we dropped the external_id instead, the
+ * next sync would re-import the activity and the matcher would very likely make
+ * the same wrong choice again. Landing it as an extra is both honest about what
+ * happened and the state the importer would have produced had it refused in the
+ * first place.
+ */
+export async function unlinkActivity(tenantId: string, id: string, extraTitle: string): Promise<LinkResult> {
+  if (!hasProductDb()) return { ok: false, code: "no_db" };
+
+  return withTenant(tenantId, async (c) => {
+    const { rows } = await c.query<LinkedRow>(
+      `select ${LINKED_COLS} from workouts where id = $1`, [id],
+    );
+    const src = rows[0];
+    if (!src) return { ok: false, code: "not_found" } as LinkResult;
+    if (!src.external_id) return { ok: false, code: "not_linked" } as LinkResult;
+
+    await c.query(`update workouts set ${CLEAR_ACTUALS} where id = $1`, [src.id]);
+
+    // (tenant_id, date, discipline, title) is unique, and two commutes unlinked
+    // on the same day would collide. Suffix rather than upsert: an ON CONFLICT
+    // here would silently overwrite the first activity's numbers with the
+    // second's and orphan its link.
+    const base = extraTitle.trim() || src.discipline;
+    let title = base;
+    for (let n = 2; n <= 20; n++) {
+      const { rows: clash } = await c.query<{ one: number }>(
+        `select 1 as one from workouts
+          where tenant_id = $1 and date = $2::date and discipline = $3 and title = $4 limit 1`,
+        [tenantId, src.date, src.discipline, title],
+      );
+      if (clash.length === 0) break;
+      title = `${base} (${n})`;
+    }
+
+    await c.query(
+      `insert into workouts
+         (tenant_id, date, discipline, title, status, extra, external_id,
+          actual_duration_min, actual_distance_km, actual_pace, actual_power_watts,
+          actual_tss, actual_zones, actual_rpe)
+       values ($1,$2::date,$3,$4,'done',true,$5,$6,$7,$8,$9,$10,$11::jsonb,$12)`,
+      [
+        tenantId, src.date, src.discipline, title, src.external_id,
+        src.actual_duration_min, src.actual_distance_km, src.actual_pace, src.actual_power_watts,
+        src.actual_tss, src.actual_zones ? JSON.stringify(src.actual_zones) : null, src.actual_rpe,
+      ],
+    );
+    return { ok: true } as LinkResult;
+  });
+}
+
+/**
+ * Move the imported activity from one session to another on the athlete's panel.
+ *
+ * Refuses when the destination already has its own activity: overwriting it
+ * would leave that recording with no row pointing at it, so the athlete would
+ * have silently traded one wrong link for another. Unlink that one first.
+ */
+export async function relinkActivity(tenantId: string, fromId: string, toId: string): Promise<LinkResult> {
+  if (!hasProductDb()) return { ok: false, code: "no_db" };
+  if (fromId === toId) return { ok: false, code: "not_found" };
+
+  return withTenant(tenantId, async (c) => {
+    const { rows } = await c.query<LinkedRow>(
+      `select ${LINKED_COLS} from workouts where id = any($1::uuid[])`, [[fromId, toId]],
+    );
+    const src = rows.find((r) => r.id === fromId);
+    const dst = rows.find((r) => r.id === toId);
+    if (!src || !dst) return { ok: false, code: "not_found" } as LinkResult;
+    if (!src.external_id) return { ok: false, code: "not_linked" } as LinkResult;
+    if (dst.external_id) return { ok: false, code: "target_linked" } as LinkResult;
+
+    await c.query(`update workouts set ${CLEAR_ACTUALS} where id = $1`, [src.id]);
+    await c.query(
+      `update workouts set
+         external_id = $2, status = 'done',
+         actual_duration_min = $3, actual_distance_km = $4, actual_pace = $5,
+         actual_power_watts = $6, actual_tss = $7, actual_zones = $8::jsonb, actual_rpe = $9
+       where id = $1`,
+      [
+        dst.id, src.external_id, src.actual_duration_min, src.actual_distance_km,
+        src.actual_pace, src.actual_power_watts, src.actual_tss,
+        src.actual_zones ? JSON.stringify(src.actual_zones) : null, src.actual_rpe,
+      ],
+    );
+    return { ok: true } as LinkResult;
+  });
+}
+
 /** account API key → tenant_id (app.tenants is private; app_writer has SELECT). */
 export async function resolveTenantId(accountKey: string): Promise<string | null> {
   if (!hasProductDb()) return null;

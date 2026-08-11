@@ -201,7 +201,7 @@ function ComparisonTable({ w, tr, units }: { w: Workout; tr: T; units: Units }) 
 
 export function WorkoutModal({
   w, ftpWatts = null, locale = DEFAULT_LOCALE, units = "metric", onClose, onMove, tags,
-  indicators = null, equipment = [],
+  indicators = null, equipment = [], onLink, siblings = [],
 }: {
   w: Workout;
   locale?: Locale;
@@ -217,6 +217,12 @@ export function WorkoutModal({
   /** Present when this session can be rescheduled — the touch/keyboard path to
    * the same move that dragging performs on desktop. */
   onMove?: (iso: string) => void;
+  /** Present when the athlete may correct a wrong import. Resolves to an error
+   * code so the modal can say WHICH refusal happened rather than "failed". */
+  onLink?: (a: { action: "unlink" | "relink"; toId?: string; title?: string }) => Promise<string | null>;
+  /** Other sessions the same day and sport that could own this activity
+   * instead. Already filtered to ones with no activity of their own. */
+  siblings?: { id: string; title: string }[];
   /** Library classification, shown when the coach opens a bank item. */
   tags?: string[] | null;
 }) {
@@ -250,6 +256,28 @@ export function WorkoutModal({
   // sets and reps, which this encoder doesn't model.
   const fit = ["swim", "bike", "run"].includes(w.discipline) ? buildFitWorkout(w, blocks) : null;
   const [moveDate, setMoveDate] = useState(w.date);
+  // Unlinking discards measurements from this session, so it takes two clicks.
+  // Not a browser confirm(): those are dismissed on reflex and read as an error.
+  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [toId, setToId] = useState("");
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  async function run(a: { action: "unlink" | "relink"; toId?: string; title?: string }) {
+    if (!onLink) return;
+    setBusy(true);
+    setLinkError(null);
+    const code = await onLink(a);
+    if (code) {
+      // Name the specific refusal where we have words for it; the destination
+      // already owning an activity is the one an athlete can actually act on.
+      setLinkError(code === "target_linked" ? tr("modal.targetLinked") : tr("modal.linkError"));
+      setBusy(false);
+      setArmed(false);
+      return;
+    }
+    onClose(); // the row it described no longer exists in that form
+  }
 
   // lock background scroll while open
   useEffect(() => {
@@ -384,6 +412,57 @@ export function WorkoutModal({
                 </button>
               </div>
               <p className="mt-1.5 text-[11.5px] text-[var(--text-faint)]">{tr("modal.rescheduleHint")}</p>
+            </Section>
+          )}
+
+          {/* Only when a device actually filled this session in. Unlinking is a
+              correction, so it appears exactly where the wrong numbers are. */}
+          {onLink && w.external_id && (
+            <Section label={tr("modal.linked")}>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => (armed ? run({ action: "unlink", title: tr("modal.extraTitle") }) : setArmed(true))}
+                  disabled={busy}
+                  className={`rounded-[10px] border px-4 py-2 text-[13px] font-bold transition-colors disabled:opacity-40 ${
+                    armed
+                      ? "border-[var(--bad)] bg-[var(--bad)] text-[#0a0b0d]"
+                      : "border-[var(--border)] text-[var(--text)] hover:border-[var(--text)]"
+                  }`}
+                >
+                  {armed ? tr("modal.unlinkConfirm") : tr("modal.unlink")}
+                </button>
+
+                {/* Moving it somewhere else is only offered when there IS
+                    somewhere else — a day with one session has no ambiguity to
+                    resolve, and an empty picker would just raise a question the
+                    athlete can't answer. */}
+                {siblings.length > 0 && (
+                  <>
+                    <span className="text-[12px] text-[var(--text-faint)]">{tr("modal.relinkTo")}</span>
+                    <select
+                      value={toId}
+                      onChange={(e) => setToId(e.target.value)}
+                      className="max-w-[210px] rounded-[10px] border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2 text-[13px] text-[var(--text)] outline-none focus:border-[var(--lime)]"
+                    >
+                      <option value="">—</option>
+                      {siblings.map((s) => (
+                        <option key={s.id} value={s.id}>{s.title}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => run({ action: "relink", toId })}
+                      disabled={busy || !toId}
+                      className="rounded-[10px] bg-[var(--lime)] px-4 py-2 text-[13px] font-bold text-[#0a0b0d] transition-opacity disabled:opacity-40"
+                    >
+                      {tr("modal.relink")}
+                    </button>
+                  </>
+                )}
+              </div>
+              <p className="mt-1.5 text-[11.5px] text-[var(--text-faint)]">{tr("modal.linkedHint")}</p>
+              {linkError && <p className="mt-1 text-[11.5px] text-[var(--bad)]">{linkError}</p>}
             </Section>
           )}
 

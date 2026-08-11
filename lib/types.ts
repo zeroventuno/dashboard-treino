@@ -62,6 +62,10 @@ export interface Workout {
   /** Logged but not part of the plan (an unscheduled extra session). Counts in
    * the week's done volume — time/distance/TSS — but NOT in the x/y adherence. */
   extra?: boolean | null;
+  /** The imported activity attached to this session, e.g. "strava:1234567890".
+   * Its presence is what makes unlinking possible — and meaningful, since it is
+   * also how a re-sync finds the row again. */
+  external_id?: string | null;
   /** 0-100: how well a DONE workout matched the plan. Set by the coach (their
    * judgment); if null, the dashboard scores it from time in zone when the
    * device gave us one, and falls back to actual vs planned duration/TSS/

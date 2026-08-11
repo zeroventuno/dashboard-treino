@@ -101,6 +101,22 @@ export function CalendarBoard({
    * about a day, and cancelled/moved are already out of the plan. */
   const canDrag = (w: Workout) => editable && (w.status === "planned" || w.status === "skipped");
 
+  /** The other sessions that same day and sport which could own this activity
+   * instead. Ones that already carry their own import are excluded — taking
+   * this activity there would orphan that one, and the API refuses it anyway. */
+  const siblings = (w: Workout) =>
+    effective
+      .filter(
+        (x) =>
+          x.id !== w.id &&
+          x.date === w.date &&
+          x.discipline === w.discipline &&
+          !x.external_id &&
+          x.status !== "cancelled" &&
+          x.status !== "moved",
+      )
+      .map((x) => ({ id: x.id, title: x.title }));
+
   async function moveTo(w: Workout, iso: string) {
     if (w.date === iso) return;
     setMoveError(false);
@@ -265,6 +281,28 @@ export function CalendarBoard({
               ? (iso) => { const w = open; setOpen(null); void moveTo(w, iso); }
               : undefined
           }
+          // Correcting an import is the owner's to make, same gate as dragging.
+          // No optimistic update here: unlink SPLITS one row into two, and
+          // guessing that shape on the client would show numbers that don't
+          // exist yet. router.refresh() is fast enough for a rare correction.
+          onLink={
+            editable && open.external_id
+              ? async (a) => {
+                  const res = await fetch("/api/app/workouts/link", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ...a, id: open.id }),
+                  }).catch(() => null);
+                  if (!res || !res.ok) {
+                    const body = await res?.json().catch(() => null);
+                    return (body?.code as string) ?? "failed";
+                  }
+                  router.refresh();
+                  return null;
+                }
+              : undefined
+          }
+          siblings={siblings(open)}
         />
       )}
     </>
