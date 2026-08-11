@@ -5,6 +5,7 @@ import Link from "next/link";
 import { translator, type Locale, type TKey } from "@/lib/i18n";
 import { Icon } from "./icons";
 import { CoachLogout } from "./CoachLogout";
+import { AlertBell } from "./AlertBell";
 
 type Tab = "team" | "bank" | "agency" | "athletes" | "settings" | "notifications";
 
@@ -72,9 +73,14 @@ export function CoachNav({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <Link href="/coach/notifications" className={iconBtn} aria-label={tr("coach.notifications.title")}>
-          <Icon name="bell" size={17} />
-        </Link>
+        {/* O demo não tem sessão, então o contador não teria o que contar. */}
+        {demo ? (
+          <Link href="/coach/notifications" className={iconBtn} aria-label={tr("coach.notifications.title")}>
+            <Icon name="bell" size={17} />
+          </Link>
+        ) : (
+          <AlertBell label={tr("coach.notifications.title")} className={iconBtn} />
+        )}
         {/* An owner administers the agency here; a hired professional sees the
             team read-only. Either way the page is theirs to open. */}
         <Link href="/coach/settings" className={iconBtn} aria-label={tr("coach.settings.title")}>

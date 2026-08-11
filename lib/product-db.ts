@@ -395,6 +395,32 @@ export async function staffCanAccess(staffId: string, tenantId: string): Promise
   return rows.length > 0;
 }
 
+/**
+ * Athletes of this agency on nobody's book.
+ *
+ * Not a database error — an athlete WAITING. They were registered, they may
+ * already be paying, and until someone assigns them they are invisible to every
+ * professional in the panel: they appear in no roster, so no one is prompted to
+ * write them a session. Nothing surfaced this state before, which is exactly why
+ * it could persist quietly.
+ */
+export async function getUnassignedAthletes(
+  agencyId: string,
+): Promise<{ tenant_id: string; name: string; created_at: string }[]> {
+  if (!hasProductDb()) return [];
+  const { rows } = await getPool().query<{ tenant_id: string; name: string; created_at: string }>(
+    `select t.id as tenant_id,
+            coalesce(nullif(trim(t.athlete_name), ''), t.email) as name,
+            to_char(t.created_at,'YYYY-MM-DD') as created_at
+       from app.tenants t
+      where t.agency_id = $1
+        and not exists (select 1 from app.staff_athletes sa where sa.tenant_id = t.id)
+      order by t.created_at`,
+    [agencyId],
+  );
+  return rows;
+}
+
 /** One athlete changing hands: off `from`'s book, onto `to`'s. */
 export interface Reassignment {
   tenantId: string;

@@ -6,6 +6,8 @@ import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
 import { toISO } from "@/lib/utils";
 import { CoachNav } from "@/components/coach/CoachNav";
+import { TodoList } from "@/components/coach/TodoList";
+import { collectSignals } from "@/lib/coach-signals";
 import { RosterBoard } from "@/components/coach/RosterBoard";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +52,11 @@ export default async function CoachPanelPage() {
     ]),
   );
 
+  const signals = await collectSignals(
+    { id: staff.id, agencyId: staff.agencyId, role: staff.role, isOwner: staff.isOwner },
+    locale,
+  );
+
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
       <CoachNav active="team" role={staff.role} name={staff.name} locale={locale} isOwner={staff.isOwner} />
@@ -58,6 +65,18 @@ export default async function CoachPanelPage() {
         <h1 className="dsp text-[24px] font-extrabold text-[var(--text)]">{tr("coach.team")}</h1>
         <p className="mt-0.5 text-[13px] text-[var(--text-faint)]">{tr("coach.teamSub")}</p>
       </header>
+
+      {/* A lista do dia ANTES da equipe, de propósito: abrir a ferramenta tem
+          que já responder "o que eu faço hoje". Cortada em cinco — aqui ela é
+          chamado à ação, não o conteúdo da página. */}
+      {signals.length > 0 && (
+        <section className="mb-6">
+          <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-faint)]">
+            {tr("coach.notif.today")}
+          </h2>
+          <TodoList signals={signals} tr={tr} limit={5} />
+        </section>
+      )}
 
       {roster.length === 0 ? (
         <p className="rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] px-5 py-8 text-center text-[13.5px] text-[var(--text-faint)]">
