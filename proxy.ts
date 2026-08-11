@@ -24,6 +24,11 @@ const PUBLIC = [
   // cookie), same reasoning as /app — don't sit it behind the shared password.
   // /api/coach/* (bank generate/status) authenticate via the coach cookie too.
   "/coach", "/api/coach-login", "/api/coach/",
+  // Provisioning is called by n8n before any account exists, so there is no
+  // session to present — and the shared password is the wrong gate for it
+  // anyway. It carries its own secret header, compared in constant time, and
+  // stays closed when that env is unset. See app/api/provision/agency.
+  "/api/provision/",
 ];
 
 // The owner's personal dashboard used to sit at "/". It moved to "/me" so the

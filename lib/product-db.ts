@@ -132,6 +132,7 @@ const REQUIRED_OBJECTS: { kind: "table" | "function"; schema: string; name: stri
   { kind: "function", schema: "app", name: "roster_planned_ahead", migration: "add-planned-ahead.sql" },
   { kind: "function", schema: "app", name: "agency_athlete_sports", migration: "add-athlete-sports.sql" },
   { kind: "function", schema: "app", name: "provision_agency",      migration: "add-agency-provisioning.sql" },
+  { kind: "table",    schema: "app", name: "agency_invites",       migration: "add-agency-invites.sql" },
 ];
 
 /** Which required columns, tables and functions are missing, with their migration. */
@@ -421,6 +422,105 @@ export async function getUnassignedAthletes(
     [agencyId],
   );
   return rows;
+}
+
+// ── Onboarding de assessoria: convite → assessoria + chave do dono ──────────
+
+/**
+ * Cria o convite e devolve o token EM TEXTO, uma única vez.
+ *
+ * O texto nunca é gravado — só o sha256 — então esta é literalmente a única
+ * oportunidade de entregá-lo. Quem chama manda para o n8n, que envia o e-mail.
+ */
+export async function createAgencyInvite(input: {
+  agencyName: string;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  currency?: string | null;
+  days?: number;
+}): Promise<{ token: string; expiresAt: string } | null> {
+  if (!hasProductDb()) return null;
+  const token = randomBytes(32).toString("base64url");
+  const hash = createHash("sha256").update(token).digest("hex");
+  const { rows } = await getPool().query<{ expires_at: string }>(
+    `insert into app.agency_invites (token_hash, agency_name, owner_name, owner_email, currency, expires_at)
+     values ($1,$2,$3,$4,coalesce(nullif($5,''),'BRL'), now() + make_interval(days => $6))
+     returning to_char(expires_at, 'YYYY-MM-DD') as expires_at`,
+    [hash, input.agencyName.trim(), input.ownerName ?? null, input.ownerEmail ?? null,
+     input.currency ?? "", Math.min(60, Math.max(1, input.days ?? 14))],
+  );
+  return { token, expiresAt: rows[0].expires_at };
+}
+
+/**
+ * O que este convite promete, sem gastá-lo.
+ *
+ * Existe porque o link mágico chega por e-mail, e provedores de e-mail ABREM
+ * links para verificá-los. Se um GET consumisse o convite, o antivírus do
+ * destinatário queimaria o convite antes do dono ver a tela. Ler é GET, gastar
+ * é POST.
+ */
+export async function peekAgencyInvite(
+  token: string,
+): Promise<{ agencyName: string; ownerName: string | null } | null> {
+  if (!hasProductDb()) return null;
+  const hash = createHash("sha256").update(token).digest("hex");
+  const { rows } = await getPool().query<{ agency_name: string; owner_name: string | null }>(
+    `select agency_name, owner_name from app.agency_invites
+      where token_hash = $1 and used_at is null and expires_at > now()`,
+    [hash],
+  );
+  return rows[0] ? { agencyName: rows[0].agency_name, ownerName: rows[0].owner_name } : null;
+}
+
+/**
+ * Gasta o convite e faz nascer a assessoria. Devolve a chave `trakc_` — uma vez.
+ *
+ * A reivindicação do convite é um UPDATE condicional, não um SELECT seguido de
+ * UPDATE: `used_at is null` na cláusula WHERE é o que impede dois cliques
+ * simultâneos de criarem duas assessorias. Só quem recebeu linha de volta
+ * provisiona.
+ */
+export async function redeemAgencyInvite(
+  token: string,
+): Promise<{ ok: true; key: string; agencyName: string } | { ok: false; code: "invalid" }> {
+  if (!hasProductDb()) return { ok: false, code: "invalid" };
+  const hash = createHash("sha256").update(token).digest("hex");
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    const { rows } = await client.query<{
+      id: string; agency_name: string; owner_name: string | null; owner_email: string | null; currency: string;
+    }>(
+      `update app.agency_invites set used_at = now()
+        where token_hash = $1 and used_at is null and expires_at > now()
+        returning id, agency_name, owner_name, owner_email, currency`,
+      [hash],
+    );
+    const inv = rows[0];
+    if (!inv) {
+      await client.query("rollback");
+      return { ok: false, code: "invalid" };
+    }
+
+    // A chave nasce aqui, no instante em que será mostrada — não quando o
+    // convite foi criado, para não existir uma credencial válida parada dentro
+    // de uma caixa de e-mail por duas semanas.
+    const key = `trakc_${randomBytes(24).toString("hex")}`;
+    const keyHash = createHash("sha256").update(key).digest("hex");
+    const { rows: made } = await client.query<{ agency_id: string }>(
+      "select agency_id from app.provision_agency($1,$2,$3,$4,$5)",
+      [inv.agency_name, inv.currency, inv.owner_name, inv.owner_email, keyHash],
+    );
+    await client.query("update app.agency_invites set agency_id = $2 where id = $1", [inv.id, made[0].agency_id]);
+    await client.query("commit");
+    return { ok: true, key, agencyName: inv.agency_name };
+  } catch (e) {
+    await client.query("rollback");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 /** tenant_id → modalidades que o atleta declarou ou treinou. Ver add-athlete-sports.sql. */
