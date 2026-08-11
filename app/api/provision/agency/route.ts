@@ -47,7 +47,19 @@ export async function POST(req: Request) {
 
   // APP_ORIGIN e não o Host do pedido: o link vai para um e-mail e precisa
   // apontar para o domínio canônico, não para o host que por acaso chamou.
-  const origin = process.env.APP_ORIGIN ?? "";
+  //
+  // Sem ela, RECUSA. O convite já foi gravado, mas devolver "/coach/setup/…"
+  // sem domínio mandaria um link quebrado por e-mail — e o convite é de uso
+  // único, então a pessoa gastaria o dela num link que não abre. Falhar aqui
+  // custa um convite morto no banco; a alternativa custa um cliente travado.
+  const origin = process.env.APP_ORIGIN?.trim().replace(/\/+$/, "");
+  if (!origin) {
+    return NextResponse.json(
+      { ok: false, code: "no_app_origin", fix: "Defina APP_ORIGIN na Vercel (ex.: https://seu-dominio.com)" },
+      { status: 503 },
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     // O token em texto existe SÓ nesta resposta — só o hash foi gravado.
