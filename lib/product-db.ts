@@ -105,6 +105,9 @@ const REQUIRED_COLUMNS: { schema: string; table: string; column: string; migrati
   { schema: "app",    table: "staff",       column: "is_owner",      migration: "add-owner-and-value.sql" },
   { schema: "app",    table: "staff",       column: "methodology",   migration: "add-staff-methodology.sql" },
   { schema: "app",    table: "agencies",    column: "currency",      migration: "add-owner-and-value.sql" },
+  { schema: "app",    table: "staff",       column: "max_athletes",  migration: "add-agency-management.sql" },
+  { schema: "app",    table: "staff",       column: "pay_model",     migration: "add-agency-management.sql" },
+  { schema: "app",    table: "agencies",    column: "methodology",   migration: "add-agency-management.sql" },
 ];
 
 /**
@@ -1159,6 +1162,11 @@ export interface StaffMember {
   /** Modalities this professional programs; empty = no restriction declared. */
   sports: string[];
   athlete_count: number;
+  /** Capacity target and pay model — null until the owner fills them in.
+   * See product/add-agency-management.sql. */
+  max_athletes: number | null;
+  pay_model: "pct" | "per_athlete" | "salary" | null;
+  pay_value: number | null;
 }
 
 /** The agency's professionals, with how many athletes each is assigned. */
@@ -1166,6 +1174,7 @@ export async function listStaff(agencyId: string): Promise<StaffMember[]> {
   if (!hasProductDb()) return [];
   const { rows } = await getPool().query<StaffMember>(
     `select s.id, s.name, s.email, s.role, s.status, s.is_owner, s.sports,
+            s.max_athletes, s.pay_model, s.pay_value,
             (select count(*)::int from app.staff_athletes sa where sa.staff_id = s.id) as athlete_count
        from app.staff s
       where s.agency_id = $1
