@@ -131,6 +131,7 @@ const REQUIRED_OBJECTS: { kind: "table" | "function"; schema: string; name: stri
   { kind: "function", schema: "app", name: "roster_test_dates",   migration: "add-test-due.sql" },
   { kind: "function", schema: "app", name: "roster_planned_ahead", migration: "add-planned-ahead.sql" },
   { kind: "function", schema: "app", name: "agency_athlete_sports", migration: "add-athlete-sports.sql" },
+  { kind: "function", schema: "app", name: "provision_agency",      migration: "add-agency-provisioning.sql" },
 ];
 
 /** Which required columns, tables and functions are missing, with their migration. */
