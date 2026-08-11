@@ -1,6 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getRoster, resolveStaffId } from "@/lib/product-db";
+import { getRoster, getRosterPlanAhead, getRosterTestDates, resolveStaffId } from "@/lib/product-db";
+import { testStatus, needsTesting } from "@/lib/testing";
 import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
 import { toISO } from "@/lib/utils";
@@ -19,7 +20,35 @@ export default async function CoachPanelPage() {
   const locale: Locale = pickLocale((await headers()).get("accept-language"));
   const tr = translator(locale);
   const todayISO = toISO(new Date());
-  const roster = await getRoster(staff.id);
+  // Three independent reads rather than one wider roster function: each degrades
+  // on its own if its migration hasn't run, so a missing SQL file costs a badge
+  // instead of the whole panel.
+  const [roster, planAhead, testDates] = await Promise.all([
+    getRoster(staff.id),
+    getRosterPlanAhead(staff.id),
+    getRosterTestDates(staff.id),
+  ]);
+
+  const planByTenant = new Map(planAhead.map((p) => [p.tenant_id, p]));
+
+  // Threshold ages become the same shape the athlete's own dashboard uses, so
+  // "overdue" means one thing in one place.
+  const testsByTenant = new Map(
+    testDates.map((t) => [
+      t.tenant_id,
+      needsTesting(
+        testStatus(
+          [
+            ...(t.ftp_at ? [{ id: "f", date: t.ftp_at, metric: "FTP", value: null, unit: null, notes: null }] : []),
+            ...(t.run_at ? [{ id: "r", date: t.run_at, metric: "run_pace_threshold", value: null, unit: null, notes: null }] : []),
+            ...(t.swim_at ? [{ id: "s", date: t.swim_at, metric: "swim_pace_100m", value: null, unit: null, notes: null }] : []),
+          ],
+          ["bike", "run", "swim"],
+          todayISO,
+        ),
+      ),
+    ]),
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
@@ -40,6 +69,8 @@ export default async function CoachPanelPage() {
           locale={locale}
           todayISO={todayISO}
           hrefFor={(a) => `/coach/a/${a.tenant_id}`}
+          testsFor={(id) => testsByTenant.get(id) ?? []}
+          planFor={(id) => planByTenant.get(id) ?? null}
         />
       )}
     </div>

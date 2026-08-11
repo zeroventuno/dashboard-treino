@@ -391,6 +391,35 @@ export async function getRosterTestDates(staffId: string): Promise<RosterTestDat
   }
 }
 
+/** How far each athlete's plan actually reaches.
+ *
+ * The empty week is the failure a coaching business dies of and the one nobody
+ * sees: with sixty athletes somebody ends up with nothing scheduled, the
+ * athlete opens their dashboard, finds it blank, and leaves — and the retention
+ * screen reports it weeks later as a drop-off, which is a post-mortem. */
+export interface RosterPlanAhead {
+  tenant_id: string;
+  planned_7d: number;
+  planned_14d: number;
+  last_planned: string | null;
+}
+
+export async function getRosterPlanAhead(staffId: string): Promise<RosterPlanAhead[]> {
+  if (!hasProductDb()) return [];
+  try {
+    const { rows } = await getPool().query<RosterPlanAhead>(
+      `select tenant_id, planned_7d, planned_14d,
+              to_char(last_planned,'YYYY-MM-DD') as last_planned
+         from app.roster_planned_ahead($1)`,
+      [staffId],
+    );
+    return rows;
+  } catch (err) {
+    console.warn("[coach] roster_planned_ahead unavailable — run add-planned-ahead.sql:", err);
+    return [];
+  }
+}
+
 /**
  * Put a library workout on athletes' calendars — the step that turns a bank
  * into leverage.

@@ -5,6 +5,7 @@
 // rather than a fill, so a red athlete quietly draws the eye.
 import Link from "next/link";
 import type { TestStatus } from "@/lib/testing";
+import type { RosterPlanAhead } from "@/lib/product-db";
 import { translator, type Locale, type TKey } from "@/lib/i18n";
 import { sevColor } from "@/components/InjuryTracker";
 import { daysBetween } from "@/lib/utils";
@@ -27,11 +28,19 @@ const METRICS: { key: string; icon: IconName }[] = [
 ];
 
 /** Attention: red first, then a stale/no check-in or a recent injury, then the rest. */
-function attentionRank(a: RosterAthlete, todayISO: string): number {
+function attentionRank(a: RosterAthlete, todayISO: string, plan?: RosterPlanAhead | null): number {
+  // An empty calendar outranks a red light. A red day is information the coach
+  // acts on today; an athlete with nothing scheduled is a client quietly
+  // receiving no service, and every day it goes unnoticed is a day they spend
+  // deciding whether to stay.
+  if (plan && plan.planned_7d === 0) return -1;
   if (a.today_reco === "red") return 0;
   const stale = a.last_checkin ? daysBetween(a.last_checkin, todayISO) > 3 : true;
   if (a.recent_injuries > 0 || stale) return 1;
   if (a.today_reco === "yellow") return 2;
+  // Running out inside a fortnight is not urgent, but it is the last quiet
+  // moment before it becomes the case above.
+  if (plan && plan.planned_14d <= 2) return 2;
   return 3;
 }
 
@@ -46,7 +55,7 @@ function phaseRank(phase: string): number {
   return 4;
 }
 
-function Card({ a, todayISO, tr, href, tests = [] }: { a: RosterAthlete; todayISO: string; tr: (k: TKey) => string; href: string | null; tests?: TestStatus[] }) {
+function Card({ a, todayISO, tr, href, tests = [], plan = null }: { a: RosterAthlete; todayISO: string; tr: (k: TKey) => string; href: string | null; tests?: TestStatus[]; plan?: RosterPlanAhead | null }) {
   const farol = a.today_reco ? FAROL[a.today_reco] : null;
   const raceIn = a.next_race_date ? daysBetween(todayISO, a.next_race_date) : null;
   const checkinAgo = a.last_checkin ? daysBetween(a.last_checkin, todayISO) : null;
@@ -97,6 +106,23 @@ function Card({ a, todayISO, tr, href, tests = [] }: { a: RosterAthlete; todayIS
           })}
         </span>
       </div>
+
+      {/* How far the plan reaches. Loud when it has run out, quiet when it is
+          about to — the coach needs to see the empty week from across the grid,
+          and the fortnight warning only when they're already reading the card. */}
+      {plan && plan.planned_7d === 0 && (
+        <p
+          className="rounded-[6px] px-1.5 py-[3px] text-[10.5px] font-bold uppercase tracking-wide"
+          style={{ color: "var(--bad)", background: "color-mix(in oklab, var(--bad) 14%, transparent)" }}
+        >
+          {tr("coach.noPlan")}
+        </p>
+      )}
+      {plan && plan.planned_7d > 0 && plan.planned_14d <= 2 && (
+        <p className="text-[10.5px] font-medium" style={{ color: "var(--warn)" }}>
+          {tr("coach.planEnding")}
+        </p>
+      )}
 
       <div className="flex items-baseline gap-1.5 text-[11px] leading-tight text-[var(--text-faint)]">
         <span className="min-w-0 truncate">{a.next_race_name ?? tr("coach.noRace")}</span>
@@ -171,6 +197,7 @@ export function RosterBoard({
   todayISO,
   hrefFor,
   testsFor,
+  planFor,
 }: {
   roster: RosterAthlete[];
   locale: Locale;
@@ -180,6 +207,9 @@ export function RosterBoard({
   /** Disciplines whose threshold is overdue or never measured, per athlete.
    * Optional so the board still renders before add-test-due.sql has run. */
   testsFor?: (tenantId: string) => TestStatus[];
+  /** How far each athlete's plan reaches. Optional, so the board still renders
+   * before add-planned-ahead.sql has run. */
+  planFor?: (tenantId: string) => RosterPlanAhead | null;
 }) {
   const tr = translator(locale);
 
@@ -195,7 +225,9 @@ export function RosterBoard({
     .map(([phase, list]) => ({
       phase,
       list: list.sort(
-        (m, n) => attentionRank(m, todayISO) - attentionRank(n, todayISO) || m.name.localeCompare(n.name),
+        (m, n) =>
+          attentionRank(m, todayISO, planFor?.(m.tenant_id)) -
+            attentionRank(n, todayISO, planFor?.(n.tenant_id)) || m.name.localeCompare(n.name),
       ),
     }));
 
@@ -211,7 +243,7 @@ export function RosterBoard({
           </div>
           <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {list.map((a) => (
-              <Card key={a.tenant_id} a={a} todayISO={todayISO} tr={tr} href={hrefFor(a)} tests={testsFor?.(a.tenant_id) ?? []} />
+              <Card key={a.tenant_id} a={a} todayISO={todayISO} tr={tr} href={hrefFor(a)} tests={testsFor?.(a.tenant_id) ?? []} plan={planFor?.(a.tenant_id) ?? null} />
             ))}
           </div>
         </section>
