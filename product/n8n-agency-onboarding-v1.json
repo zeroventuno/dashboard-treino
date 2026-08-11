@@ -1,0 +1,126 @@
+{
+  "name": "MY TRAKR — Agency Onboarding v1 (convite + e-mail)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trakr-agency-onboarding",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-in",
+      "name": "Entrada (webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [-460, 300],
+      "webhookId": "trakr-agency-onboarding"
+    },
+    {
+      "parameters": {},
+      "id": "manual-in",
+      "name": "Rodar à mão",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-460, 480]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({\n  agencyName: $json.body?.agencyName ?? $json.agencyName ?? 'Assessoria Teste',\n  ownerName:  $json.body?.ownerName  ?? $json.ownerName  ?? '',\n  ownerEmail: $json.body?.ownerEmail ?? $json.ownerEmail ?? '',\n  currency:   $json.body?.currency   ?? $json.currency   ?? 'BRL',\n  days: 14\n}) }}",
+        "options": {}
+      },
+      "id": "normalize",
+      "name": "Dados da assessoria",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-220, 380],
+      "notes": "Aceita tanto o corpo do webhook quanto execução manual. Edite os padrões para testar sem webhook."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APP_ORIGIN }}/api/provision/agency",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-provision-secret", "value": "={{ $env.PROVISION_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": { "response": { "response": { "neverError": true, "responseFormat": "json" } } }
+      },
+      "id": "create-invite",
+      "name": "Criar convite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [20, 380],
+      "notes": "A resposta traz o token EM TEXTO dentro de `url`. É a única vez que ele existe — não ligue log de corpo neste nó."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "version": 2 },
+          "conditions": [
+            {
+              "id": "ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check",
+      "name": "Deu certo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [260, 380]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.TRAKR_FROM_EMAIL }}",
+        "toEmail": "={{ $('Dados da assessoria').item.json.ownerEmail }}",
+        "subject": "={{ 'Sua assessoria no MY TRAKR: ' + $json.agencyName }}",
+        "emailFormat": "html",
+        "html": "={{ '<div style=\"font-family:system-ui,sans-serif;font-size:15px;line-height:1.6;color:#1a1c20\">' +\n'<p>Olá' + ($('Dados da assessoria').item.json.ownerName ? ' ' + $('Dados da assessoria').item.json.ownerName : '') + ',</p>' +\n'<p>A assessoria <strong>' + $json.agencyName + '</strong> está pronta para ser criada no MY TRAKR.</p>' +\n'<p><a href=\"' + $json.url + '\" style=\"display:inline-block;background:#c6f24e;color:#0a0b0d;font-weight:700;padding:12px 20px;border-radius:10px;text-decoration:none\">Criar minha assessoria</a></p>' +\n'<p style=\"color:#5b6070;font-size:13px\">Este link vale <strong>uma única vez</strong> e expira em ' + $json.expiresAt + '. Ao abri-lo você recebe a chave de acesso de dono — ela aparece uma vez só, tenha um gerenciador de senhas à mão.</p>' +\n'<p style=\"color:#5b6070;font-size:13px\">Se o botão não funcionar, copie: ' + $json.url + '</p>' +\n'</div>' }}",
+        "options": {}
+      },
+      "id": "send-mail",
+      "name": "Enviar boas-vindas",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [520, 260],
+      "notes": "Selecione sua credencial SMTP no import. TRAKR_FROM_EMAIL no ambiente do n8n, ou troque por um endereço fixo."
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ erro: true, detalhe: $json.code ?? 'sem resposta do app', dica: 'Confira PROVISION_SECRET e APP_ORIGIN na Vercel e no n8n. 401 = segredo diferente; 503 = banco fora.' }) }}",
+        "options": {}
+      },
+      "id": "fail",
+      "name": "Falhou",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [520, 480]
+    }
+  ],
+  "connections": {
+    "Entrada (webhook)": { "main": [[{ "node": "Dados da assessoria", "type": "main", "index": 0 }]] },
+    "Rodar à mão": { "main": [[{ "node": "Dados da assessoria", "type": "main", "index": 0 }]] },
+    "Dados da assessoria": { "main": [[{ "node": "Criar convite", "type": "main", "index": 0 }]] },
+    "Criar convite": { "main": [[{ "node": "Deu certo?", "type": "main", "index": 0 }]] },
+    "Deu certo?": {
+      "main": [
+        [{ "node": "Enviar boas-vindas", "type": "main", "index": 0 }],
+        [{ "node": "Falhou", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

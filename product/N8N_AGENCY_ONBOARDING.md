@@ -1,5 +1,14 @@
 # Onboarding de assessoria — contrato do n8n
 
+> **O fluxo pronto é `product/n8n-agency-onboarding-v1.json`** — esse é o arquivo
+> que você importa no n8n (Workflows → ⋯ → Import from File). Este `.md` é
+> documentação para ler, não dá para importar.
+>
+> No import você precisa: selecionar sua **credencial SMTP** no nó "Enviar
+> boas-vindas", e **publicar** — importar não publica, o indicador fica laranja e
+> o webhook de produção segue rodando a versão anterior.
+
+
 O app faz o que precisa de estado e transação; o n8n faz o que é automação.
 A divisão não é estética: o token do convite precisa ser de **uso único**, e uso
 único é um `UPDATE` condicional dentro de uma transação. Isso não pode viver num
