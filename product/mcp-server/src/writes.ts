@@ -124,6 +124,20 @@ export const workoutSchema = {
     )
     .optional()
     .describe("strength only; fixed English slugs, e.g. [\"quadriceps\",\"glutes\",\"core\"]"),
+  external_id: z
+    .string()
+    .regex(/^[a-z]+:[A-Za-z0-9_-]+$/, "provider:id, e.g. strava:14123456789")
+    .optional()
+    .describe(
+      "ID of the recorded activity, as `provider:id` — e.g. `strava:14123456789` or `garmin:987654321`. " +
+        "ALWAYS pass this when you read the session from a Strava or Garmin connector before logging it. " +
+        "It is the ONLY thing that stops the athlete's own device sync from importing the same activity a " +
+        "second time: without it the two paths recognise a session by different things (you use the title, " +
+        "the sync uses this ID) and a wording or timezone difference is enough to produce two rows for one " +
+        "workout. Prefer the STRAVA id when the athlete has Strava connected, since that is what their sync " +
+        "button uses. Omit it entirely when logging a session you did not read from a connector — a made-up " +
+        "value is worse than none.",
+    ),
 } satisfies z.ZodRawShape;
 
 export type WorkoutArgs = z.infer<z.ZodObject<typeof workoutSchema>>;
@@ -274,13 +288,54 @@ export async function runDeleteWorkout(
 }
 
 export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs): Promise<string> {
+  // An activity that already has a home is being DESCRIBED, not created again.
+  //
+  // This is where duplicates came from. The two ways a session reaches the panel
+  // recognise it by different things: this tool by (date, discipline, title),
+  // the device sync by external_id. Neither can see the other's row, so a
+  // difference in wording — or a timezone that puts an evening session on the
+  // next day — produced two rows for one workout, and the week counted it twice.
+  //
+  // Re-keying the existing row instead of inserting keeps ONE row per activity
+  // whichever path got there first. Its title/date can legitimately change: the
+  // athlete telling their AI "that was my tempo run, not a commute" is exactly
+  // the correction worth honouring.
+  if (a.external_id) {
+    const { rows: linked } = await c.query<{ id: string; date: string; discipline: string; title: string }>(
+      `select id, to_char(date,'YYYY-MM-DD') as date, discipline, title
+         from workouts where tenant_id = $1 and external_id = $2`,
+      [tenantId, a.external_id],
+    );
+    const prev = linked[0];
+    if (prev && (prev.date !== a.date || prev.discipline !== a.discipline || prev.title !== a.title)) {
+      // Refuse rather than merge when the destination key is already taken:
+      // two different sessions would collapse into one and a real workout would
+      // vanish from the week. Saying so is recoverable; silence is not.
+      const { rows: taken } = await c.query<{ one: number }>(
+        `select 1 as one from workouts
+          where tenant_id = $1 and date = $2::date and discipline = $3 and title = $4
+            and id <> $5 limit 1`,
+        [tenantId, a.date, a.discipline, a.title, prev.id],
+      );
+      if (taken.length > 0) {
+        return `Activity ${a.external_id} is already attached to "${prev.title}" on ${prev.date}, and a different ${a.discipline} session called "${a.title}" already exists on ${a.date}. Nothing was written — merging them would silently delete one. Use relink_activity to move the recording, or pick a different title.`;
+      }
+      await c.query(
+        `update workouts set date = $2::date, discipline = $3, title = $4 where id = $1`,
+        [prev.id, a.date, a.discipline, a.title],
+      );
+    }
+  }
+
   const { rows } = await c.query(
     `insert into workouts (tenant_id,date,discipline,title,status,description,garmin_instructions,zwo_content,
        planned_duration_min,actual_duration_min,planned_distance_km,actual_distance_km,planned_tss,actual_tss,
        planned_pace,actual_pace,planned_power_watts,actual_power_watts,notes,nutrition_notes,
-       key_workout,structure,activation,nutrition_pre,mobility,nutrition_post,muscle_groups,extra,adherence)
+       key_workout,structure,activation,nutrition_pre,mobility,nutrition_post,muscle_groups,extra,adherence,
+       external_id)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-       coalesce($21,false),$22::jsonb,$23,$24,$25,$26,coalesce($27::text[],'{}'::text[]),coalesce($28,false),$29)
+       coalesce($21,false),$22::jsonb,$23,$24,$25,$26,coalesce($27::text[],'{}'::text[]),coalesce($28,false),$29,
+       $30)
      on conflict (tenant_id,date,discipline,title) do update set
        status=excluded.status,
        description=coalesce(excluded.description,workouts.description),
@@ -306,7 +361,11 @@ export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs
        nutrition_post=coalesce(excluded.nutrition_post,workouts.nutrition_post),
        muscle_groups=coalesce($27::text[],workouts.muscle_groups),
        extra=coalesce($28,workouts.extra),
-       adherence=coalesce($29,workouts.adherence)
+       adherence=coalesce($29,workouts.adherence),
+       -- coalesce, never overwrite: a row that already carries a link keeps it.
+       -- Stealing it would leave the other recording with nothing pointing at
+       -- it, and the next sync would import that one again as a fresh row.
+       external_id=coalesce(workouts.external_id,$30)
      returning date, discipline, title, status, planned_duration_min, planned_tss,
        key_workout, extra, adherence, zwo_content is not null as has_zwo,
        case when jsonb_typeof(structure) = 'array' then jsonb_array_length(structure) else 0 end as blocks`,
@@ -318,7 +377,7 @@ export async function runWorkout(c: PoolClient, tenantId: string, a: WorkoutArgs
       a.notes ?? null, a.nutrition_notes ?? null,
       a.key_workout ?? null, a.structure ? JSON.stringify(a.structure) : null,
       a.activation ?? null, a.nutrition_pre ?? null, a.mobility ?? null, a.nutrition_post ?? null,
-      a.muscle_groups ?? null, a.extra ?? null, a.adherence ?? null,
+      a.muscle_groups ?? null, a.extra ?? null, a.adherence ?? null, a.external_id ?? null,
     ],
   );
   // Report the row as it now stands, not the arguments we sent. A field the

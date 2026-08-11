@@ -6,5 +6,9 @@
  *
  * History:
  *   1 — get_meal_plan + get_body_composition (read parity) and the season field
- *       on get_profile. */
-export const CONNECTOR_VERSION = 1;
+ *       on get_profile.
+ *   2 — delete_workout, relink_activity, equipment as an enum, actual_rpe, the
+ *       `other` discipline, and `external_id` on upsert_workout — the last one
+ *       being what stops an AI-logged session and the athlete's own device sync
+ *       from producing two rows for the same workout. */
+export const CONNECTOR_VERSION = 2;
