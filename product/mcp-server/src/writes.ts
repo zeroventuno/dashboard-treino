@@ -157,8 +157,21 @@ export type RelinkArgs = z.infer<z.ZodObject<typeof relinkSchema>>;
  * whole mistake.
  */
 export async function runRelink(c: PoolClient, tenantId: string, a: RelinkArgs): Promise<string> {
-  const { rows } = await c.query<{ id: string; title: string; external_id: string | null }>(
-    `select id, title, external_id from workouts
+  // Read the measurements out first. They have to be held in memory precisely
+  // because the source row is about to be emptied before the destination is
+  // filled — see the order below.
+  // `numeric` arrives as a string from node-postgres and goes back into the same
+  // column, so it is carried through untouched — parsing it would only risk
+  // rounding a value that is already exactly right.
+  const { rows } = await c.query<{
+    id: string; title: string; external_id: string | null;
+    actual_duration_min: number | null; actual_distance_km: string | null;
+    actual_pace: string | null; actual_power_watts: string | null;
+    actual_tss: string | null; actual_zones: unknown;
+  }>(
+    `select id, title, external_id, actual_duration_min, actual_distance_km,
+            actual_pace, actual_power_watts, actual_tss, actual_zones
+       from workouts
       where tenant_id = $1 and date = $2::date and discipline = $3 and title = any($4::text[])`,
     [tenantId, a.date, a.discipline, [a.from_title, a.to_title]],
   );
@@ -167,27 +180,19 @@ export async function runRelink(c: PoolClient, tenantId: string, a: RelinkArgs):
   const to = rows.find((r) => r.title === a.to_title);
   if (!from) return `No ${a.discipline} session titled "${a.from_title}" on ${a.date}.`;
   if (!to) return `No ${a.discipline} session titled "${a.to_title}" on ${a.date}.`;
+  if (from.id === to.id) return `Those are the same session.`;
   if (!from.external_id) {
     return `"${a.from_title}" has no imported activity attached — nothing to move. Only sessions the watch filled in can be relinked.`;
   }
 
-  await c.query(
-    `update workouts dst set
-       external_id         = src.external_id,
-       status              = 'done',
-       actual_duration_min = src.actual_duration_min,
-       actual_distance_km  = src.actual_distance_km,
-       actual_pace         = src.actual_pace,
-       actual_power_watts  = src.actual_power_watts,
-       actual_tss          = src.actual_tss,
-       actual_zones        = src.actual_zones
-     from workouts src
-     where dst.id = $2 and src.id = $1`,
-    [from.id, to.id],
-  );
-
-  // Cleared only after the copy, and in this order: the unique index on
-  // (tenant_id, external_id) would reject two rows holding the same one.
+  // CLEAR FIRST, THEN SET. The reverse fails outright, and did: copying to the
+  // destination while the source still held the same external_id put two rows
+  // under `workouts_external_uniq` at once, and Postgres checks a plain unique
+  // index per statement rather than at commit — so it rejects mid-transaction
+  // no matter that the source is cleared a line later.
+  //
+  // Both statements share the caller's transaction, so a failure between them
+  // rolls back to where it started; the link is never left dangling.
   await c.query(
     `update workouts set
        external_id = null, status = 'planned',
@@ -195,6 +200,19 @@ export async function runRelink(c: PoolClient, tenantId: string, a: RelinkArgs):
        actual_power_watts = null, actual_tss = null, actual_zones = null
      where id = $1`,
     [from.id],
+  );
+
+  await c.query(
+    `update workouts set
+       external_id = $2, status = 'done',
+       actual_duration_min = $3, actual_distance_km = $4, actual_pace = $5,
+       actual_power_watts = $6, actual_tss = $7, actual_zones = $8::jsonb
+     where id = $1`,
+    [
+      to.id, from.external_id, from.actual_duration_min, from.actual_distance_km,
+      from.actual_pace, from.actual_power_watts, from.actual_tss,
+      from.actual_zones ? JSON.stringify(from.actual_zones) : null,
+    ],
   );
 
   return `Moved the imported activity from "${a.from_title}" to "${a.to_title}" on ${a.date}. "${a.from_title}" is planned again, with its own title and blocks intact.`;
