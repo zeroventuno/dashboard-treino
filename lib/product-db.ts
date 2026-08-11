@@ -422,6 +422,48 @@ export async function getUnassignedAthletes(
   return rows;
 }
 
+/** tenant_id → modalidades que o atleta declarou ou treinou. Ver add-athlete-sports.sql. */
+export async function getAthleteSports(agencyId: string): Promise<Record<string, string[]>> {
+  if (!hasProductDb()) return {};
+  const { rows } = await getPool().query<{ tenant_id: string; sports: string[] }>(
+    "select tenant_id, sports from app.agency_athlete_sports($1)",
+    [agencyId],
+  );
+  return Object.fromEntries(rows.map((r) => [r.tenant_id, r.sports ?? []]));
+}
+
+/**
+ * Claim an athlete who is on nobody's book.
+ *
+ * NOT owner-only, and the distinction is deliberate: picking up an unassigned
+ * athlete is a different act from taking one off a colleague. The first is
+ * someone stepping up for work nobody has; the second redistributes another
+ * professional's book and stays with the owner (see reassignAthletes).
+ *
+ * The `not exists` in the insert is the whole guard: if anyone has already
+ * claimed them between the page rendering and this call, nothing happens and
+ * `ok:false` says so, rather than quietly adding a second professional to an
+ * athlete who was already handled.
+ */
+export async function assignUnassignedAthlete(
+  agencyId: string,
+  tenantId: string,
+  staffId: string,
+): Promise<{ ok: boolean; code?: "taken" | "not_found" }> {
+  if (!hasProductDb()) return { ok: false, code: "not_found" };
+  const { rowCount } = await getPool().query(
+    `insert into app.staff_athletes (staff_id, tenant_id)
+     select s.id, t.id
+       from app.staff s, app.tenants t
+      where s.id = $1 and t.id = $2
+        and s.agency_id = $3 and t.agency_id = $3 and s.status = 'active'
+        and not exists (select 1 from app.staff_athletes x where x.tenant_id = t.id)
+     on conflict do nothing`,
+    [staffId, tenantId, agencyId],
+  );
+  return (rowCount ?? 0) > 0 ? { ok: true } : { ok: false, code: "taken" };
+}
+
 /** One athlete changing hands: off `from`'s book, onto `to`'s. */
 export interface Reassignment {
   tenantId: string;
