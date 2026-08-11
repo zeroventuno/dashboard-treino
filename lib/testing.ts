@@ -16,7 +16,7 @@
 //  lib/prescription already used to turn an intensity into a zone.
 // ────────────────────────────────────────────────────────────────────────────
 
-import type { Discipline, PerformanceMilestone } from "./types";
+import type { Discipline, PerformanceMilestone, WorkoutBlock } from "./types";
 import { daysBetween } from "./utils";
 
 /** The milestone metric each discipline's threshold is logged under. These are
@@ -38,7 +38,42 @@ export interface Protocol {
   conversion: string;
   /** Roughly how long the whole session takes, warm-up included. */
   minutes: number;
+  /**
+   * What the athlete may swap this for.
+   *
+   * Zwift, MyWhoosh and the rest ship their own FTP tests, and they are these
+   * protocols with small variations. Insisting on our version would mean an
+   * athlete abandoning a guided test that works, inside the app they are
+   * already pedalling in, to follow a block list on a second screen.
+   *
+   * What is NOT negotiable is the other half: the conversion, and logging the
+   * result as a milestone. A platform test whose number never reaches the
+   * dashboard leaves every zone stale anyway.
+   */
+  alternatives?: string;
+  /**
+   * The session as blocks, ready for upsert_workout.
+   *
+   * A test is a WORKOUT, not an instruction. Written as prose it can't be
+   * exported to a watch, can't be drawn as a profile, and can't be scored by
+   * the zone comparison — and the athlete improvises the warm-up, which is the
+   * part that decides whether the number is any good. An FTP test done cold
+   * reads low, and that low number then governs every session for six weeks.
+   *
+   * `intensity` is % of the CURRENT threshold, so the warm-up is prescribed in
+   * the athlete's own units like any other session. The test block itself is
+   * marked with a target rather than an intensity: its whole point is to find a
+   * number nobody has yet.
+   */
+  blocks: WorkoutBlock[];
 }
+
+/** Recovery, in the athlete's easiest zone. */
+const easy = (label: string, min: number): WorkoutBlock => ({
+  label,
+  duration_min: min,
+  intensity: 55,
+});
 
 /**
  * One primary protocol per discipline, plus a shorter alternative.
@@ -54,14 +89,61 @@ export const PROTOCOLS: Record<string, Protocol> = {
     name: "30min time trial",
     effort: "Aquecimento completo, depois 30min contrarrelógio no máximo sustentável, sozinho.",
     conversion: "FTP = potência média dos 30min inteiros. Sem correção.",
-    minutes: 60,
+    alternatives:
+      "Pode usar o teste de FTP do Zwift, MyWhoosh, TrainerRoad ou Wahoo SYSTM no lugar deste — são o mesmo protocolo com pequenas variações, e a plataforma te guia enquanto você pedala. O que NÃO muda: aplicar a conversão certa e registrar o resultado.",
+    minutes: 62,
+    blocks: [
+      easy("Aquecimento", 15),
+      { label: "Abertura 1/3", duration_min: 1, intensity: 95, target: "100+ rpm" },
+      easy("Recuperação", 1),
+      { label: "Abertura 2/3", duration_min: 1, intensity: 95, target: "100+ rpm" },
+      easy("Recuperação", 1),
+      { label: "Abertura 3/3", duration_min: 1, intensity: 95, target: "100+ rpm" },
+      easy("Solto antes do teste", 5),
+      { label: "TESTE — 30min contrarrelógio", duration_min: 30, target: "Máximo sustentável" },
+      easy("Volta à calma", 10),
+    ],
   },
   bike_20: {
     discipline: "bike",
     name: "20min time trial",
-    effort: "Aquecimento completo, depois 20min no máximo sustentável.",
+    effort: "Aquecimento com aberturas, um esforço de 5min para abrir, e então os 20min.",
     conversion: "FTP = média dos 20min MENOS 5%. Pular esse desconto infla o FTP e faz todo treino seguinte parecer fácil demais.",
-    minutes: 50,
+    alternatives:
+      "O teste de 20min do Zwift, MyWhoosh, TrainerRoad ou Wahoo SYSTM serve igual. ATENÇÃO: a maioria dessas plataformas já entrega o FTP com os 5% descontados — se a tela mostrar um FTP pronto, não desconte de novo.",
+    minutes: 68,
+    blocks: [
+      easy("Aquecimento", 20),
+      { label: "Abertura 1/3", duration_min: 1, intensity: 95, target: "100+ rpm" },
+      easy("Recuperação", 1),
+      { label: "Abertura 2/3", duration_min: 1, intensity: 95, target: "100+ rpm" },
+      easy("Recuperação", 1),
+      { label: "Abertura 3/3", duration_min: 1, intensity: 95, target: "100+ rpm" },
+      easy("Solto", 5),
+      // The 5-minute blow-out is not optional: without it the 20 minutes are
+      // paced too conservatively and the resulting FTP reads low.
+      { label: "5min forte (limpa as pernas)", duration_min: 5, target: "Máximo" },
+      easy("Recuperação", 10),
+      { label: "TESTE — 20min contrarrelógio", duration_min: 20, target: "Máximo sustentável" },
+      easy("Volta à calma", 10),
+    ],
+  },
+  bike_ramp: {
+    discipline: "bike",
+    name: "Ramp test",
+    effort:
+      "Rampa progressiva até a exaustão: a potência sobe um degrau a cada minuto e você pedala até não conseguir mais sustentar. Curto, e o mais fácil de fazer sozinho — quem tem pouco tempo faz este.",
+    conversion: "FTP = 75% da melhor potência de 1 minuto. É a mesma conversão que Zwift e MyWhoosh aplicam.",
+    alternatives:
+      "É exatamente o teste embutido do Zwift e do MyWhoosh — prefira o deles, que controla a rampa no rolo e já faz a conversão. Este aqui existe para quem vai pedalar fora dessas plataformas.",
+    minutes: 35,
+    blocks: [
+      easy("Aquecimento", 10),
+      // No fixed intensity, because the session IS the ramp: the step rises
+      // every minute until it can't be held, which is the measurement.
+      { label: "TESTE — rampa até a exaustão", duration_min: 18, target: "+20W a cada minuto, até não sustentar" },
+      easy("Volta à calma", 7),
+    ],
   },
   run_30: {
     discipline: "run",
@@ -69,20 +151,43 @@ export const PROTOCOLS: Record<string, Protocol> = {
     effort: "30min no máximo sustentável, em piso plano. Marque a volta aos 10min.",
     conversion: "Limiar = pace médio dos ÚLTIMOS 20min (não dos 30). A FC média desses mesmos 20min é a LTHR.",
     minutes: 55,
+    blocks: [
+      easy("Aquecimento", 15),
+      { label: "TESTE — primeiros 10min", duration_min: 10, target: "Máximo sustentável" },
+      // Split so the last 20 minutes are their own blocks: the conversion uses
+      // only those, and a single 30-minute block would average in the first ten
+      // that the protocol says to discard.
+      { label: "TESTE — 20min que contam", duration_min: 20, target: "Máximo sustentável" },
+      easy("Volta à calma", 10),
+    ],
   },
-  run_race: {
+  run_5k: {
     discipline: "run",
-    name: "Prova de 5K ou 10K",
-    effort: "Uma prova recente serve — não precisa testar de novo.",
-    conversion: "Converta o tempo de prova para pace de limiar. Prova mais longa que 10K subestima o limiar.",
-    minutes: 0,
+    name: "5K contrarrelógio",
+    effort: "5km no máximo, em pista ou piso plano. Uma prova recente de 5K ou 10K substitui o teste.",
+    conversion: "Converta o tempo de 5K para pace de limiar (o limiar fica ~3-5% mais lento que o pace de 5K). Prova mais longa que 10K subestima.",
+    minutes: 50,
+    blocks: [
+      easy("Aquecimento", 15),
+      { label: "Tiros curtos de soltura", duration_min: 3, intensity: 90 },
+      easy("Solto", 3),
+      { label: "TESTE — 5km", duration_min: 22, target: "Máximo" },
+      easy("Volta à calma", 10),
+    ],
   },
   swim_1000: {
     discipline: "swim",
     name: "1000m contrarrelógio",
     effort: "1000m contínuos no máximo sustentável, depois de aquecer.",
     conversion: "T-pace = tempo total ÷ 10 = ritmo por 100m.",
-    minutes: 45,
+    minutes: 50,
+    blocks: [
+      easy("Aquecimento 400m solto", 10),
+      { label: "Educativos + 4x50m progressivo", duration_min: 8, intensity: 85 },
+      easy("Solto 100m", 3),
+      { label: "TESTE — 1000m", duration_min: 18, target: "Máximo sustentável" },
+      easy("Volta à calma 200m", 6),
+    ],
   },
   swim_css: {
     discipline: "swim",
@@ -90,6 +195,17 @@ export const PROTOCOLS: Record<string, Protocol> = {
     effort: "400m no máximo, descanso completo, depois 200m no máximo.",
     conversion: "CSS por 100m = (tempo400 − tempo200) ÷ 2. Ex.: 6:00 e 3:00 → 90s/100m.",
     minutes: 45,
+    blocks: [
+      easy("Aquecimento 400m solto", 10),
+      { label: "Educativos + 4x50m progressivo", duration_min: 8, intensity: 85 },
+      easy("Solto 100m", 3),
+      { label: "TESTE 1 — 400m", duration_min: 7, target: "Máximo" },
+      // Full recovery, not a token rest: the formula subtracts the two times,
+      // so a tired 200m inflates CSS and makes every swim zone too easy.
+      easy("Recuperação completa", 8),
+      { label: "TESTE 2 — 200m", duration_min: 3.5, target: "Máximo" },
+      easy("Volta à calma 200m", 6),
+    ],
   },
 };
 

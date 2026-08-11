@@ -4,6 +4,7 @@
 // athlete trains), and the readiness light carried by the card's border + glow
 // rather than a fill, so a red athlete quietly draws the eye.
 import Link from "next/link";
+import type { TestStatus } from "@/lib/testing";
 import { translator, type Locale, type TKey } from "@/lib/i18n";
 import { sevColor } from "@/components/InjuryTracker";
 import { daysBetween } from "@/lib/utils";
@@ -45,7 +46,7 @@ function phaseRank(phase: string): number {
   return 4;
 }
 
-function Card({ a, todayISO, tr, href }: { a: RosterAthlete; todayISO: string; tr: (k: TKey) => string; href: string | null }) {
+function Card({ a, todayISO, tr, href, tests = [] }: { a: RosterAthlete; todayISO: string; tr: (k: TKey) => string; href: string | null; tests?: TestStatus[] }) {
   const farol = a.today_reco ? FAROL[a.today_reco] : null;
   const raceIn = a.next_race_date ? daysBetween(todayISO, a.next_race_date) : null;
   const checkinAgo = a.last_checkin ? daysBetween(a.last_checkin, todayISO) : null;
@@ -65,6 +66,23 @@ function Card({ a, todayISO, tr, href }: { a: RosterAthlete; todayISO: string; t
     <>
       <div className="flex items-center justify-between gap-2">
         <p className="truncate text-[14px] font-bold leading-tight text-[var(--text)]">{a.athlete ?? a.name}</p>
+        {/* Threshold testing. A stale threshold makes an athlete who improved
+            look like they are training easier, and a coach with sixty athletes
+            cannot hold sixty test dates in their head. */}
+        {tests.length > 0 && (
+          <span
+            className="shrink-0 rounded-full px-1.5 text-[9px] font-bold uppercase leading-[15px]"
+            style={{
+              color: tests[0].state === "never" ? "var(--bad)" : "var(--warn)",
+              background: `color-mix(in oklab, ${tests[0].state === "never" ? "var(--bad)" : "var(--warn)"} 15%, transparent)`,
+            }}
+            title={tests
+              .map((t) => `${t.discipline}: ${t.state === "never" ? tr("coach.testNever") : tr("coach.testWeeks").replace("{n}", String(t.weeksSince))}`)
+              .join(" · ")}
+          >
+            {tr("coach.test")} {tests.length > 1 ? tests.length : ""}
+          </span>
+        )}
         <span className="flex shrink-0 items-center gap-[3px]">
           {MODS.map((m) => {
             const on = sports.includes(m);
@@ -152,12 +170,16 @@ export function RosterBoard({
   locale,
   todayISO,
   hrefFor,
+  testsFor,
 }: {
   roster: RosterAthlete[];
   locale: Locale;
   todayISO: string;
   /** Where a card links; return null for a non-clickable card. */
   hrefFor: (a: RosterAthlete) => string | null;
+  /** Disciplines whose threshold is overdue or never measured, per athlete.
+   * Optional so the board still renders before add-test-due.sql has run. */
+  testsFor?: (tenantId: string) => TestStatus[];
 }) {
   const tr = translator(locale);
 
@@ -189,7 +211,7 @@ export function RosterBoard({
           </div>
           <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {list.map((a) => (
-              <Card key={a.tenant_id} a={a} todayISO={todayISO} tr={tr} href={hrefFor(a)} />
+              <Card key={a.tenant_id} a={a} todayISO={todayISO} tr={tr} href={hrefFor(a)} tests={testsFor?.(a.tenant_id) ?? []} />
             ))}
           </div>
         </section>

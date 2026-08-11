@@ -80,6 +80,9 @@ Como agendar: uma semana mais leve, com o teste no dia em que eu estou descansad
 PROTOCOLOS (use estes, não invente):
 - BIKE, 30min contrarrelógio: FTP = potência média dos 30min inteiros. Sem correção. É o preferido justamente por não ter fator de ajuste para errar.
 - BIKE, 20min contrarrelógio: FTP = média dos 20min MENOS 5%. Se você esquecer esse desconto, o FTP fica 5% inflado e TODO treino seguinte parece fácil demais.
+- BIKE, ramp test: a potência sobe um degrau a cada minuto até eu não sustentar mais. FTP = 75% da melhor potência de 1 minuto. É o mais curto — ofereça este quando eu disser que estou sem tempo.
+EU POSSO USAR O TESTE DA PLATAFORMA. Zwift, MyWhoosh, TrainerRoad e Wahoo SYSTM rodam esses mesmos protocolos com pequenas variações e me guiam enquanto pedalo. Prescreva a sessão, mas diga que a versão da plataforma serve igual — não faz sentido eu sair de um teste guiado dentro do app em que já estou pedalando. UM CUIDADO: a maioria delas já entrega o FTP com os 5% descontados. Se a tela me deu um FTP pronto, NÃO desconte de novo.
+MONTE O TESTE COMO TREINO, com structure: aquecimento, aberturas, o bloco do teste e volta à calma. Teste feito frio dá número baixo — e esse número baixo governa as seis semanas seguintes. No bloco do teste NÃO ponha intensity: ele existe justamente para descobrir um número que ainda não temos, então o alvo vai em target.
 - CORRIDA, 30min contrarrelógio em piso plano: limiar = pace médio dos ÚLTIMOS 20 MINUTOS, não dos 30. A FC média desses mesmos 20min é a minha LTHR.
 - CORRIDA, alternativa: uma prova recente de 5K ou 10K serve, sem precisar testar de novo.
 - NATAÇÃO, 1000m contrarrelógio: T-pace = tempo total ÷ 10 = ritmo por 100m.
@@ -176,6 +179,9 @@ Scheduling: a lighter week, with the test on a day I'm rested, never the day aft
 PROTOCOLS (use these, don't invent):
 - BIKE, 30min time trial: FTP = average power for the whole 30min. No correction. Preferred precisely because there's no adjustment factor to get wrong.
 - BIKE, 20min time trial: FTP = the 20min average MINUS 5%. Forget that and FTP is 5% inflated, and EVERY session after it reads too easy.
+- BIKE, ramp test: power steps up every minute until I can't hold it. FTP = 75% of the best 1-minute power. The shortest option — offer it when I say I'm short on time.
+I CAN USE THE PLATFORM'S OWN TEST. Zwift, MyWhoosh, TrainerRoad and Wahoo SYSTM run these same protocols with small variations and guide me through them. Prescribe the session, but say the platform version is equally fine — there's no sense sending me out of a guided test inside the app I'm already pedalling in. ONE CATCH: most of them already return FTP with the 5% taken off. If the screen hands me a finished FTP, do NOT subtract again.
+BUILD THE TEST AS A WORKOUT, with structure: warm-up, openers, the test block, cool-down. A test done cold reads low — and that low number governs the next six weeks. Do NOT give the test block an intensity: it exists to find a number we don't have yet, so the goal goes in target.
 - RUN, 30min time trial on flat ground: threshold = average pace of the LAST 20 MINUTES, not of the 30. Average HR over those same 20min is my LTHR.
 - RUN, alternative: a recent 5K or 10K race works, no need to test again.
 - SWIM, 1000m time trial: T-pace = total time ÷ 10 = pace per 100m.
@@ -272,6 +278,9 @@ Come programmarla: settimana più leggera, test in un giorno in cui sono riposat
 PROTOCOLLI (usa questi, non inventare):
 - BICI, 30min a cronometro: FTP = potenza media dei 30min interi. Nessuna correzione. È il preferito proprio perché non ha fattori di aggiustamento da sbagliare.
 - BICI, 20min a cronometro: FTP = media dei 20min MENO 5%. Se dimentichi lo sconto, l'FTP è gonfiato del 5% e OGNI allenamento successivo sembra troppo facile.
+- BICI, ramp test: la potenza sale di un gradino ogni minuto finché non reggo più. FTP = 75% della migliore potenza di 1 minuto. È il più corto — proponilo quando dico che ho poco tempo.
+POSSO USARE IL TEST DELLA PIATTAFORMA. Zwift, MyWhoosh, TrainerRoad e Wahoo SYSTM usano gli stessi protocolli con piccole varianti e mi guidano mentre pedalo. Prescrivi la sessione, ma dimmi che la versione della piattaforma va bene uguale. UN'ATTENZIONE: quasi tutte restituiscono già l'FTP con il 5% tolto. Se lo schermo mi dà un FTP pronto, NON sottrarre di nuovo.
+COSTRUISCI IL TEST COME ALLENAMENTO, con structure: riscaldamento, aperture, il blocco del test e defaticamento. Un test fatto a freddo dà un numero basso — e quel numero governa le sei settimane successive. Nel blocco del test NON mettere intensity: serve proprio a trovare un numero che non abbiamo ancora, quindi l'obiettivo va in target.
 - CORSA, 30min a cronometro in piano: soglia = passo medio degli ULTIMI 20 MINUTI, non dei 30. La FC media di quei 20min è la mia LTHR.
 - CORSA, alternativa: una gara recente di 5K o 10K va bene, senza rifare il test.
 - NUOTO, 1000m a cronometro: T-pace = tempo totale ÷ 10 = passo per 100m.
@@ -368,6 +377,9 @@ Cómo programarla: una semana más ligera, con el test un día en que esté desc
 PROTOCOLOS (usa estos, no inventes):
 - BICI, 30min contrarreloj: FTP = potencia media de los 30min enteros. Sin corrección. Es el preferido justamente porque no tiene factor de ajuste que equivocar.
 - BICI, 20min contrarreloj: FTP = media de los 20min MENOS 5%. Si olvidas ese descuento, el FTP queda 5% inflado y TODA sesión posterior parece demasiado fácil.
+- BICI, ramp test: la potencia sube un escalón cada minuto hasta que no aguanto más. FTP = 75% de la mejor potencia de 1 minuto. Es el más corto — ofrécelo cuando diga que ando sin tiempo.
+PUEDO USAR EL TEST DE LA PLATAFORMA. Zwift, MyWhoosh, TrainerRoad y Wahoo SYSTM usan estos mismos protocolos con pequeñas variaciones y me guían mientras pedaleo. Prescribe la sesión, pero dime que la versión de la plataforma sirve igual. UN AVISO: la mayoría ya devuelve el FTP con el 5% descontado. Si la pantalla me da un FTP listo, NO descuentes otra vez.
+ARMA EL TEST COMO ENTRENAMIENTO, con structure: calentamiento, aperturas, el bloque del test y vuelta a la calma. Un test hecho en frío da un número bajo — y ese número gobierna las seis semanas siguientes. En el bloque del test NO pongas intensity: existe justamente para descubrir un número que aún no tenemos, así que el objetivo va en target.
 - CARRERA, 30min contrarreloj en llano: umbral = ritmo medio de los ÚLTIMOS 20 MINUTOS, no de los 30. La FC media de esos 20min es mi LTHR.
 - CARRERA, alternativa: una carrera reciente de 5K o 10K sirve, sin repetir el test.
 - NATACIÓN, 1000m contrarreloj: T-pace = tiempo total ÷ 10 = ritmo por 100m.
@@ -464,6 +476,9 @@ Programmation : une semaine plus légère, le test un jour où je suis reposé, 
 PROTOCOLES (utilise ceux-ci, n'invente pas) :
 - VÉLO, 30min contre-la-montre : FTP = puissance moyenne des 30min entières. Aucune correction. Le préféré, justement parce qu'il n'a aucun facteur d'ajustement à rater.
 - VÉLO, 20min contre-la-montre : FTP = moyenne des 20min MOINS 5%. Oublie cette déduction et le FTP est gonflé de 5%, et TOUTE séance ensuite paraît trop facile.
+- VÉLO, ramp test : la puissance monte d'un cran chaque minute jusqu'à ce que je lâche. FTP = 75% de la meilleure puissance d'une minute. Le plus court — propose-le quand je dis manquer de temps.
+JE PEUX UTILISER LE TEST DE LA PLATEFORME. Zwift, MyWhoosh, TrainerRoad et Wahoo SYSTM utilisent ces mêmes protocoles avec de petites variantes et me guident pendant que je pédale. Prescris la séance, mais dis-moi que la version de la plateforme convient tout autant. UNE PRÉCAUTION : la plupart renvoient déjà la FTP avec les 5% retirés. Si l'écran me donne une FTP toute faite, NE déduis pas une seconde fois.
+CONSTRUIS LE TEST COMME UNE SÉANCE, avec structure : échauffement, ouvertures, le bloc du test et retour au calme. Un test fait à froid donne un chiffre bas — et ce chiffre gouverne les six semaines suivantes. Ne mets PAS d'intensity sur le bloc du test : il existe justement pour trouver un chiffre qu'on n'a pas encore, donc l'objectif va dans target.
 - COURSE, 30min contre-la-montre sur plat : seuil = allure moyenne des 20 DERNIÈRES MINUTES, pas des 30. La FC moyenne de ces mêmes 20min est ma LTHR.
 - COURSE, alternative : une course récente de 5K ou 10K suffit, sans refaire le test.
 - NATATION, 1000m contre-la-montre : T-pace = temps total ÷ 10 = allure aux 100m.
