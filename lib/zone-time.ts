@@ -13,6 +13,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import type { WorkoutBlock, ZoneSeconds } from "./types";
+import { isOpenBlock } from "./workout-structure";
 
 export type { ZoneSeconds };
 export type ZoneKey = "z1" | "z2" | "z3" | "z4" | "z5";
@@ -158,6 +159,14 @@ function zoneOfIntensity(pct: number): ZoneKey {
  * lands in `z0` — open time — instead of being guessed at. Inventing "z1" for a
  * block the coach left blank would mean scoring the athlete against a
  * prescription nobody wrote.
+ *
+ * Warm-ups, cool-downs, rests and drills land in `z0` EVEN WHEN they carry an
+ * intensity, which is the other half of the same rule. Those numbers get
+ * attached so the athlete knows roughly what to do; they were never targets to
+ * hold. Reading them as prescription is what scored a well-executed swim at 31
+ * — two thirds of its "prescribed" time was warm-up and technique work, and
+ * drills are slow deliberately, so doing them properly counted against him.
+ * See isOpenBlock.
  */
 export function plannedZones(blocks: WorkoutBlock[] | null | undefined): ZoneSeconds | null {
   if (!blocks?.length) return null;
@@ -166,6 +175,10 @@ export function plannedZones(blocks: WorkoutBlock[] | null | undefined): ZoneSec
   for (const b of blocks) {
     const secs = Math.round((b.duration_min ?? 0) * 60);
     if (secs <= 0) continue;
+    if (isOpenBlock(b.label)) {
+      out.z0 += secs;
+      continue;
+    }
     const named = b.target ? zoneOfLabel(b.target) : null;
     const zone = named ?? (b.intensity != null ? zoneOfIntensity(b.intensity) : null);
     out[zone ?? "z0"] += secs;

@@ -104,6 +104,39 @@ export function parseZwo(xml: string, ftpWatts: number | null = null): WorkoutBl
 const WARMUP_WORDS = /aquec|warm|riscald|calent|échauff|echauff/i;
 const COOLDOWN_WORDS = /volta à calma|volta a calma|cool ?down|defatic|enfriam|retour au calme|soltura/i;
 
+/** Rest between efforts, in the five languages the product speaks. */
+const REST_WORDS = /descanso|recuper|recover|rest\b|riposo|repos|pausa|intervalo passivo/i;
+/** Technique work: slow ON PURPOSE, and the slowness is the exercise. */
+const DRILL_WORDS = /drill|t[ée]cnic|technique|tecnica|educativ|forma\b/i;
+
+/**
+ * Is this block time the athlete cannot be scored against?
+ *
+ * A warm-up, a cool-down, a rest and a technique drill are not intensity
+ * prescriptions. Nobody wrote "spend twenty minutes in Z1" — they wrote "warm
+ * up" and "do drills", and a number attached to those is a rendering
+ * convenience so the athlete knows roughly what to swim, not a target to hold.
+ *
+ * This exists because a swim scored 31 out of 100 for an execution the coach
+ * rated 95. Twenty of its thirty "prescribed" minutes were warm-up and drills
+ * that had picked up an intensity along the way, so the athlete was measured
+ * against a prescription nobody wrote — and drills, which are slow BY DESIGN,
+ * counted as a failure to be slow enough.
+ *
+ * Position is deliberately not considered, unlike the .zwo ramp logic below: a
+ * recovery block in the middle of a session is just as unscoreable as one at
+ * the end.
+ */
+export function isOpenBlock(label: string | null | undefined): boolean {
+  if (!label) return false;
+  return (
+    WARMUP_WORDS.test(label) ||
+    COOLDOWN_WORDS.test(label) ||
+    REST_WORDS.test(label) ||
+    DRILL_WORDS.test(label)
+  );
+}
+
 const xmlEscape = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
