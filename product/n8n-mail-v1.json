@@ -1,0 +1,116 @@
+{
+  "name": "MY TRAKR — Mail v1 (boas-vindas + recuperação)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trakr-mail",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "mail-in",
+      "name": "Entrada (webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [-460, 340],
+      "webhookId": "trakr-mail",
+      "notes": "URL de produção vai em N8N_MAIL_WEBHOOK_URL na Vercel. Recebe { kind, email, name, url }."
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({\n  kind:  $json.body?.kind  ?? $json.kind  ?? 'signup',\n  email: $json.body?.email ?? $json.email ?? '',\n  name:  $json.body?.name  ?? $json.name  ?? '',\n  url:   $json.body?.url   ?? $json.url   ?? ''\n}) }}",
+        "options": {}
+      },
+      "id": "normalize",
+      "name": "Normalizar",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-220, 340],
+      "notes": "Aceita corpo de webhook e execução manual. `kind`: signup | recover | agency."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "version": 2 },
+          "conditions": [
+            {
+              "id": "has-url",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "http",
+              "operator": { "type": "string", "operation": "startsWith" }
+            },
+            {
+              "id": "has-mail",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "@",
+              "operator": { "type": "string", "operation": "contains" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "guard",
+      "name": "Payload válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [20, 340],
+      "notes": "Um link relativo ou um e-mail vazio viraria mensagem inútil gastando um token de uso único. Melhor não enviar."
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ (() => {\n  const k = $json.kind;\n  const nome = $json.name ? ' ' + $json.name : '';\n  const T = {\n    signup: {\n      subject: 'Sua conta MY TRAKR está pronta',\n      lead:    'Falta um passo para começar: abra o link e receba sua chave de acesso.',\n      cta:     'Criar minha conta',\n      foot:    'O link vale 14 dias e serve uma vez só. A chave aparece uma única vez — tenha um gerenciador de senhas à mão.'\n    },\n    recover: {\n      subject: 'Sua nova chave MY TRAKR',\n      lead:    'Você pediu uma chave nova. Ao abrir o link, a chave anterior deixa de funcionar.',\n      cta:     'Gerar chave nova',\n      foot:    'O link vale 2 horas e serve uma vez só. Se não foi você quem pediu, ignore este e-mail — nada muda até alguém abrir o link.'\n    },\n    agency: {\n      subject: 'Sua assessoria no MY TRAKR',\n      lead:    'Sua assessoria está pronta para ser criada. Abra o link e receba a chave de dono.',\n      cta:     'Criar minha assessoria',\n      foot:    'O link vale 14 dias e serve uma vez só. A chave de dono aparece uma única vez.'\n    }\n  }[k] ?? {};\n  return { ...$json, subject: T.subject, lead: T.lead, cta: T.cta, foot: T.foot, nome };\n})() }}",
+        "options": {}
+      },
+      "id": "copy",
+      "name": "Texto por tipo",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [280, 240],
+      "notes": "Um nó só para os três tipos: mudar o texto de um e-mail não deveria exigir mexer na fiação do fluxo."
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.TRAKR_FROM_EMAIL }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ '<div style=\"font-family:system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.6;color:#1a1c20;max-width:520px\">' +\n'<p>Olá' + $json.nome + ',</p>' +\n'<p>' + $json.lead + '</p>' +\n'<p style=\"margin:26px 0\"><a href=\"' + $json.url + '\" style=\"display:inline-block;background:#c6f24e;color:#0a0b0d;font-weight:700;padding:13px 22px;border-radius:10px;text-decoration:none\">' + $json.cta + '</a></p>' +\n'<p style=\"color:#5b6070;font-size:13px\">' + $json.foot + '</p>' +\n'<p style=\"color:#5b6070;font-size:13px\">Se o botão não funcionar, copie este endereço:<br><span style=\"word-break:break-all\">' + $json.url + '</span></p>' +\n'<p style=\"color:#8b90a0;font-size:12px;margin-top:28px\">MY TRAKR</p>' +\n'</div>' }}",
+        "options": {}
+      },
+      "id": "send",
+      "name": "Enviar",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [540, 240],
+      "notes": "Selecione sua credencial SMTP no import (a caixa do seu domínio serve). TRAKR_FROM_EMAIL no ambiente do n8n."
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ ignorado: true, motivo: 'payload sem url absoluta ou sem e-mail', recebido: $json }) }}",
+        "options": {}
+      },
+      "id": "skip",
+      "name": "Ignorado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [280, 440]
+    }
+  ],
+  "connections": {
+    "Entrada (webhook)": { "main": [[{ "node": "Normalizar", "type": "main", "index": 0 }]] },
+    "Normalizar": { "main": [[{ "node": "Payload válido?", "type": "main", "index": 0 }]] },
+    "Payload válido?": {
+      "main": [
+        [{ "node": "Texto por tipo", "type": "main", "index": 0 }],
+        [{ "node": "Ignorado", "type": "main", "index": 0 }]
+      ]
+    },
+    "Texto por tipo": { "main": [[{ "node": "Enviar", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

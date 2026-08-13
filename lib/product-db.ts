@@ -425,6 +425,90 @@ export async function getUnassignedAthletes(
   return rows;
 }
 
+// ── RGPD: levar os dados embora, e apagar a conta ───────────────────────────
+
+/**
+ * Toda tabela que guarda dado do atleta. Lista fixa, escrita à mão.
+ *
+ * Deliberadamente NÃO derivada do information_schema: uma lista automática
+ * exportaria tabela nova sem ninguém decidir que ela devia sair, e o risco aqui
+ * é assimétrico — esquecer uma tabela dá um export incompleto que alguém
+ * reclama; incluir a errada publica dado que não devia sair.
+ *
+ * `app.device_links` fica de fora de propósito: contém tokens de acesso do
+ * Strava, que são credenciais nossas para agir em nome dele, não dados pessoais
+ * dele. O que interessa — que existe uma conexão e com quem — vai à parte.
+ */
+const EXPORT_TABLES = [
+  "profiles", "workouts", "checkins", "training_load", "races", "phases",
+  "training_cycles", "performance_indicators", "performance_milestones",
+  "injury_log", "body_composition", "strength_sessions",
+  "nutrition_plan", "daily_meal_plan", "menstrual_cycle",
+] as const;
+
+/** Tudo que o produto guarda sobre este atleta, num objeto só. */
+export async function exportTenantData(tenantId: string): Promise<Record<string, unknown>> {
+  if (!hasProductDb()) return {};
+  return withTenant(tenantId, async (c) => {
+    const out: Record<string, unknown> = {
+      exported_at: new Date().toISOString(),
+      format: "MY TRAKR export v1",
+    };
+
+    const { rows: acc } = await c.query(
+      `select email, athlete_name, nickname, phone, plan, status,
+              to_char(created_at,'YYYY-MM-DD') as created_at
+         from app.tenants where id = $1`,
+      [tenantId],
+    );
+    out.account = acc[0] ?? null;
+
+    // Só o provedor e a data: o token é credencial, não dado pessoal a exportar.
+    const { rows: links } = await c.query(
+      `select provider, to_char(created_at,'YYYY-MM-DD') as connected_at,
+              to_char(last_sync_at,'YYYY-MM-DD') as last_sync_at
+         from app.device_links where tenant_id = $1`,
+      [tenantId],
+    );
+    out.connected_devices = links;
+
+    for (const t of EXPORT_TABLES) {
+      // Nome vem da constante acima, nunca da requisição.
+      const { rows } = await c.query(`select * from ${t} where tenant_id = $1`, [tenantId]);
+      out[t] = rows;
+    }
+    return out;
+  });
+}
+
+/**
+ * Apaga a conta e tudo que pende dela.
+ *
+ * Uma statement: as 19 tabelas que referenciam `app.tenants` fazem isso com
+ * `on delete cascade`, então a linha do tenant é o único ponto a tocar. Deixar
+ * a limpeza para o banco é o que garante que uma tabela criada depois não fique
+ * para trás só porque ninguém lembrou de acrescentá-la a uma lista.
+ *
+ * Sem período de carência e sem "desativado": apagar é o que foi pedido, e um
+ * apagar que na verdade esconde é a coisa errada a fazer com um pedido de
+ * exclusão de dado pessoal.
+ */
+/** O e-mail da conta — o que a exclusão pede que a pessoa digite de volta. */
+export async function getTenantEmail(tenantId: string): Promise<string | null> {
+  if (!hasProductDb()) return null;
+  const { rows } = await getPool().query<{ email: string }>(
+    "select email from app.tenants where id = $1",
+    [tenantId],
+  );
+  return rows[0]?.email ?? null;
+}
+
+export async function deleteTenant(tenantId: string): Promise<{ ok: boolean }> {
+  if (!hasProductDb()) return { ok: false };
+  const { rowCount } = await getPool().query("delete from app.tenants where id = $1", [tenantId]);
+  return { ok: (rowCount ?? 0) > 0 };
+}
+
 // ── B2C: o atleta se cadastra sozinho, e consegue voltar ────────────────────
 
 /** Quanto tempo um link vale. Cadastro é pós-pagamento e pode esperar o fim de

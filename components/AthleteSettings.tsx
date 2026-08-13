@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AvailabilityBlock } from "@/components/blocks/AvailabilityBlock";
+import { DataRights } from "./DataRights";
 import { CloseIcon } from "@/components/Icons";
 import { translator, type Locale } from "@/lib/i18n";
 import type { Availability } from "@/lib/availability";
@@ -128,6 +129,11 @@ export function AthleteSettings({
                   variant="bare"
                 />
               </div>
+
+              {/* Seus dados: exportar e apagar. Fica dentro das configurações
+                  do próprio atleta porque é dele que se trata — e só para quem
+                  é dono do painel, nunca no drill-in de um treinador. */}
+              {editable && <DataRights locale={locale} />}
 
               {editable && (
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-5 py-4">
