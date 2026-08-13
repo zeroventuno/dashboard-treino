@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ServiceWorker } from "@/components/ServiceWorker";
 import { Saira, Saira_Condensed, Archivo } from "next/font/google";
 import "./globals.css";
 
@@ -32,12 +33,22 @@ const archivo = Archivo({
 export const metadata: Metadata = {
   title: "MY TRAKR",
   description: "Train. Track. Evolve. — the athlete's training dashboard.",
+  // iOS não lê `display: standalone` do manifest; ele precisa disto para abrir
+  // sem a barra do Safari quando o atleta instala na tela inicial.
+  appleWebApp: {
+    capable: true,
+    title: "MY TRAKR",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport = {
   themeColor: "#0a0b0d",
   width: "device-width",
   initialScale: 1,
+  // Sem isto o conteúdo passa por baixo do notch e da barra inferior do iPhone
+  // quando o app roda em tela cheia.
+  viewportFit: "cover" as const,
 };
 
 export default function RootLayout({
@@ -45,7 +56,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${saira.variable} ${sairaCondensed.variable} ${archivo.variable} h-full antialiased`}>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">{children}<ServiceWorker /></body>
     </html>
   );
 }
