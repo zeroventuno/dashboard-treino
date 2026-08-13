@@ -133,6 +133,7 @@ const REQUIRED_OBJECTS: { kind: "table" | "function"; schema: string; name: stri
   { kind: "function", schema: "app", name: "agency_athlete_sports", migration: "add-athlete-sports.sql" },
   { kind: "function", schema: "app", name: "provision_agency",      migration: "add-agency-provisioning.sql" },
   { kind: "table",    schema: "app", name: "agency_invites",       migration: "add-agency-invites.sql" },
+  { kind: "table",    schema: "app", name: "athlete_tokens",       migration: "add-athlete-signup.sql" },
 ];
 
 /** Which required columns, tables and functions are missing, with their migration. */
@@ -422,6 +423,167 @@ export async function getUnassignedAthletes(
     [agencyId],
   );
   return rows;
+}
+
+// ── B2C: o atleta se cadastra sozinho, e consegue voltar ────────────────────
+
+/** Quanto tempo um link vale. Cadastro é pós-pagamento e pode esperar o fim de
+ * semana; recuperação é alguém trancado do lado de fora agora. */
+const SIGNUP_DAYS = 14;
+const RECOVER_HOURS = 2;
+
+/**
+ * Emite um token e devolve o texto UMA vez — só o hash é gravado.
+ *
+ * `signup` é chamado depois do pagamento; `recover` pelo formulário público de
+ * "perdi minha chave". Quem chama entrega o link ao n8n, que envia o e-mail.
+ */
+export async function createAthleteToken(input: {
+  kind: "signup" | "recover";
+  email: string;
+  name?: string | null;
+  locale?: string | null;
+  tenantId?: string | null;
+}): Promise<{ token: string; expiresAt: string } | null> {
+  if (!hasProductDb()) return null;
+  const token = randomBytes(32).toString("base64url");
+  const hash = createHash("sha256").update(token).digest("hex");
+  const { rows } = await getPool().query<{ expires_at: string }>(
+    `insert into app.athlete_tokens (token_hash, kind, email, name, locale, tenant_id, expires_at)
+     values ($1,$2,$3,$4,$5,$6, now() + make_interval(hours => $7))
+     returning to_char(expires_at, 'YYYY-MM-DD"T"HH24:MI"Z"') as expires_at`,
+    [
+      hash, input.kind, input.email.trim().toLowerCase(), input.name ?? null,
+      input.locale ?? null, input.tenantId ?? null,
+      input.kind === "signup" ? SIGNUP_DAYS * 24 : RECOVER_HOURS,
+    ],
+  );
+  return { token, expiresAt: rows[0].expires_at };
+}
+
+/** O que este link promete, sem gastá-lo — o `GET` da tela. Ver o comentário
+ * sobre antivírus de e-mail em app/api/coach/setup. */
+export async function peekAthleteToken(
+  token: string,
+): Promise<{ kind: "signup" | "recover"; email: string; name: string | null } | null> {
+  if (!hasProductDb()) return null;
+  const hash = createHash("sha256").update(token).digest("hex");
+  const { rows } = await getPool().query<{ kind: "signup" | "recover"; email: string; name: string | null }>(
+    `select kind, email, name from app.athlete_tokens
+      where token_hash = $1 and used_at is null and expires_at > now()`,
+    [hash],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Gasta o token: cria a conta, ou rotaciona a chave de quem perdeu a dele.
+ * Devolve a chave `trak_` — uma vez, como sempre.
+ *
+ * A reivindicação é um UPDATE condicional, não um SELECT seguido de UPDATE:
+ * `used_at is null` no WHERE é o que impede dois cliques simultâneos de criarem
+ * duas contas para o mesmo pagamento.
+ */
+export async function redeemAthleteToken(
+  token: string,
+): Promise<
+  | { ok: true; key: string; kind: "signup" | "recover" }
+  | { ok: false; code: "invalid" | "duplicate_email" }
+> {
+  if (!hasProductDb()) return { ok: false, code: "invalid" };
+  const hash = createHash("sha256").update(token).digest("hex");
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    const { rows } = await client.query<{
+      kind: "signup" | "recover"; email: string; name: string | null; locale: string | null; tenant_id: string | null;
+    }>(
+      `update app.athlete_tokens set used_at = now()
+        where token_hash = $1 and used_at is null and expires_at > now()
+        returning kind, email, name, locale, tenant_id`,
+      [hash],
+    );
+    const t = rows[0];
+    if (!t) { await client.query("rollback"); return { ok: false, code: "invalid" }; }
+
+    // A chave nasce no instante em que será mostrada, nunca quando o link foi
+    // criado — senão uma credencial válida ficaria semanas dentro de um e-mail.
+    const key = "trak_" + randomBytes(24).toString("hex");
+    const keyHash = createHash("sha256").update(key).digest("hex");
+
+    if (t.kind === "recover") {
+      await client.query("update app.tenants set api_key_hash = $2 where id = $1", [t.tenant_id, keyHash]);
+      await client.query("commit");
+      return { ok: true, key, kind: "recover" };
+    }
+
+    // plan 'solo' e agency_id nulo: é o atleta direto ao consumidor, sem
+    // assessoria. Todo o resto do produto já trata agency_id nulo.
+    const { rows: made } = await client.query<{ id: string }>(
+      `insert into app.tenants (email, status, plan, api_key_hash, athlete_name)
+       values ($1, 'active', 'solo', $2, $3)
+       on conflict (email) do nothing
+       returning id`,
+      [t.email, keyHash, t.name],
+    );
+    const tenantId = made[0]?.id;
+    if (!tenantId) {
+      // E-mail já registrado. Devolver o token para que a pessoa possa usar o
+      // fluxo de recuperação em vez de ficar com um link queimado e uma conta
+      // que ela não sabe que já tem.
+      await client.query("rollback");
+      return { ok: false, code: "duplicate_email" };
+    }
+
+    await client.query("select set_config('app.tenant_id', $1, true)", [tenantId]);
+    await client.query(
+      `insert into profiles (tenant_id, athlete, mode, locale)
+       values ($1, $2, 'race', coalesce($3, 'pt')) on conflict (tenant_id) do nothing`,
+      [tenantId, t.name, t.locale],
+    );
+    await client.query("update app.athlete_tokens set tenant_id = $2 where token_hash = $1", [hash, tenantId]);
+    await client.query("commit");
+    return { ok: true, key, kind: "signup" };
+  } catch (e) {
+    await client.query("rollback");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Pedido público de recuperação.
+ *
+ * Devolve SEMPRE a mesma coisa, exista o e-mail ou não: um formulário aberto
+ * que responde diferente para endereço cadastrado é um verificador de quem usa
+ * o produto. Quando o e-mail não existe, nada é criado e nada é enviado.
+ *
+ * Um link aberto por vez, por tenant — senão o formulário vira um jeito de
+ * encher a caixa de e-mail de alguém apertando o botão repetidamente.
+ */
+export async function requestAthleteRecovery(
+  email: string,
+): Promise<{ token: string; name: string | null } | null> {
+  if (!hasProductDb()) return null;
+  const clean = email.trim().toLowerCase();
+  const { rows } = await getPool().query<{ id: string; athlete_name: string | null }>(
+    "select id, athlete_name from app.tenants where lower(email) = $1 and status = 'active'",
+    [clean],
+  );
+  const t = rows[0];
+  if (!t) return null;
+
+  const { rows: open } = await getPool().query(
+    `select 1 from app.athlete_tokens
+      where tenant_id = $1 and kind = 'recover' and used_at is null and expires_at > now()
+      limit 1`,
+    [t.id],
+  );
+  if (open.length > 0) return null;
+
+  const made = await createAthleteToken({ kind: "recover", email: clean, name: t.athlete_name, tenantId: t.id });
+  return made ? { token: made.token, name: t.athlete_name } : null;
 }
 
 // ── Onboarding de assessoria: convite → assessoria + chave do dono ──────────
