@@ -21,6 +21,7 @@ import { Onboarding } from "@/components/Onboarding";
 import { LogoutButton } from "@/components/LogoutButton";
 import { AppNotifications } from "@/components/AppNotifications";
 import { AthleteSettings } from "@/components/AthleteSettings";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { coachBriefing, BRIEFING_VERSION } from "@/lib/coach-briefing";
 import { CONNECTOR_VERSION } from "@/lib/connector";
 import { DashboardBlocks } from "@/components/DashboardBlocks";
@@ -139,6 +140,12 @@ export default async function ProductDashboardPage({
           <LogoutButton locale={locale} />
         </div>
       </nav>
+
+      {/* Só para quem é dono deste painel: convidar a instalar o app durante o
+          drill-in de um treinador instalaria o painel do ALUNO no telefone
+          dele. E a demo com dado de exemplo não é o que alguém quer na tela
+          inicial. */}
+      {live && <InstallPrompt locale={locale} />}
 
       {!live && reason && (
         <div
