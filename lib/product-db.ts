@@ -9,7 +9,10 @@ import type { PoolClient } from "pg";
 import { createHash, randomBytes } from "node:crypto";
 import { normalizeTags } from "./bank-tags";
 import type { AttentionRow } from "./retention";
-import type { PerformanceIndicators, ZoneSeconds } from "./types";
+import { summarizeCurve, type RosterLoadSummary } from "./roster-load";
+import { extendCurve } from "./pmc-curve";
+import { withComputedStress } from "./stress";
+import type { PerformanceIndicators, Workout, ZoneSeconds } from "./types";
 import { distribute, type BlockSession, type PlanWeek } from "./plan-block";
 import { WEEKDAYS, type Availability } from "./availability";
 import { pickMatch, type Candidate } from "./match-activity";
@@ -130,6 +133,7 @@ const REQUIRED_OBJECTS: { kind: "table" | "function"; schema: string; name: stri
   { kind: "function", schema: "app", name: "agency_attention",    migration: "add-agency-attention.sql" },
   { kind: "function", schema: "app", name: "roster_test_dates",   migration: "add-test-due.sql" },
   { kind: "function", schema: "app", name: "roster_planned_ahead", migration: "add-planned-ahead.sql" },
+  { kind: "function", schema: "app", name: "roster_load",          migration: "add-roster-load.sql" },
   { kind: "function", schema: "app", name: "agency_athlete_sports", migration: "add-athlete-sports.sql" },
   { kind: "function", schema: "app", name: "provision_agency",      migration: "add-agency-provisioning.sql" },
   { kind: "table",    schema: "app", name: "agency_invites",       migration: "add-agency-invites.sql" },
@@ -1081,6 +1085,110 @@ export async function getRosterPlanAhead(staffId: string): Promise<RosterPlanAhe
     return rows;
   } catch (err) {
     console.warn("[coach] roster_planned_ahead unavailable — run add-planned-ahead.sql:", err);
+    return [];
+  }
+}
+
+/** One session row as app.roster_load returns it — the raw material the PMC is
+ * built from, plus the thresholds needed to score a session that was never
+ * given a TSS by hand. */
+interface RosterLoadSessionRow {
+  tenant_id: string;
+  date: string;
+  status: string;
+  discipline: string;
+  actual_tss: number | null;
+  planned_tss: number | null;
+  actual_duration_min: number | null;
+  actual_power_watts: string | null;
+  actual_pace: string | null;
+  actual_zones: (ZoneSeconds & { metric?: string }) | null;
+  ftp_watts: number | null;
+  run_threshold_pace: string | null;
+  swim_pace_per_100m: string | null;
+}
+
+/**
+ * Where each athlete on a professional's roster stands on the fitness/fatigue
+ * curve, and which way it is moving.
+ *
+ * THE CURVE IS BUILT HERE, IN TYPESCRIPT, ON PURPOSE. `training_load` holds
+ * exactly these numbers and is empty on every real account — only the one-off
+ * import ever wrote it — so a SQL function reading it would have been correct
+ * code on a dead table. What the athlete's own chart does instead is derive the
+ * curve from their sessions at read time, and this calls the very same two pure
+ * functions it calls, in the same order:
+ *
+ *   withComputedStress  (lib/stress)      — score sessions the coach never did
+ *   extendCurve         (lib/pmc-curve)   — the 42d/7d recurrence
+ *
+ * Doing either of those in SQL would have been a second implementation of an
+ * accumulating rule, and CTL integrates everything before it: a small
+ * difference compounds instead of cancelling, and the coach's screen and the
+ * athlete's screen end up stating different facts about the same person on the
+ * same day. The verdict — overreaching, and whether there is enough history to
+ * say anything at all — stays in lib/roster-load, the same split as
+ * roster_test_dates and lib/testing.
+ */
+export async function getRosterLoad(staffId: string, todayISO?: string): Promise<RosterLoadSummary[]> {
+  if (!hasProductDb()) return [];
+  const today = todayISO ?? toISO(new Date());
+  try {
+    const { rows } = await getPool().query<RosterLoadSessionRow>(
+      `select tenant_id, to_char(date,'YYYY-MM-DD') as date, status, discipline,
+              actual_tss, planned_tss, actual_duration_min, actual_power_watts,
+              actual_pace, actual_zones, ftp_watts, run_threshold_pace, swim_pace_per_100m
+         from app.roster_load($1)`,
+      [staffId],
+    );
+
+    const byTenant = new Map<string, RosterLoadSessionRow[]>();
+    for (const r of rows) {
+      const list = byTenant.get(r.tenant_id);
+      if (list) list.push(r);
+      else byTenant.set(r.tenant_id, [r]);
+    }
+
+    return [...byTenant.entries()].map(([tenantId, sessions]) => {
+      const first = sessions[0];
+      const indicators = {
+        ftp_watts: first.ftp_watts,
+        run_threshold_pace: first.run_threshold_pace,
+        swim_pace_per_100m: first.swim_pace_per_100m,
+      } as PerformanceIndicators;
+
+      // computeStress reads a handful of fields; the rest of Workout is filled
+      // with nulls rather than being made optional, so the compiler keeps this
+      // honest if the shared type ever grows a field the curve depends on.
+      const workouts: Workout[] = sessions.map((s) => ({
+        id: "", title: "", description: null, garmin_instructions: null, zwo_content: null,
+        notes: null, nutrition_notes: null,
+        planned_duration_min: null, planned_distance_km: null, actual_distance_km: null,
+        date: s.date,
+        discipline: s.discipline as Workout["discipline"],
+        status: s.status as Workout["status"],
+        planned_tss: s.planned_tss,
+        actual_tss: s.actual_tss,
+        actual_duration_min: s.actual_duration_min,
+        actual_pace: s.actual_pace,
+        actual_power_watts: s.actual_power_watts,
+        actual_zones: s.actual_zones,
+      }));
+
+      const scored = withComputedStress(workouts, indicators);
+      // No stored history to continue from — same empty first argument the
+      // athlete's dashboard effectively passes, for the same reason.
+      const curve = extendCurve([], scored, today);
+      const loaded = scored
+        .filter((w) => Number(w.actual_tss ?? w.planned_tss ?? 0) > 0)
+        .map((w) => w.date);
+      return summarizeCurve(tenantId, curve, loaded, today);
+    });
+  } catch (err) {
+    // Same bargain as the two readers above: an agency whose migration hasn't
+    // been run yet keeps its roster, minus the load column. /api/health names
+    // the missing migration (see REQUIRED_OBJECTS).
+    console.warn("[coach] roster_load unavailable — run add-roster-load.sql:", err);
     return [];
   }
 }

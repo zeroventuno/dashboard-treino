@@ -4,6 +4,10 @@
 // Pure functions only; rendering lives in components/PmcChart.tsx.
 import type { TrainingLoad } from "./types";
 import { addDays, parseDate, toISO } from "./utils";
+import {
+  ATL_DAYS, CTL_DAYS,
+  TSB_HIGH_FATIGUE, TSB_NEUTRAL_HIGH, TSB_PRODUCTIVE, TSB_VERY_FRESH,
+} from "./pmc-curve";
 
 export interface TsbZone {
   key: string;
@@ -13,13 +17,18 @@ export interface TsbZone {
 }
 
 /** TSB interpretation bands — used for the tooltip label only (no background
- * bands on the chart; they read as clutter at this size). */
+ * bands on the chart; they read as clutter at this size).
+ *
+ * The numbers come from lib/pmc-curve, NOT from literals here: the coach
+ * roster's fatigue classifier reads the same bands, and this file having its
+ * own copy is how the chart came to say "very fatigued" below -25 while the
+ * roster flagged overreaching below -30. One definition, two readers. */
 export const TSB_ZONES: TsbZone[] = [
-  { key: "very-fatigued", label: "Very fatigued",   min: -Infinity, max: -25 },
-  { key: "productive",    label: "Productive load", min: -25, max: -10 },
-  { key: "neutral",       label: "Neutral",         min: -10, max: 10 },
-  { key: "race-ready",    label: "Race ready",      min: 10, max: 25 },
-  { key: "very-fresh",    label: "Very fresh",      min: 25, max: Infinity },
+  { key: "very-fatigued", label: "Very fatigued",   min: -Infinity,       max: TSB_HIGH_FATIGUE },
+  { key: "productive",    label: "Productive load", min: TSB_HIGH_FATIGUE, max: TSB_PRODUCTIVE },
+  { key: "neutral",       label: "Neutral",         min: TSB_PRODUCTIVE,   max: TSB_NEUTRAL_HIGH },
+  { key: "race-ready",    label: "Race ready",      min: TSB_NEUTRAL_HIGH, max: TSB_VERY_FRESH },
+  { key: "very-fresh",    label: "Very fresh",      min: TSB_VERY_FRESH,   max: Infinity },
 ];
 
 export function zoneFor(tsb: number): TsbZone {
@@ -94,8 +103,8 @@ export function preparePmcSeries(data: TrainingLoad[], rangeDays: number): PmcSe
     let cursor = parseDate(last.date);
     for (let i = 1; i <= PROJECTION_DAYS; i++) {
       const tsb = ctl - atl; // TSB[t] = CTL[t-1] - ATL[t-1]
-      ctl = ctl + (0 - ctl) / 42;
-      atl = atl + (0 - atl) / 7;
+      ctl = ctl + (0 - ctl) / CTL_DAYS;
+      atl = atl + (0 - atl) / ATL_DAYS;
       cursor = addDays(cursor, 1);
       points.push({
         date: toISO(cursor),

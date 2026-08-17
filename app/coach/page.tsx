@@ -35,21 +35,40 @@ export default async function CoachPanelPage() {
 
   // Threshold ages become the same shape the athlete's own dashboard uses, so
   // "overdue" means one thing in one place.
+  //
+  // Tested against what each athlete ACTUALLY trains, not a fixed trio. The
+  // three disciplines used to be hardcoded here while `sports` sat unread on
+  // the same roster row, so a runner was told their swim threshold had never
+  // been tested and a non-swimming cyclist carried a red badge for a pool they
+  // never enter. Seven of nine athletes in the demo cohort wore a test badge,
+  // which turned the loudest mark on the card into wallpaper.
+  //
+  // Empty `sports` still means "nothing declared", never "none" — the house
+  // rule everywhere else — so those athletes keep all three. We don't know what
+  // they train, and reminding about a test they don't need is better than
+  // staying silent about one they do.
+  const sportsByTenant = new Map(roster.map((a) => [a.tenant_id, a.sports ?? []]));
   const testsByTenant = new Map(
-    testDates.map((t) => [
-      t.tenant_id,
-      needsTesting(
-        testStatus(
-          [
-            ...(t.ftp_at ? [{ id: "f", date: t.ftp_at, metric: "FTP", value: null, unit: null, notes: null }] : []),
-            ...(t.run_at ? [{ id: "r", date: t.run_at, metric: "run_pace_threshold", value: null, unit: null, notes: null }] : []),
-            ...(t.swim_at ? [{ id: "s", date: t.swim_at, metric: "swim_pace_100m", value: null, unit: null, notes: null }] : []),
-          ],
-          ["bike", "run", "swim"],
-          todayISO,
+    testDates.map((t) => {
+      const declared = sportsByTenant.get(t.tenant_id) ?? [];
+      const trained = (["bike", "run", "swim"] as const).filter(
+        (d) => declared.length === 0 || declared.includes(d),
+      );
+      return [
+        t.tenant_id,
+        needsTesting(
+          testStatus(
+            [
+              ...(t.ftp_at ? [{ id: "f", date: t.ftp_at, metric: "FTP", value: null, unit: null, notes: null }] : []),
+              ...(t.run_at ? [{ id: "r", date: t.run_at, metric: "run_pace_threshold", value: null, unit: null, notes: null }] : []),
+              ...(t.swim_at ? [{ id: "s", date: t.swim_at, metric: "swim_pace_100m", value: null, unit: null, notes: null }] : []),
+            ],
+            trained,
+            todayISO,
+          ),
         ),
-      ),
-    ]),
+      ];
+    }),
   );
 
   const signals = await collectSignals(

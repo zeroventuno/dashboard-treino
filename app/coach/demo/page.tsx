@@ -1,62 +1,28 @@
 // Public preview of the coach panel — mock roster, no login, no database. Same
 // RosterBoard the real /coach uses, so it looks identical; cards link to the
 // athlete /demo so you can walk the whole thing without provisioning anything.
+//
+// The cohort itself lives in lib/demo-roster.ts, which is a TEST BED before it
+// is a preview: nine athletes chosen to put every state the panel can show on
+// screen at once. Read the header there before touching the numbers.
 import Link from "next/link";
 import { headers } from "next/headers";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
-import { toISO, addDays } from "@/lib/utils";
-import type { RosterAthlete } from "@/lib/product-db";
+import { toISO } from "@/lib/utils";
+import { demoRosterBoard } from "@/lib/demo-roster";
 import { CoachNav } from "@/components/coach/CoachNav";
 import { RosterBoard } from "@/components/coach/RosterBoard";
 
 export const dynamic = "force-dynamic";
 
-/** A varied sample squad: several phases, the full range of readiness lights,
- * a couple of stale check-ins and injuries — so every state the panel can show
- * is on screen. Dates are relative to now, so countdowns look live. */
-function mockRoster(): RosterAthlete[] {
-  const race = (n: number) => toISO(addDays(new Date(), n));
-  const ago = (n: number) => toISO(addDays(new Date(), -n));
-  const a = (
-    id: string,
-    athlete: string,
-    current_phase: string | null,
-    today_reco: RosterAthlete["today_reco"],
-    opts: Partial<RosterAthlete> = {},
-  ): RosterAthlete => ({
-    tenant_id: id,
-    name: athlete,
-    athlete,
-    mode: "race",
-    current_phase,
-    sports: ["run"],
-    metrics: ["hrv"],
-    next_race_name: null,
-    next_race_date: null,
-    today_reco,
-    last_checkin: ago(0),
-    recent_injuries: 0,
-    injury_severity: null,
-    ...opts,
-  });
-
-  return [
-    a("d1", "Marina", "Base", "green", { sports: ["swim", "bike", "run"], metrics: ["power", "hrv", "bioimpedance"], next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(96) }),
-    a("d2", "João", "Base", "yellow", { sports: ["run", "strength"], metrics: ["hrv"], next_race_name: "Maratona do Porto", next_race_date: race(96), last_checkin: ago(1) }),
-    a("d3", "Lucas", "Base", "red", { sports: ["run"], metrics: [], last_checkin: ago(1), recent_injuries: 1, injury_severity: 4 }),
-    a("d4", "Ana", "Build", "green", { sports: ["swim", "bike", "run", "strength"], metrics: ["power", "hrv", "bioimpedance"], next_race_name: "Triatlo de Aveiro", next_race_date: race(42) }),
-    a("d5", "Pedro", "Build", null, { sports: ["bike", "run"], metrics: ["power", "hrv"], last_checkin: ago(5) }),
-    a("d6", "Carla", "Build", "yellow", { sports: ["swim", "bike", "run"], metrics: ["hrv", "bioimpedance"], next_race_name: "Triatlo de Aveiro", next_race_date: race(42), last_checkin: ago(2), recent_injuries: 1, injury_severity: 2 }),
-    a("d7", "Rafael", "Pico", "green", { sports: ["swim", "bike", "run"], metrics: ["power", "hrv", "bioimpedance"], next_race_name: "IRONMAN 70.3 Cascais", next_race_date: race(13) }),
-    a("d8", "Bia", "Taper", "green", { sports: ["run"], metrics: ["hrv"], next_race_name: "Meia de Lisboa", next_race_date: race(5) }),
-    a("d9", "Diego", null, null, { sports: ["bike"], metrics: ["power"], last_checkin: ago(8) }),
-  ];
-}
-
 export default async function CoachDemoPage() {
   const locale: Locale = pickLocale((await headers()).get("accept-language"));
   const tr = translator(locale);
   const todayISO = toISO(new Date());
+  // Same three inputs the real panel feeds the board — roster, plan reach and
+  // threshold ages — so the preview exercises the empty-calendar ranking and the
+  // test badges rather than only the half of the card that needs no migration.
+  const { roster, planFor, testsFor } = demoRosterBoard(todayISO);
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
@@ -69,7 +35,14 @@ export default async function CoachDemoPage() {
         </p>
       </header>
 
-      <RosterBoard roster={mockRoster()} locale={locale} todayISO={todayISO} hrefFor={() => "/demo"} />
+      <RosterBoard
+        roster={roster}
+        locale={locale}
+        todayISO={todayISO}
+        hrefFor={() => "/demo"}
+        testsFor={testsFor}
+        planFor={planFor}
+      />
 
       <p className="mt-8 text-center text-[12px] text-[var(--text-faint)]">
         Prévia com dados fictícios · <Link href="/coach/login" className="text-[var(--lime)] hover:underline">entrar no painel real</Link>

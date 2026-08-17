@@ -10,6 +10,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n";
 import { hasProductDb, withTenant } from "./product-db";
 import { addDays, parseDate, toISO } from "./utils";
 import { phaseColor } from "./phases";
+import { extendCurve } from "./pmc-curve";
 import { withComputedStress } from "./stress";
 import { RACE_DATE, RACE_NAME } from "./types";
 import type { Availability } from "./availability";
@@ -109,58 +110,11 @@ export function isUnconfigured(tenant: TenantView, data: DashboardData): boolean
   );
 }
 
-/** Continue the PMC from the last training_load row to today using workout TSS
- * (same logic as the personal dashboard; kept here so lib/data.ts stays as-is). */
-function extendTrainingLoad(load: TrainingLoad[], workouts: Workout[], todayISO: string): TrainingLoad[] {
-  const sorted = [...load].sort((a, b) => (a.date < b.date ? -1 : 1));
-  const today = parseDate(todayISO);
-
-  let cursor: Date;
-  let ctl: number;
-  let atl: number;
-  let out: TrainingLoad[];
-
-  if (sorted.length === 0) {
-    // No history to continue from. This used to return empty, which meant the
-    // fitness chart stayed blank forever for every new athlete: training_load
-    // is only ever populated by the migration, and no coach tool writes it. So
-    // build the curve from the sessions themselves, starting at zero — which is
-    // exactly what a real PMC looks like for someone just starting out.
-    if (workouts.length === 0) return [];
-    const firstISO = workouts.reduce((min, w) => (w.date < min ? w.date : min), workouts[0].date);
-    // Step back a day so the loop's first iteration lands ON the first session.
-    cursor = addDays(parseDate(firstISO), -1);
-    ctl = 0;
-    atl = 0;
-    out = [];
-  } else {
-    const last = sorted[sorted.length - 1];
-    if (last.ctl == null || last.atl == null) return sorted;
-    cursor = parseDate(last.date);
-    ctl = last.ctl;
-    atl = last.atl;
-    out = [...sorted];
-  }
-
-  if (cursor >= today) return out.length > 0 ? out : sorted;
-
-  const tssByDate: Record<string, number> = {};
-  for (const w of workouts) {
-    const t = Number(w.actual_tss ?? w.planned_tss ?? 0);
-    if (t > 0) tssByDate[w.date] = (tssByDate[w.date] ?? 0) + t;
-  }
-
-  while (cursor < today) {
-    cursor = addDays(cursor, 1);
-    const iso = toISO(cursor);
-    const tss = Math.round(tssByDate[iso] ?? 0);
-    const tsb = ctl - atl;
-    ctl = ctl + (tss - ctl) / 42;
-    atl = atl + (tss - atl) / 7;
-    out.push({ date: iso, tss, ctl: +ctl.toFixed(1), atl: +atl.toFixed(1), tsb: +tsb.toFixed(1), source: "manual" });
-  }
-  return out;
-}
+// The PMC recurrence used to live here, in the second of two copies. It now
+// lives in lib/pmc-curve.ts (extendCurve), because the coach roster has to build
+// the SAME curve per athlete for the team view — and two implementations meant
+// the coach's screen and the athlete's screen could state different facts about
+// the same person on the same day. See the header of lib/pmc-curve.ts.
 
 /**
  * Loads one tenant's dashboard data from the product project. Falls back to mock
@@ -298,7 +252,7 @@ export async function getProductDashboardData(
       const scored = withComputedStress(workouts, indicators[0] ?? null);
 
       const data: DashboardData = {
-        trainingLoad: extendTrainingLoad(trainingLoad, scored, toISO(new Date())),
+        trainingLoad: extendCurve(trainingLoad, scored, toISO(new Date())),
         workouts: scored,
         // THE ACTIVE CYCLE WINS. It used to be the other way round, and that
         // made the Season block quietly ignore the coach: `set_cycle` is the
