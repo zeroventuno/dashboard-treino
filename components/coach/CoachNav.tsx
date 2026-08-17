@@ -43,7 +43,15 @@ export function CoachNav({
       <div className="flex min-w-0 items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo-trakr.svg" alt="MY TRAKR" className="h-[24px] w-auto shrink-0" />
-        <div className="flex items-center gap-0.5">
+        {/* The tab strip scrolls; the document does not.
+            Five tabs at their intrinsic width forced the page to 444px on a
+            375px phone, so every screen of the coach panel scrolled sideways —
+            not the nav, the whole document. `min-w-0` lets the strip shrink
+            below its content and `overflow-x-auto` gives the overflow somewhere
+            to go. Tabs keep their own width (`shrink-0`) rather than squeezing
+            into unreadable slivers, which is the same call the roster card made
+            for the athlete's name. */}
+        <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>a]:shrink-0">
           <Link href="/coach" className={tabCls(active === "team")}>
             {tr("coach.nav.team")}
           </Link>

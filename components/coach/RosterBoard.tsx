@@ -11,6 +11,46 @@
 // which is a claim about someone who has told us nothing. Same reasoning as
 // `never` in lib/testing.ts and z0 in lib/zone-time.ts: not-measured is a state,
 // not a low value. See `silent` in Card().
+//
+// ── TRAINING LOAD RIDES TWO AXES THE CARD WAS ALREADY NOT USING ─────────────
+//
+// The card is dense and the name only just won its own line back; a fourth
+// chip competing for that column would undo the measurement it was won on. So
+// fatigue was given no new element and no new row:
+//
+//   1. THE FILL. The readiness light deliberately lives in the border + glow
+//      "rather than a fill" (above), which left the card's own background
+//      unclaimed. Load washes it — coral for overreaching, amber for watch, at
+//      7-9%, dark enough that the name's contrast moves by hundredths. It is
+//      the only channel here that reads from across a 40-card grid, and it
+//      costs zero pixels of height.
+//   2. THE SLACK IN THE BOTTOM BAND. That row is `justify-between` with a
+//      check-in date on the left and three metric icons on the right, and ~80px
+//      of nothing in between at the 218px card width. The load number sits
+//      there. mt-auto already pins the row, so the card does not grow.
+//
+// What each state looks like:
+//   ok            nothing at all. Silence is the correct rendering of "no
+//                 action needed" — the same rule the plan/injury/test marks
+//                 already follow, and it keeps a healthy roster pixel-identical
+//                 to the one measured at 9/9 readable names.
+//   watch         amber TSB + a falling caret (watch is rising by definition).
+//   overreaching  coral TSB, caret only when fatigue is actually still climbing.
+//   NO READING    an em dash in --text-muted. Not zero, not ok, not red — the
+//                 same "—" this codebase already prints for a null number, with
+//                 the reason in the tooltip. classifyLoad returns null and
+//                 getRosterLoad omits athletes with no sessions entirely; both
+//                 arrive here as null and both render as the dash.
+//
+// Measured on the nine-athlete cohort at 1280px (5 columns, 218px cards): 9 of
+// 9 names still on one line, no ellipsis, no clamp; name contrast 14.73:1 on an
+// unwashed card and 12.86:1 on the coral wash, against a 4.5:1 floor. The
+// bottom band did not grow. At the two-column phone width the band wraps on the
+// cards that carry all four items — see the note on it below.
+//
+// The bare coloured number is legible because <LoadBar> sits directly above the
+// grid carrying the same four colours WITH their words — the summary is the
+// card mark's legend, which is why the mark itself needs no label.
 import Link from "next/link";
 import type { TestStatus } from "@/lib/testing";
 import type { RosterPlanAhead } from "@/lib/product-db";
@@ -18,6 +58,8 @@ import { translator, type Locale, type TKey } from "@/lib/i18n";
 import { sevColor } from "@/components/InjuryTracker";
 import { daysBetween } from "@/lib/utils";
 import type { RosterAthlete } from "@/lib/product-db";
+import type { LoadState } from "@/lib/roster-load";
+import { LOAD_LABEL, LOAD_TONE } from "@/lib/roster-load-view";
 import { Icon, type IconName } from "./icons";
 
 const FAROL: Record<string, string> = {
@@ -77,7 +119,25 @@ function phaseRank(phase: string): number {
   return 4;
 }
 
-function Card({ a, todayISO, tr, href, tests = [], plan = null }: { a: RosterAthlete; todayISO: string; tr: (k: TKey) => string; href: string | null; tests?: TestStatus[]; plan?: RosterPlanAhead | null }) {
+/** TSB, the way the athlete's own chart prints it (components/PmcChart.tsx). */
+function fmtSigned(n: number): string {
+  return `${n > 0 ? "+" : ""}${Math.round(n)}`;
+}
+
+function Card({
+  a, todayISO, tr, href, tests = [], plan = null, load,
+}: {
+  a: RosterAthlete;
+  todayISO: string;
+  tr: (k: TKey) => string;
+  href: string | null;
+  tests?: TestStatus[];
+  plan?: RosterPlanAhead | null;
+  /** undefined = the panel is not reading load at all (no migration, older
+   * caller) and the card shows nothing. null = load IS being read and this
+   * athlete has no usable reading, which is a fact worth a mark of its own. */
+  load?: LoadState | null;
+}) {
   const farol = a.today_reco ? FAROL[a.today_reco] : null;
   // No light today. Not calm — unknown. This used to be the DEFAULT rendering
   // (soft border, no glow), which meant the athlete who stopped reporting was
@@ -90,19 +150,47 @@ function Card({ a, todayISO, tr, href, tests = [], plan = null }: { a: RosterAth
   const sports = a.sports ?? [];
   const metrics = a.metrics ?? [];
 
+  // Load, on the fill. Only the two states that ask for action wash the card;
+  // `ok` and "no reading" both leave it at --surface, and the difference
+  // between THOSE two is carried by the mark in the bottom band (a dash for
+  // absence, nothing for fine) rather than by a colour that would have to be
+  // invented for "we know, and it is fine".
+  const loadTone = load ? LOAD_TONE[load.level] : null;
+  const wash = load && load.level !== "ok" ? LOAD_TONE[load.level] : null;
+  const washPct = load?.level === "overreaching" ? "9%" : "7%";
+
   const cls =
-    "flex h-full flex-col gap-1 rounded-[12px] border bg-[var(--surface)] px-3 py-2.5 transition-colors hover:bg-[var(--surface-2)]";
+    "flex h-full flex-col gap-1 rounded-[12px] border bg-[var(--card-bg)] px-3 py-2.5 transition-colors hover:bg-[var(--card-bg-hover)]";
   // The readiness light lives in the border + a faint outer glow, not a fill.
   // Unknown breaks the line instead of changing its hue: a dashed border is
   // legible as "gap" from across the grid, costs nothing on the colour axis
   // (so it can never be mistaken for red), and lifts the card off the neutral
   // --border-soft it used to hide in. The glow follows so a silent card sits at
   // the same elevation as a lit one rather than sinking into the canvas.
-  const style: React.CSSProperties = {
+  //
+  // The fill goes through two CUSTOM PROPERTIES rather than a `background`
+  // declaration: an inline background beats every class, so hovering a washed
+  // card would have gone dead while its neighbours still lit up. Both states
+  // are named here and Tailwind reads them, so hover survives the wash.
+  const style: React.CSSProperties & Record<string, string | undefined> = {
     borderColor: farol ?? "var(--text-faint)",
     borderStyle: silent ? "dashed" : undefined,
     boxShadow: farol ? `0 0 16px -9px ${farol}` : "0 0 16px -10px var(--text-muted)",
+    "--card-bg": wash ? `color-mix(in oklab, ${wash} ${washPct}, var(--surface))` : "var(--surface)",
+    "--card-bg-hover": wash
+      ? `color-mix(in oklab, ${wash} ${washPct}, var(--surface-2))`
+      : "var(--surface-2)",
   };
+
+  // Named once, used by the mark below and by its own tooltip.
+  const loadTip =
+    load === undefined
+      ? null
+      : load === null
+        ? tr("coach.load.noneTip")
+        : `${tr(LOAD_LABEL[load.level])} · ${tr("coach.load.tsb").replace("{n}", fmtSigned(load.tsb))}${
+            load.rising ? ` · ${tr("coach.load.rising")}` : ""
+          }`;
 
   const body = (
     <>
@@ -218,8 +306,17 @@ function Card({ a, todayISO, tr, href, tests = [], plan = null }: { a: RosterAth
           space under the last line. Pinning this band to the bottom turns that
           slack into one horizontal rule of check-in dates across the row — the
           same pixels, now scannable. */}
-      <div className="mt-auto flex items-center justify-between gap-1.5">
-        <div className="flex min-w-0 items-center gap-1.5">
+      {/* flex-wrap, and the left group no longer shrinks. Measured at the
+          two-column phone width (141px cards): a card carrying a check-in date,
+          an injury cross AND a load number wants 114px of the 93px this group
+          had, and because every child is shrink-0 the surplus was painting
+          straight over the metric icons. Wrapping drops the capability icons to
+          their own line on exactly those cards — costing ~14px of height on a
+          phone, where the name already chose height over truncation for the
+          same reason, and nothing at all from md up, where the row measures 141
+          of 194px used and never wraps. */}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-x-1.5 gap-y-1">
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5">
           {/* When the light is unknown the check-in fact has already been
               promoted into the chip above; repeating it here would be the same
               sentence twice on one card. */}
@@ -249,6 +346,40 @@ function Card({ a, todayISO, tr, href, tests = [], plan = null }: { a: RosterAth
               <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                 <path d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8z" />
               </svg>
+            </span>
+          )}
+          {/* Training load — the row's leftover width, no new line. The caret
+              points DOWN because it annotates the number beside it: TSB falling
+              IS fatigue rising, and the tooltip says so in words. `watch` is
+              rising by definition, so the caret only adds information on an
+              overreaching athlete — it separates one who is still digging from
+              one who has stopped. */}
+          {/* --text-muted, not --text-faint: the same weight the silent chip
+              gives absence. Faint measured 2.9:1 on the card, which is how a
+              missing reading becomes invisible instead of noticeable; muted is
+              ~6:1 and still carries no chroma at all. */}
+          {load === null && (
+            <span
+              className="tnum shrink-0 text-[10.5px] font-bold leading-none text-[var(--text-muted)]"
+              title={loadTip ?? undefined}
+              aria-label={loadTip ?? undefined}
+            >
+              —
+            </span>
+          )}
+          {load && load.level !== "ok" && (
+            <span
+              className="tnum flex shrink-0 items-center gap-[1px] text-[10.5px] font-bold leading-none"
+              style={{ color: loadTone ?? undefined }}
+              title={loadTip ?? undefined}
+              aria-label={loadTip ?? undefined}
+            >
+              {load.rising && (
+                <svg width="7" height="7" viewBox="0 0 10 10" fill="currentColor" aria-hidden>
+                  <path d="M5 9 0.7 2.5h8.6z" />
+                </svg>
+              )}
+              {fmtSigned(load.tsb)}
             </span>
           )}
         </div>
@@ -288,6 +419,7 @@ export function RosterBoard({
   hrefFor,
   testsFor,
   planFor,
+  loadFor,
 }: {
   roster: RosterAthlete[];
   locale: Locale;
@@ -300,6 +432,12 @@ export function RosterBoard({
   /** How far each athlete's plan reaches. Optional, so the board still renders
    * before add-planned-ahead.sql has run. */
   planFor?: (tenantId: string) => RosterPlanAhead | null;
+  /** Where each athlete sits on the PMC. Optional for the same reason as the
+   * two above — but note the difference between OMITTING it and returning null:
+   * omitted means the board is not reading load and shows no load marks at all;
+   * null means it IS reading and this athlete has no usable reading, which is
+   * rendered, because "we looked and found nothing" is worth saying. */
+  loadFor?: (tenantId: string) => LoadState | null;
 }) {
   const tr = translator(locale);
 
@@ -333,7 +471,17 @@ export function RosterBoard({
           </div>
           <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {list.map((a) => (
-              <Card key={a.tenant_id} a={a} todayISO={todayISO} tr={tr} href={hrefFor(a)} tests={testsFor?.(a.tenant_id) ?? []} plan={planFor?.(a.tenant_id) ?? null} />
+              <Card
+                key={a.tenant_id}
+                a={a}
+                todayISO={todayISO}
+                tr={tr}
+                href={hrefFor(a)}
+                tests={testsFor?.(a.tenant_id) ?? []}
+                plan={planFor?.(a.tenant_id) ?? null}
+                // `?? null` would flatten "not reading load" into "no reading".
+                load={loadFor ? loadFor(a.tenant_id) : undefined}
+              />
             ))}
           </div>
         </section>

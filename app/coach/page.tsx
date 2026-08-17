@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getRoster, getRosterPlanAhead, getRosterTestDates, resolveStaffId } from "@/lib/product-db";
+import { getRoster, getRosterLoad, getRosterPlanAhead, getRosterTestDates, resolveStaffId } from "@/lib/product-db";
 import { testStatus, needsTesting } from "@/lib/testing";
 import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
@@ -9,10 +9,19 @@ import { CoachNav } from "@/components/coach/CoachNav";
 import { TodoList } from "@/components/coach/TodoList";
 import { collectSignals } from "@/lib/coach-signals";
 import { RosterBoard } from "@/components/coach/RosterBoard";
+import { LoadBar } from "@/components/coach/LoadBar";
+import { isLoadBand, viewRosterLoad } from "@/lib/roster-load-view";
 
 export const dynamic = "force-dynamic";
 
-export default async function CoachPanelPage() {
+export default async function CoachPanelPage({
+  searchParams,
+}: {
+  /** ?load=<band> filters the grid to one load band. A query string rather than
+   * client state: the board's data callbacks can't cross to the client, and a
+   * filtered roster is worth being linkable. */
+  searchParams: Promise<{ load?: string | string[] }>;
+}) {
   const cookieKey = (await cookies()).get(COACH_COOKIE)?.value ?? null;
   if (!cookieKey) redirect("/coach/login");
 
@@ -22,16 +31,24 @@ export default async function CoachPanelPage() {
   const locale: Locale = pickLocale((await headers()).get("accept-language"));
   const tr = translator(locale);
   const todayISO = toISO(new Date());
-  // Three independent reads rather than one wider roster function: each degrades
+  // Four independent reads rather than one wider roster function: each degrades
   // on its own if its migration hasn't run, so a missing SQL file costs a badge
   // instead of the whole panel.
-  const [roster, planAhead, testDates] = await Promise.all([
+  const [roster, planAhead, testDates, load] = await Promise.all([
     getRoster(staff.id),
     getRosterPlanAhead(staff.id),
     getRosterTestDates(staff.id),
+    getRosterLoad(staff.id, todayISO),
   ]);
 
   const planByTenant = new Map(planAhead.map((p) => [p.tenant_id, p]));
+
+  // The roster ids, not the load rows, are the denominator: getRosterLoad omits
+  // athletes with no sessions, and those are "no reading", not "ok".
+  const loadView = viewRosterLoad(roster.map((a) => a.tenant_id), load, todayISO);
+  const rawBand = (await searchParams).load;
+  const band = isLoadBand(rawBand) ? rawBand : null;
+  const shown = band ? roster.filter((a) => loadView.bandFor(a.tenant_id) === band) : roster;
 
   // Threshold ages become the same shape the athlete's own dashboard uses, so
   // "overdue" means one thing in one place.
@@ -97,18 +114,38 @@ export default async function CoachPanelPage() {
         </section>
       )}
 
+      {/* Directly above the grid, because it is the grid's header: it counts
+          the cards below it and it is the legend for the colours on them. The
+          day's list stays first — that answers "what do I do now", this answers
+          "what did I write". */}
+      {roster.length > 0 && (
+        <LoadBar
+          counts={loadView.counts}
+          total={loadView.total}
+          attention={loadView.attention}
+          active={band}
+          basePath="/coach"
+          tr={tr}
+        />
+      )}
+
       {roster.length === 0 ? (
         <p className="rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] px-5 py-8 text-center text-[13.5px] text-[var(--text-faint)]">
           {tr("coach.empty")}
         </p>
+      ) : shown.length === 0 ? (
+        <p className="rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] px-5 py-8 text-center text-[13.5px] text-[var(--text-faint)]">
+          {tr("coach.load.empty")}
+        </p>
       ) : (
         <RosterBoard
-          roster={roster}
+          roster={shown}
           locale={locale}
           todayISO={todayISO}
           hrefFor={(a) => `/coach/a/${a.tenant_id}`}
           testsFor={(id) => testsByTenant.get(id) ?? []}
           planFor={(id) => planByTenant.get(id) ?? null}
+          loadFor={(id) => loadView.stateFor(id)}
         />
       )}
     </div>

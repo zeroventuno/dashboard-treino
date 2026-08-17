@@ -465,12 +465,18 @@ export function demoTests(t: DemoTestDates, todayISO: string, sports: string[] =
   );
 }
 
-/** Everything <RosterBoard> needs, assembled once. Keeps the demo page a page. */
+/** Everything <RosterBoard> needs, assembled once. Keeps the demo page a page.
+ *
+ * `load` comes out RAW — the same array shape getRosterLoad hands the real
+ * panel — rather than pre-classified, so the demo page runs it through the very
+ * same viewRosterLoad call app/coach/page.tsx does. A fixture that classified
+ * on its own behalf would stop testing the path it stands in for. */
 export function demoRosterBoard(todayISO: string, today = new Date()): {
   cohort: DemoAthlete[];
   roster: RosterAthlete[];
   planFor: (tenantId: string) => RosterPlanAhead | null;
   testsFor: (tenantId: string) => TestStatus[];
+  load: RosterLoadSummary[];
 } {
   const cohort = demoCohort(today);
   const plans = new Map(cohort.map((a) => [a.roster.tenant_id, a.plan]));
@@ -482,6 +488,7 @@ export function demoRosterBoard(todayISO: string, today = new Date()): {
     roster: cohort.map((a) => a.roster),
     planFor: (id) => plans.get(id) ?? null,
     testsFor: (id) => tests.get(id) ?? [],
+    load: demoLoad(today),
   };
 }
 
@@ -490,9 +497,10 @@ export function demoAttention(today = new Date()): AttentionRow[] {
   return demoCohort(today).map((a) => a.attention);
 }
 
-/** The same cohort as PMC summaries, for lib/roster-load.ts. No consumer in the
- * panel yet — the load column is still being built — so this is here to be
- * classified against, not rendered. */
+/** The same cohort as PMC summaries, for lib/roster-load.ts — stand-ins for what
+ * getRosterLoad derives per athlete. Fed to /coach/demo through demoRosterBoard,
+ * so the fixture exercises the load marks and the distribution bar, and read
+ * directly by product/tests/roster-load.ts. */
 export function demoLoad(today = new Date()): RosterLoadSummary[] {
   return demoCohort(today).map((a) => a.load);
 }
