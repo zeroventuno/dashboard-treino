@@ -1,5 +1,5 @@
 {
-  "name": "MY TRAKR — Mail v2 (boas-vindas + chave + recuperação)",
+  "name": "Ventuno — Mail v3 (multi-projeto, assinatura por marca)",
   "nodes": [
     {
       "parameters": {
@@ -22,7 +22,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ JSON.stringify({\n  kind:  $json.body?.kind  ?? $json.kind  ?? 'signup',\n  email: $json.body?.email ?? $json.email ?? '',\n  name:  $json.body?.name  ?? $json.name  ?? '',\n  url:   $json.body?.url   ?? $json.url   ?? ''\n}) }}",
+        "jsonOutput": "={{ JSON.stringify({\n  kind:  $json.body?.kind  ?? $json.kind  ?? 'signup',\n  email: $json.body?.email ?? $json.email ?? '',\n  name:  $json.body?.name  ?? $json.name  ?? '',\n  url:   $json.body?.url   ?? $json.url   ?? '',\n  brand:  $json.body?.brand  ?? $json.brand  ?? 'MY TRAKR',\n  accent: $json.body?.accent ?? $json.accent ?? '#c6f24e',\n  ink:    $json.body?.ink    ?? $json.ink    ?? '#0a0b0d',\n  footer: $json.body?.footer ?? $json.footer ?? ''\n}) }}",
         "options": {}
       },
       "id": "normalize",
@@ -33,7 +33,7 @@
         -220,
         340
       ],
-      "notes": "Aceita corpo de webhook e execução manual. `kind`: signup | recover | agency."
+      "notes": "Marca vem de QUEM CHAMA, com MY TRAKR como padrao. Um fluxo serve todos os projetos: cada sistema manda seu brand/accent/footer e recebe o e-mail com a propria cara, pelo mesmo remetente autenticado."
     },
     {
       "parameters": {
@@ -94,11 +94,11 @@
     },
     {
       "parameters": {
-        "fromEmail": "={{ $env.TRAKR_FROM_EMAIL }}",
+        "fromEmail": "={{ $json.brand }} <{{ $env.TRAKR_FROM_EMAIL }}>",
         "toEmail": "={{ $json.email }}",
         "subject": "={{ $json.subject }}",
         "emailFormat": "html",
-        "html": "={{ '<div style=\"font-family:system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.6;color:#1a1c20;max-width:520px\">' +\n'<p>Olá' + $json.nome + ',</p>' +\n'<p>' + $json.lead + '</p>' +\n'<p style=\"margin:26px 0\"><a href=\"' + $json.url + '\" style=\"display:inline-block;background:#c6f24e;color:#0a0b0d;font-weight:700;padding:13px 22px;border-radius:10px;text-decoration:none\">' + $json.cta + '</a></p>' +\n'<p style=\"color:#5b6070;font-size:13px\">' + $json.foot + '</p>' +\n'<p style=\"color:#5b6070;font-size:13px\">Se o botão não funcionar, copie este endereço:<br><span style=\"word-break:break-all\">' + $json.url + '</span></p>' +\n'<p style=\"color:#8b90a0;font-size:12px;margin-top:28px\">MY TRAKR</p>' +\n'</div>' }}",
+        "html": "={{ '<div style=\"font-family:system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.6;color:#1a1c20;max-width:520px\">' +\n'<p>Olá' + $json.nome + ',</p>' +\n'<p>' + $json.lead + '</p>' +\n'<p style=\"margin:26px 0\"><a href=\"' + $json.url + '\" style=\"display:inline-block;background:' + $json.accent + ';color:' + $json.ink + ';font-weight:700;padding:13px 22px;border-radius:10px;text-decoration:none\">' + $json.cta + '</a></p>' +\n'<p style=\"color:#5b6070;font-size:13px\">' + $json.foot + '</p>' +\n'<p style=\"color:#5b6070;font-size:13px\">Se o botão não funcionar, copie este endereço:<br><span style=\"word-break:break-all\">' + $json.url + '</span></p>' +\n'<hr style=\"border:0;border-top:1px solid #e4e6ea;margin:28px 0 14px\">' +\n'<p style=\"color:#8b90a0;font-size:12px;margin:0\"><strong>' + $json.brand + '</strong>' + ($json.footer ? '<br>' + $json.footer : '') + '</p>' +\n'</div>' }}",
         "options": {}
       },
       "id": "send",
@@ -109,7 +109,7 @@
         540,
         240
       ],
-      "notes": "Selecione sua credencial SMTP no import (a caixa do seu domínio serve). TRAKR_FROM_EMAIL no ambiente do n8n."
+      "notes": "From usa 'Marca <endereco>': o endereco continua sendo o unico autenticado pela credencial SMTP, so o NOME muda por projeto — trocar o endereco exigiria SPF/DKIM daquele dominio autorizando este servidor. TRAKR_FROM_EMAIL no ambiente do n8n, ou troque a expressao pelo endereco literal."
     },
     {
       "parameters": {
