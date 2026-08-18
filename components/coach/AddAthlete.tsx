@@ -45,7 +45,14 @@ export function AddAthlete({ locale, appUrl, mcpUrl }: { locale: Locale; appUrl:
       setCreated({ key: data.key, name: form.name, email: form.email, mailed: data.mailed === true });
       setForm({ name: "", email: "", nickname: "", phone: "" });
       setState("idle");
-      router.refresh();
+      // router.refresh() moved to dismiss(), on purpose: this screen shows a
+      // secret that cannot ever be shown again, so nothing may re-render it
+      // out from under the owner while it is up. A background refresh here
+      // was the prime suspect for the key vanishing after ~1s — Next.js says
+      // a refresh preserves client state, and this codebase has learned today,
+      // three times over, not to trust a claim like that over what actually
+      // happens. Refreshing only on dismiss removes the risk outright instead
+      // of trying to prove which theory was right.
     } catch {
       setState("error");
     }
@@ -138,7 +145,7 @@ export function AddAthlete({ locale, appUrl, mcpUrl }: { locale: Locale; appUrl:
             </button>
             <button
               type="button"
-              onClick={() => setCreated(null)}
+              onClick={() => { setCreated(null); router.refresh(); }}
               className="rounded-[10px] px-3 py-1.5 text-[12.5px] font-medium text-[var(--text-faint)] underline"
             >
               {tr("athletes.dismiss")}

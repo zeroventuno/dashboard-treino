@@ -1968,8 +1968,12 @@ export async function createAthlete(
 export async function listAgencyAthletes(agencyId: string): Promise<AgencyAthlete[]> {
   if (!hasProductDb()) return [];
   const { rows } = await getPool().query<AgencyAthlete>(
+    // created_at is timestamptz; to_char() here for the same reason it's
+    // applied in getAgencyAttention — node-postgres would otherwise hand back
+    // a JS Date against a field typed string, unused today but one render away
+    // from the same crash that hit /coach/agency twice this week.
     `select t.id as tenant_id, t.athlete_name as name, t.nickname, t.phone, t.email,
-            t.monthly_value, t.created_at,
+            t.monthly_value, to_char(t.created_at,'YYYY-MM-DD') as created_at,
             coalesce(array_agg(sa.staff_id) filter (where sa.staff_id is not null), '{}') as staff_ids
        from app.tenants t
        left join app.staff_athletes sa on sa.tenant_id = t.id
