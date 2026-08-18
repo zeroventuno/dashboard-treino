@@ -43,7 +43,32 @@ export interface Assessed extends AttentionRow {
 
 const DAY = 86_400_000;
 
-function daysSince(iso: string | null, todayISO: string): number | null {
+/**
+ * Whole days between a date and today, or null when there is no date.
+ *
+ * Takes `unknown` on purpose. It used to insist on `string | null` and call
+ * `.slice()` — which is true of every DATE column, because lib/product-db
+ * installs a parser that leaves those as text, but NOT of `timestamptz`:
+ * node-postgres hands those back as a JS Date, and nothing overrides that.
+ * `app.agency_attention` returns `created_at timestamptz`, so the moment that
+ * function was re-run to its current version the coach's agency page died on
+ * `a.slice is not a function`.
+ *
+ * Accepting both is the honest fix: this is a pure helper reading whatever the
+ * driver produced, and a type annotation claiming otherwise is what let it
+ * through the compiler.
+ */
+function daysSince(value: unknown, todayISO: string): number | null {
+  const iso =
+    value instanceof Date
+      ? value.toISOString()
+      : typeof value === "string"
+        ? value
+        : null;
+  return daysSinceISO(iso, todayISO);
+}
+
+function daysSinceISO(iso: string | null, todayISO: string): number | null {
   if (!iso) return null;
   const d = Math.floor((Date.parse(`${todayISO}T00:00:00Z`) - Date.parse(`${iso.slice(0, 10)}T00:00:00Z`)) / DAY);
   return Number.isFinite(d) ? d : null;

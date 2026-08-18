@@ -1070,10 +1070,18 @@ export async function setBankTags(agencyId: string, id: string, tags: string[]):
 export async function getAgencyAttention(agencyId: string): Promise<AttentionRow[]> {
   if (!hasProductDb()) return [];
   const { rows } = await getPool().query<AttentionRow>(
-    `select tenant_id, name, email, created_at,
+    // `created_at` gets the same to_char as the other two, and it is not
+    // cosmetic: the function returns it as `timestamptz`, which node-postgres
+    // turns into a JS Date — the DATE parser installed at the top of this file
+    // does not cover it. Everything downstream expects a 'YYYY-MM-DD' string,
+    // so the raw column took the agency page down with `a.slice is not a
+    // function` the moment app.agency_attention was re-run to its current
+    // version. Coerced here, at the one place that knows what the driver did.
+    `select tenant_id, name, email,
+            to_char(created_at,'YYYY-MM-DD')   as created_at,
             to_char(last_checkin,'YYYY-MM-DD') as last_checkin,
             to_char(last_done,'YYYY-MM-DD')    as last_done,
-            done_recent, done_prev, checkins_recent, staff
+            done_recent, done_prev, checkins_recent, staff, staff_ids, monthly_value
        from app.agency_attention($1)`,
     [agencyId],
   );
