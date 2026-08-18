@@ -120,7 +120,8 @@ export async function POST(req: Request) {
 
   if (body.kind === "athlete") {
     const patch: {
-      monthlyValue?: number | null; staffIds?: string[]; name?: string; nickname?: string; phone?: string;
+      monthlyValue?: number | null; extrasValue?: number | null;
+      staffIds?: string[]; name?: string; nickname?: string; phone?: string;
     } = {};
     if ("monthlyValue" in body) {
       const v = body.monthlyValue;
@@ -133,6 +134,17 @@ export async function POST(req: Request) {
           return NextResponse.json({ ok: false, code: "bad_value" }, { status: 400 });
         }
         patch.monthlyValue = n;
+      }
+    }
+    if ("extrasValue" in body) {
+      const v = body.extrasValue;
+      if (v === null || v === "") patch.extrasValue = null;
+      else {
+        const n = Number(v);
+        if (!Number.isFinite(n) || n < 0) {
+          return NextResponse.json({ ok: false, code: "bad_value" }, { status: 400 });
+        }
+        patch.extrasValue = n;
       }
     }
     if (Array.isArray(body.staffIds)) {

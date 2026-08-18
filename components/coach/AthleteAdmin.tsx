@@ -44,7 +44,9 @@ export function AthleteAdmin({
   const [assign, setAssign] = useState<Record<string, string[]>>(() =>
     Object.fromEntries(athletes.map((a) => [a.tenant_id, a.staff_ids])),
   );
-  const [fields, setFields] = useState<Record<string, { name: string; nickname: string; phone: string; value: string }>>(
+  const [fields, setFields] = useState<
+    Record<string, { name: string; nickname: string; phone: string; value: string; extras: string }>
+  >(
     () =>
       Object.fromEntries(
         athletes.map((a) => [
@@ -60,6 +62,7 @@ export function AthleteAdmin({
             // athlete had a fee, `.trim()` below threw and took the whole page
             // down. Coerce at the boundary rather than trusting the type.
             value: a.monthly_value == null ? "" : String(a.monthly_value),
+            extras: a.monthly_value_extras == null ? "" : String(a.monthly_value_extras),
           },
         ]),
       ),
@@ -216,6 +219,25 @@ export function AthleteAdmin({
                         />
                       </label>
                     ))}
+                    <label className="block">
+                      <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">
+                        {tr("admin.extrasValue")}
+                      </span>
+                      <input
+                        value={f.extras}
+                        onChange={(e) =>
+                          setFields((p) => ({ ...p, [a.tenant_id]: { ...p[a.tenant_id], extras: e.target.value } }))
+                        }
+                        onBlur={(e) => {
+                          if (e.target.value !== String(a.monthly_value_extras ?? "")) {
+                            saveField(a.tenant_id, { extrasValue: e.target.value });
+                          }
+                        }}
+                        inputMode="decimal"
+                        placeholder="—"
+                        className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--bg-soft)] px-2.5 py-1.5 text-[12.5px] text-[var(--text)] outline-none focus:border-[var(--lime)]"
+                      />
+                    </label>
                     <p className="text-[11.5px] text-[var(--text-faint)] sm:col-span-3">
                       {tr("athletes.emailFixed")} <span className="text-[var(--text-muted)]">{a.email}</span>
                     </p>

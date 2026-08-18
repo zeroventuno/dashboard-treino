@@ -106,6 +106,7 @@ const REQUIRED_COLUMNS: { schema: string; table: string; column: string; migrati
   { schema: "public", table: "workouts",    column: "actual_zones",  migration: "add-zone-time.sql" },
   { schema: "public", table: "workouts",    column: "actual_rpe",    migration: "add-session-rpe.sql" },
   { schema: "app",    table: "tenants",     column: "monthly_value", migration: "add-owner-and-value.sql" },
+  { schema: "app",    table: "tenants",     column: "monthly_value_extras", migration: "add-athlete-extras-value.sql" },
   { schema: "app",    table: "tenants",     column: "nickname",      migration: "add-athlete-admin.sql" },
   { schema: "app",    table: "staff",       column: "is_owner",      migration: "add-owner-and-value.sql" },
   { schema: "app",    table: "staff",       column: "methodology",   migration: "add-staff-methodology.sql" },
@@ -1935,6 +1936,10 @@ export interface AgencyAthlete {
    * this arrives as a NUMBER despite what a `string` annotation would suggest.
    * Typed loosely on purpose: callers must coerce rather than assume. */
   monthly_value: number | string | null;
+  /** Same NUMERIC-parses-to-number caveat as monthly_value. How much of the
+   * total is physio/nutrition rather than coaching — optional, informational,
+   * not subtracted from anything today. */
+  monthly_value_extras: number | string | null;
   created_at: string;
   staff_ids: string[];
 }
@@ -1997,7 +2002,7 @@ export async function listAgencyAthletes(agencyId: string): Promise<AgencyAthlet
     // a JS Date against a field typed string, unused today but one render away
     // from the same crash that hit /coach/agency twice this week.
     `select t.id as tenant_id, t.athlete_name as name, t.nickname, t.phone, t.email,
-            t.monthly_value, to_char(t.created_at,'YYYY-MM-DD') as created_at,
+            t.monthly_value, t.monthly_value_extras, to_char(t.created_at,'YYYY-MM-DD') as created_at,
             coalesce(array_agg(sa.staff_id) filter (where sa.staff_id is not null), '{}') as staff_ids
        from app.tenants t
        left join app.staff_athletes sa on sa.tenant_id = t.id
@@ -2017,7 +2022,10 @@ export async function listAgencyAthletes(agencyId: string): Promise<AgencyAthlet
 export async function updateAgencyAthlete(
   agencyId: string,
   tenantId: string,
-  patch: { monthlyValue?: number | null; staffIds?: string[]; name?: string; nickname?: string; phone?: string },
+  patch: {
+    monthlyValue?: number | null; extrasValue?: number | null;
+    staffIds?: string[]; name?: string; nickname?: string; phone?: string;
+  },
 ): Promise<boolean> {
   if (!hasProductDb()) return false;
   const client = await getPool().connect();
@@ -2027,7 +2035,8 @@ export async function updateAgencyAthlete(
     // Empty strings clear nickname/phone; undefined leaves them alone.
     const { rowCount } = await client.query(
       `update app.tenants
-          set monthly_value = case when $3::boolean then $4::numeric else monthly_value end,
+          set monthly_value        = case when $3::boolean then $4::numeric else monthly_value end,
+              monthly_value_extras = case when $10::boolean then $11::numeric else monthly_value_extras end,
               athlete_name  = coalesce($5, athlete_name),
               nickname      = case when $6::boolean then nullif($7, '') else nickname end,
               phone         = case when $8::boolean then nullif($9, '') else phone end
@@ -2038,6 +2047,7 @@ export async function updateAgencyAthlete(
         patch.name ?? null,
         patch.nickname !== undefined, patch.nickname ?? null,
         patch.phone !== undefined, patch.phone ?? null,
+        patch.extrasValue !== undefined, patch.extrasValue ?? null,
       ],
     );
     if ((rowCount ?? 0) === 0) { await client.query("rollback"); return false; }
