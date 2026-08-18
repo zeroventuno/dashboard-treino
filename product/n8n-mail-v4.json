@@ -1,0 +1,227 @@
+{
+  "name": "Ventuno — Mail v4 (Resend, sem filtro de hospedagem compartilhada)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trakr-mail",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "mail-in",
+      "name": "Entrada (webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        340
+      ],
+      "webhookId": "trakr-mail",
+      "notes": "URL de produção vai em N8N_MAIL_WEBHOOK_URL na Vercel. Recebe { kind, email, name, url }."
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({\n  kind:  $json.body?.kind  ?? $json.kind  ?? 'signup',\n  email: $json.body?.email ?? $json.email ?? '',\n  name:  $json.body?.name  ?? $json.name  ?? '',\n  url:   $json.body?.url   ?? $json.url   ?? '',\n  brand:  $json.body?.brand  ?? $json.brand  ?? 'MY TRAKR',\n  accent: $json.body?.accent ?? $json.accent ?? '#c6f24e',\n  ink:    $json.body?.ink    ?? $json.ink    ?? '#0a0b0d',\n  signature: $json.body?.signature ?? $json.signature ?? ''\n}) }}",
+        "options": {}
+      },
+      "id": "normalize",
+      "name": "Normalizar",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -220,
+        340
+      ],
+      "notes": "Marca e assinatura vem de QUEM CHAMA. `brand` e o nome de exibicao do remetente; `signature` e HTML cru colado no rodape. Um fluxo serve todos os projetos da Ventuno pelo mesmo remetente autenticado."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-url",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "http",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            },
+            {
+              "id": "has-mail",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "@",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "guard",
+      "name": "Payload válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        20,
+        340
+      ],
+      "notes": "Um link relativo ou um e-mail vazio viraria mensagem inútil gastando um token de uso único. Melhor não enviar."
+    },
+    {
+      "parameters": {
+        "jsonOutput": "={{ (() => {\n  const k = $json.kind;\n  const nome = $json.name ? ' ' + $json.name : '';\n  const T = {\n    signup: {\n      subject: 'Sua conta MY TRAKR está pronta',\n      lead:    'Falta um passo para começar: abra o link e receba sua chave de acesso.',\n      cta:     'Criar minha conta',\n      foot:    'O link vale 14 dias e serve uma vez só. A chave aparece uma única vez — tenha um gerenciador de senhas à mão.'\n    },\n    recover: {\n      subject: 'Sua nova chave MY TRAKR',\n      lead:    'Você pediu uma chave nova. Ao abrir o link, a chave anterior deixa de funcionar.',\n      cta:     'Gerar chave nova',\n      foot:    'O link vale 2 horas e serve uma vez só. Se não foi você quem pediu, ignore este e-mail — nada muda até alguém abrir o link.'\n    },\n    welcome: {\n      subject: 'Bem-vindo ao MY TRAKR',\n      lead:    'Sua conta está pronta. Abaixo está sua chave de acesso — guarde-a num gerenciador de senhas, ela não pode ser recuperada, apenas substituída.',\n      cta:     'Abrir meu painel',\n      foot:    'Para conectar sua IA: adicione um conector com a URL do MY TRAKR e cole a chave quando pedir. Conta gratuita do Claude já funciona.'\n    },\n    agency: {\n      subject: 'Sua assessoria no MY TRAKR',\n      lead:    'Sua assessoria está pronta para ser criada. Abra o link e receba a chave de dono.',\n      cta:     'Criar minha assessoria',\n      foot:    'O link vale 14 dias e serve uma vez só. A chave de dono aparece uma única vez.'\n    }\n  }[k] ?? {};\n  return { ...$json, subject: T.subject, lead: T.lead, cta: T.cta, foot: T.foot, nome };\n})() }}",
+        "jsCode": "const j = $input.first().json;\nconst k = j.kind;\nconst nome = j.name ? ' ' + j.name : '';\nconst T = {\n  signup: {\n    subject: 'Sua conta MY TRAKR está pronta',\n    lead:    'Falta um passo para começar: abra o link e receba sua chave de acesso.',\n    cta:     'Criar minha conta',\n    foot:    'O link vale 14 dias e serve uma vez só. A chave aparece uma única vez — tenha um gerenciador de senhas à mão.'\n  },\n  recover: {\n    subject: 'Sua nova chave MY TRAKR',\n    lead:    'Você pediu uma chave nova. Ao abrir o link, a chave anterior deixa de funcionar.',\n    cta:     'Gerar chave nova',\n    foot:    'O link vale 2 horas e serve uma vez só. Se não foi você quem pediu, ignore este e-mail — nada muda até alguém abrir o link.'\n  },\n  welcome: {\n    subject: 'Bem-vindo ao MY TRAKR',\n    lead:    'Sua conta está pronta. Abaixo está sua chave de acesso — guarde-a num gerenciador de senhas, ela não pode ser recuperada, apenas substituída.',\n    cta:     'Abrir meu painel',\n    foot:    'Para conectar sua IA: adicione um conector com a URL do MY TRAKR e cole a chave quando pedir. Conta gratuita do Claude já funciona.'\n  },\n  agency: {\n    subject: 'Sua assessoria no MY TRAKR',\n    lead:    'Sua assessoria está pronta para ser criada. Abra o link e receba a chave de dono.',\n    cta:     'Criar minha assessoria',\n    foot:    'O link vale 14 dias e serve uma vez só. A chave de dono aparece uma única vez.'\n  }\n}[k] ?? {};\nreturn [{ json: { ...j, subject: T.subject, lead: T.lead, cta: T.cta, foot: T.foot, nome } }];"
+      },
+      "id": "copy",
+      "name": "Texto por tipo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        240
+      ],
+      "notes": "Code node de verdade, não Set+expressão: a versão anterior usava {{ (() => { const ...; return ...; })() }} e quebrava com 'Cannot convert undefined or null to object' — os únicos dois nós de expressão que funcionam neste fluxo (Normalizar, Enviar) são uma linha só, sem bloco de statements. Mesmo padrão do Code node em n8n-workout-bank.json."
+    },
+    {
+      "id": "build",
+      "name": "Montar e-mail (Resend)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nconst html = '<div style=\"font-family:system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.6;color:#1a1c20;max-width:520px\">' +\n  '<p>Olá' + j.nome + ',</p>' +\n  '<p>' + j.lead + '</p>' +\n  '<p style=\"margin:26px 0\"><a href=\"' + j.url + '\" style=\"display:inline-block;background:' + j.accent + ';color:' + j.ink + ';font-weight:700;padding:13px 22px;border-radius:10px;text-decoration:none\">' + j.cta + '</a></p>' +\n  '<p style=\"color:#5b6070;font-size:13px\">' + j.foot + '</p>' +\n  '<p style=\"color:#5b6070;font-size:13px\">Se o botão não funcionar, copie este endereço:<br><span style=\"word-break:break-all\">' + j.url + '</span></p>' +\n  '<hr style=\"border:0;border-top:1px solid #e4e6ea;margin:28px 0 14px\">' +\n  (j.signature || '<p style=\"color:#8b90a0;font-size:12px;margin:0\"><strong>' + j.brand + '</strong></p>') +\n  '</div>';\nreturn [{ json: {\n  from: j.brand + ' <' + $env.MAIL_FROM_ADDRESS + '>',\n  to: [j.email],\n  subject: j.subject,\n  html,\n} }];"
+      },
+      "notes": "Um Code node, não Set+expressão — a mesma lição de hoje.  é array na Resend, nunca string."
+    },
+    {
+      "id": "send-resend",
+      "name": "Enviar (Resend)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.RESEND_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "notes": "RESEND_API_KEY no ambiente do n8n. O domínio do endereço em MAIL_FROM_ADDRESS precisa estar VERIFICADO na Resend (Domains → Add Domain → publicar os registros DNS que eles pedirem) antes de enviar."
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ ignorado: true, motivo: 'payload sem url absoluta ou sem e-mail', recebido: $json }) }}",
+        "options": {}
+      },
+      "id": "skip",
+      "name": "Ignorado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        280,
+        440
+      ]
+    }
+  ],
+  "connections": {
+    "Entrada (webhook)": {
+      "main": [
+        [
+          {
+            "node": "Normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar": {
+      "main": [
+        [
+          {
+            "node": "Payload válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payload válido?": {
+      "main": [
+        [
+          {
+            "node": "Texto por tipo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignorado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Texto por tipo": {
+      "main": [
+        [
+          {
+            "node": "Montar e-mail (Resend)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar e-mail (Resend)": {
+      "main": [
+        [
+          {
+            "node": "Enviar (Resend)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
