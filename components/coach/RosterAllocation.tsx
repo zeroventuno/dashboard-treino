@@ -15,6 +15,39 @@ import { useRouter } from "next/navigation";
 import { scoreCoach, type CoachScore, type StaffInfo } from "@/lib/agency-metrics";
 import type { Assessed } from "@/lib/retention";
 import { translator, type Locale, type T } from "@/lib/i18n";
+import { DisciplineIcon } from "@/components/Icons";
+
+const SPORTS = ["swim", "bike", "run", "strength"] as const;
+
+/**
+ * A row of the four discipline icons, lit for what this person (athlete or
+ * coach) actually does — so pairing them is a glance, not a read of two text
+ * lists. An empty `active` means "no restriction declared", the same rule
+ * `specialtyFit` uses, so it's drawn as every icon lit but faint rather than
+ * as every icon off — off would read as "programs nothing", which is the one
+ * thing an empty list never means here.
+ */
+function SportBadges({ active }: { active: string[] }) {
+  const noSignal = active.length === 0;
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-[3px]"
+      title={noSignal ? "Sem restrição declarada" : active.join(" · ")}
+    >
+      {SPORTS.map((s) => {
+        const on = noSignal || active.includes(s);
+        return (
+          <DisciplineIcon
+            key={s}
+            discipline={s}
+            size={12}
+            style={{ color: on ? `var(--${s})` : "var(--text-faint)", opacity: on ? (noSignal ? 0.45 : 1) : 0.3 }}
+          />
+        );
+      })}
+    </span>
+  );
+}
 
 export interface BoardAthlete {
   tenantId: string;
@@ -172,9 +205,7 @@ export function RosterAllocation({
             <section key={s.id} className="rounded-[14px] border border-[var(--border-soft)] bg-[var(--surface)] p-3.5">
               <header className="mb-2 flex items-baseline justify-between gap-2">
                 <h2 className="truncate text-[14px] font-bold text-[var(--text)]">{after.name}</h2>
-                <span className="shrink-0 text-[11.5px] text-[var(--text-faint)]">
-                  {(s.sports ?? []).join(" · ")}
-                </span>
+                <SportBadges active={s.sports ?? []} />
               </header>
 
               <CapacityBar now={now} after={after} tr={tr} />
@@ -218,6 +249,7 @@ export function RosterAllocation({
                           }}
                         />
                         <span className="min-w-0 flex-1 truncate text-[12.5px] text-[var(--text)]">{a.name}</span>
+                        <SportBadges active={a.sports} />
                         {mismatch && <span className="shrink-0 text-[11px] text-[var(--warn)]" title={tr("roster.mismatch")}>△</span>}
                         {a.monthlyValue && (
                           <span className="shrink-0 text-[11px] tabular-nums text-[var(--text-faint)]">{a.monthlyValue}</span>
