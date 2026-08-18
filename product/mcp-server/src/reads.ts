@@ -92,6 +92,40 @@ export async function readWorkouts(c: PoolClient, tenantId: string, from: string
   return { from, to, count: rows.length, workouts: rows };
 }
 
+/**
+ * Sessions in the past that nobody ever accounted for.
+ *
+ * A workout left at `planned` on a date that has already gone is not evidence
+ * that it happened, and it is not evidence that it didn't — it is a QUESTION
+ * nobody asked. The failure this exists to stop: the athlete skips a day, checks
+ * in the next morning, and the AI reads a calendar full of planned sessions and
+ * proceeds as if they were all trained. Nothing corrects it later, so a session
+ * that never happened silently becomes part of adherence, the fitness curve and
+ * the fatigue derived from it. Every number downstream inherits the invention.
+ *
+ * `moved` and `cancelled` are excluded: both are explicit decisions, so there is
+ * nothing to ask about. `skipped` too — that IS the answer.
+ *
+ * The window is deliberately short. Ten days back is "did you train on Tuesday",
+ * which someone can answer; three months back is an interrogation, and an
+ * honest "I don't remember" is worse than leaving it alone.
+ */
+export async function unreconciledSessions(c: PoolClient, tenantId: string, todayISO: string) {
+  const { rows } = await c.query(
+    `select to_char(date,'YYYY-MM-DD') as date, discipline, title, planned_duration_min
+       from workouts
+      where tenant_id = $1
+        and date < $2::date
+        and date >= $2::date - 10
+        and status = 'planned'
+        and actual_duration_min is null
+        and actual_distance_km is null
+      order by date`,
+    [tenantId, todayISO],
+  );
+  return rows as { date: string; discipline: string; title: string; planned_duration_min: number | null }[];
+}
+
 export const checkinsSchema = {
   days: z.number().int().min(1).max(90).default(14).describe("how many days back"),
 } satisfies z.ZodRawShape;

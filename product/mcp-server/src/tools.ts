@@ -8,7 +8,7 @@ import {
 } from "./writes.js";
 import {
   readProfile, readWorkouts, workoutsRangeSchema, readCheckins, checkinsSchema,
-  readMealPlan, readBodyComposition, bodyCompositionSchema,
+  readMealPlan, readBodyComposition, bodyCompositionSchema, unreconciledSessions,
 } from "./reads.js";
 
 const ok = (text: string) => ({ content: [{ type: "text" as const, text }] });
@@ -357,7 +357,7 @@ export function registerTools(server: McpServer, tenantId: string): void {
     async (a) => {
       const readinessScore = a.readiness_score ?? a.readiness ?? null;
       const light = a.recommendation ?? a.traffic_light ?? a.farol ?? null;
-      const stored = await withTenant(tenantId, async (c) => {
+      const result = await withTenant(tenantId, async (c) => {
         await c.query(
           `insert into checkins (tenant_id,date,hrv,sleep_hours,readiness_score,body_battery,resting_hr,recommendation,hydration_liters,protein_grams_estimate,notes)
            values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
@@ -386,8 +386,15 @@ export function registerTools(server: McpServer, tenantId: string): void {
              from checkins where tenant_id = $1 and date = $2`,
           [tenantId, a.date],
         );
-        return rows[0] ?? null;
+        return {
+          row: rows[0] ?? null,
+          // Asked in the same transaction as the check-in, because this is the
+          // moment it matters: the athlete is telling us about today while
+          // yesterday is still an open question. See unreconciledSessions.
+          pending: await unreconciledSessions(c, tenantId, a.date),
+        };
       });
+      const stored = result.row;
 
       const summary = stored
         ? Object.entries({
@@ -405,9 +412,33 @@ export function registerTools(server: McpServer, tenantId: string): void {
             .join(", ")
         : "";
       const missingLight = stored && stored.recommendation == null;
+
+      // ASK, DO NOT ASSUME.
+      //
+      // A planned session on a day that has already passed is not proof it
+      // happened. Reading a calendar full of them and carrying on as if the
+      // athlete trained is how a session that never took place ends up in
+      // adherence, in the fitness curve, and in the fatigue read off that
+      // curve — every number downstream inherits the invention, and nothing
+      // later corrects it.
+      //
+      // This rides on the check-in because that is the moment: the athlete is
+      // telling us about today while yesterday is still unanswered.
+      const pending = result.pending;
+      const reconcile = pending.length
+        ? ` UNCONFIRMED — ${pending.length} past session(s) still marked planned, with nothing logged against them: ` +
+          pending.map((p) => `${p.date} ${p.discipline} "${p.title}"`).join("; ") +
+          ". ASK the athlete about each one before anything else, and do NOT assume it was trained. " +
+          "Once they answer: done → upsert_workout with the actuals; not done → status 'skipped'; " +
+          "doing it later → status 'moved' plus a planned copy on the new date. " +
+          "If they cannot remember, 'skipped' is the honest answer — a guessed session pollutes every " +
+          "number that reads from it."
+        : "";
+
       return ok(
         `Check-in for ${a.date} saved — stored: ${summary || "(nothing)"}.` +
-        (missingLight ? " No traffic light on this day yet: set `recommendation` (green|yellow|red)." : ""),
+        (missingLight ? " No traffic light on this day yet: set `recommendation` (green|yellow|red)." : "") +
+        reconcile,
       );
     },
   );
