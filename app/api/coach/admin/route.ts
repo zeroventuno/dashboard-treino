@@ -40,9 +40,45 @@ export async function POST(req: Request) {
       nickname: str(body.nickname, 60),
       phone: str(body.phone, 40),
     });
+    // Post the welcome email, key included, at the ONE moment the key exists in
+    // plaintext. Until now the owner had to copy it off the screen and send it
+    // themselves, which is why athletes were invited and never activated.
+    //
+    // Deliberately after the athlete is created and deliberately unable to fail
+    // it: the account is the thing that matters, the email is a convenience,
+    // and an SMTP hiccup must not cost someone their registration. The key is
+    // still returned and still shown on screen, so a failed send degrades to
+    // exactly the behaviour that existed before.
+    let mailed = false;
+    if (res.ok) {
+      const origin = process.env.APP_ORIGIN?.trim().replace(/\/+$/, "");
+      const hook = process.env.N8N_MAIL_WEBHOOK_URL?.trim();
+      if (origin && hook) {
+        mailed = await fetch(hook, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "welcome",
+            email,
+            name,
+            // A magic link: logging in IS the first step, and asking someone to
+            // paste a key before they have seen anything is where they give up.
+            url: `${origin}/app?key=${encodeURIComponent(res.key)}`,
+          }),
+        })
+          .then((r) => r.ok)
+          .catch(() => false);
+      }
+    }
+
     // The key travels back exactly once — it is not stored in plaintext, so a
-    // reload can never show it again.
-    return NextResponse.json(res, { status: res.ok ? 200 : res.code === "duplicate_email" ? 409 : 503 });
+    // reload can never show it again. `mailed` tells the panel whether to say
+    // "sent" or to keep insisting the owner copies it: claiming an email went
+    // out when it didn't is how an athlete ends up waiting for nothing.
+    return NextResponse.json(
+      res.ok ? { ...res, mailed } : res,
+      { status: res.ok ? 200 : res.code === "duplicate_email" ? 409 : 503 },
+    );
   }
 
   // Agency settings carry no `id` either, and must not: the agency edited is

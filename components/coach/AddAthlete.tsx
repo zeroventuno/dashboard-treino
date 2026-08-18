@@ -4,7 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { translator, type Locale } from "@/lib/i18n";
 
-type Created = { key: string; name: string; email: string };
+// `mailed` says whether the welcome e-mail actually went out. Kept separate
+// from success on purpose: the account exists either way, and telling the
+// owner it was sent when it was not is how an athlete waits for nothing.
+type Created = { key: string; name: string; email: string; mailed: boolean };
 
 /**
  * Register an athlete and hand over their onboarding.
@@ -39,7 +42,7 @@ export function AddAthlete({ locale, appUrl, mcpUrl }: { locale: Locale; appUrl:
         setState(data.code === "duplicate_email" ? "duplicate" : "error");
         return;
       }
-      setCreated({ key: data.key, name: form.name, email: form.email });
+      setCreated({ key: data.key, name: form.name, email: form.email, mailed: data.mailed === true });
       setForm({ name: "", email: "", nickname: "", phone: "" });
       setState("idle");
       router.refresh();
@@ -103,6 +106,16 @@ export function AddAthlete({ locale, appUrl, mcpUrl }: { locale: Locale; appUrl:
             {tr("athletes.created").replace("{name}", created.name)}
           </p>
           <p className="mt-1 text-[12px] text-[var(--warn)]">{tr("athletes.keyOnce")}</p>
+
+          {/* Whether the e-mail actually left. Said plainly either way: "sent"
+              when it was, and an explicit "not sent — send it yourself" when it
+              wasn't, because an owner who assumes it went out leaves the athlete
+              waiting for a message that will never arrive. */}
+          <p className={`mt-1 text-[12px] ${created.mailed ? "text-[var(--good)]" : "text-[var(--text-muted)]"}`}>
+            {created.mailed
+              ? tr("athletes.mailSent").replace("{email}", created.email)
+              : tr("athletes.mailNotSent")}
+          </p>
 
           <code className="mt-2 block overflow-x-auto rounded-[8px] bg-[var(--bg-soft)] px-3 py-2 font-mono text-[12px] text-[var(--text)]">
             {created.key}
