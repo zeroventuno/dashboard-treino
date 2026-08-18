@@ -1,44 +1,50 @@
 -- ────────────────────────────────────────────────────────────────────────────
---  reset-key.sql — gerar uma chave nova para um tenant existente.
+--  reset-key.sql — gerar uma chave nova para um atleta existente.
 --
---  Use quando a chave se perdeu, vazou (print, e-mail, captura de tela) ou
---  simplesmente não está autenticando.
+--  Use quando a chave se perdeu, vazou (print, e-mail) ou não está autenticando.
 --
---  Deliberadamente em DOIS PASSOS, com a chave colada como literal no passo 2.
---  O provision.sql gera e grava numa query só, o que é conveniente mas depende
---  de o CTE que sorteia a chave ser avaliado uma única vez; aqui não há o que
---  dar errado, porque a chave que você cola é exatamente a que vira hash.
+--  UMA QUERY SÓ, e isso é a correção de um defeito real. A versão anterior era
+--  em dois passos, com a chave colada como literal no segundo. Rodando o
+--  arquivo inteiro — que é o que qualquer pessoa faz no editor do Supabase —
+--  duas coisas davam errado ao mesmo tempo:
 --
---  Trocar a chave INVALIDA a anterior na hora, tanto no painel quanto no
---  conector do coach — é assim que se revoga um acesso.
+--    · o editor mostra apenas o ÚLTIMO resultado, então a chave gerada no
+--      passo 1 nunca aparecia; o que se via era o `id` do passo 2;
+--    · e o passo 2 gravava o hash do texto literal "COLE_A_CHAVE_AQUI",
+--      deixando a conta com uma chave que ninguém conhece.
+--
+--  Nada disso avisava. Agora não há o que colar e não há ordem para errar.
+--
+--  O CTE é MATERIALIZED de propósito: sem isso o Postgres pode avaliar
+--  `gen_random_bytes` mais de uma vez, e a chave gravada no hash sairia
+--  diferente da chave devolvida — o mesmo erro que os dois passos tentavam
+--  evitar, resolvido onde ele de fato mora.
+--
+--  Trocar a chave INVALIDA a anterior na hora. É assim que se revoga acesso.
 -- ────────────────────────────────────────────────────────────────────────────
 
-
--- ── PASSO 1 ── gere a chave e COPIE o resultado ─────────────────────────────
-
-select 'trak_' || encode(extensions.gen_random_bytes(24), 'hex') as chave_nova;
-
-
--- ── PASSO 2 ── cole a chave nos DOIS lugares marcados e rode ────────────────
-
-update app.tenants
-   set api_key_hash = encode(extensions.digest('COLE_A_CHAVE_AQUI', 'sha256'), 'hex')
- where email = 'amigo@exemplo.com'                       -- ← E-MAIL DO ATLETA
+with nova as materialized (
+  select 'trak_' || encode(extensions.gen_random_bytes(24), 'hex') as chave
+)
+update app.tenants t
+   set api_key_hash = encode(extensions.digest(nova.chave, 'sha256'), 'hex')
+  from nova
+ where lower(t.email) = lower('amigo@exemplo.com')   -- ← TROQUE PELO E-MAIL DO ATLETA
 returning
-  id,
-  email,
-  status,
-  -- confirmação de que o que ficou gravado corresponde à chave que você vai
-  -- enviar; se vier false, não envie nada e rode de novo
-  api_key_hash = encode(extensions.digest('COLE_A_CHAVE_AQUI', 'sha256'), 'hex')
-    as chave_confere;
+  nova.chave        as chave_nova,   -- ← É ESTA que você envia
+  t.email,
+  t.status,
+  -- Precisa vir 'active'. resolveTenantId aceita qualquer status EXCETO
+  -- 'canceled', então uma conta cancelada é o único caso em que a chave
+  -- correta ainda assim não entra.
+  t.api_key_hash = encode(extensions.digest(nova.chave, 'sha256'), 'hex') as confere;
 
-
--- ── PASSO 3 ── só então envie ao atleta ─────────────────────────────────────
+-- Zero linhas devolvidas = o e-mail não bateu. Nada foi alterado; confira o
+-- endereço com:  select email, status from app.tenants order by created_at;
 --
+-- Depois de enviar:
+--   Painel:    https://mytrakr.fit/app?key=<CHAVE>
 --   Conector:  https://dashboard-treino-zeroventunos-projects.vercel.app/api/mcp?key=<CHAVE>
---   Painel:    https://trakdash.vercel.app/app?key=<CHAVE>
 --
---  Se o atleta já tinha o conector instalado com a chave antiga, ele precisa
---  removê-lo e adicioná-lo de novo — os clientes cacheiam a configuração.
--- ────────────────────────────────────────────────────────────────────────────
+-- Se o atleta já tinha o conector instalado com a chave antiga, precisa
+-- REMOVER e adicionar de novo — os clientes cacheiam a lista de ferramentas.
