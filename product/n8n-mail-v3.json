@@ -78,19 +78,18 @@
     },
     {
       "parameters": {
-        "mode": "raw",
         "jsonOutput": "={{ (() => {\n  const k = $json.kind;\n  const nome = $json.name ? ' ' + $json.name : '';\n  const T = {\n    signup: {\n      subject: 'Sua conta MY TRAKR está pronta',\n      lead:    'Falta um passo para começar: abra o link e receba sua chave de acesso.',\n      cta:     'Criar minha conta',\n      foot:    'O link vale 14 dias e serve uma vez só. A chave aparece uma única vez — tenha um gerenciador de senhas à mão.'\n    },\n    recover: {\n      subject: 'Sua nova chave MY TRAKR',\n      lead:    'Você pediu uma chave nova. Ao abrir o link, a chave anterior deixa de funcionar.',\n      cta:     'Gerar chave nova',\n      foot:    'O link vale 2 horas e serve uma vez só. Se não foi você quem pediu, ignore este e-mail — nada muda até alguém abrir o link.'\n    },\n    welcome: {\n      subject: 'Bem-vindo ao MY TRAKR',\n      lead:    'Sua conta está pronta. Abaixo está sua chave de acesso — guarde-a num gerenciador de senhas, ela não pode ser recuperada, apenas substituída.',\n      cta:     'Abrir meu painel',\n      foot:    'Para conectar sua IA: adicione um conector com a URL do MY TRAKR e cole a chave quando pedir. Conta gratuita do Claude já funciona.'\n    },\n    agency: {\n      subject: 'Sua assessoria no MY TRAKR',\n      lead:    'Sua assessoria está pronta para ser criada. Abra o link e receba a chave de dono.',\n      cta:     'Criar minha assessoria',\n      foot:    'O link vale 14 dias e serve uma vez só. A chave de dono aparece uma única vez.'\n    }\n  }[k] ?? {};\n  return { ...$json, subject: T.subject, lead: T.lead, cta: T.cta, foot: T.foot, nome };\n})() }}",
-        "options": {}
+        "jsCode": "const j = $input.first().json;\nconst k = j.kind;\nconst nome = j.name ? ' ' + j.name : '';\nconst T = {\n  signup: {\n    subject: 'Sua conta MY TRAKR está pronta',\n    lead:    'Falta um passo para começar: abra o link e receba sua chave de acesso.',\n    cta:     'Criar minha conta',\n    foot:    'O link vale 14 dias e serve uma vez só. A chave aparece uma única vez — tenha um gerenciador de senhas à mão.'\n  },\n  recover: {\n    subject: 'Sua nova chave MY TRAKR',\n    lead:    'Você pediu uma chave nova. Ao abrir o link, a chave anterior deixa de funcionar.',\n    cta:     'Gerar chave nova',\n    foot:    'O link vale 2 horas e serve uma vez só. Se não foi você quem pediu, ignore este e-mail — nada muda até alguém abrir o link.'\n  },\n  welcome: {\n    subject: 'Bem-vindo ao MY TRAKR',\n    lead:    'Sua conta está pronta. Abaixo está sua chave de acesso — guarde-a num gerenciador de senhas, ela não pode ser recuperada, apenas substituída.',\n    cta:     'Abrir meu painel',\n    foot:    'Para conectar sua IA: adicione um conector com a URL do MY TRAKR e cole a chave quando pedir. Conta gratuita do Claude já funciona.'\n  },\n  agency: {\n    subject: 'Sua assessoria no MY TRAKR',\n    lead:    'Sua assessoria está pronta para ser criada. Abra o link e receba a chave de dono.',\n    cta:     'Criar minha assessoria',\n    foot:    'O link vale 14 dias e serve uma vez só. A chave de dono aparece uma única vez.'\n  }\n}[k] ?? {};\nreturn [{ json: { ...j, subject: T.subject, lead: T.lead, cta: T.cta, foot: T.foot, nome } }];"
       },
       "id": "copy",
       "name": "Texto por tipo",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         280,
         240
       ],
-      "notes": "Um nó só para os três tipos: mudar o texto de um e-mail não deveria exigir mexer na fiação do fluxo."
+      "notes": "Code node de verdade, não Set+expressão: a versão anterior usava {{ (() => { const ...; return ...; })() }} e quebrava com 'Cannot convert undefined or null to object' — os únicos dois nós de expressão que funcionam neste fluxo (Normalizar, Enviar) são uma linha só, sem bloco de statements. Mesmo padrão do Code node em n8n-workout-bank.json."
     },
     {
       "parameters": {
