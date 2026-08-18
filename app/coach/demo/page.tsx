@@ -8,7 +8,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
-import { toISO } from "@/lib/utils";
+import { DEFAULT_TIMEZONE, todayInZone } from "@/lib/agency-clock";
 import { demoRosterBoard } from "@/lib/demo-roster";
 import { CoachNav } from "@/components/coach/CoachNav";
 import { RosterBoard } from "@/components/coach/RosterBoard";
@@ -24,7 +24,11 @@ export default async function CoachDemoPage({
 }) {
   const locale: Locale = pickLocale((await headers()).get("accept-language"));
   const tr = translator(locale);
-  const todayISO = toISO(new Date());
+  // The preview has no agency and therefore no zone to read, so it states
+  // the default outright rather than picking up whatever the server is set
+  // to — a fixture whose day depends on where it runs is a fixture that
+  // disagrees with itself.
+  const todayISO = todayInZone(DEFAULT_TIMEZONE);
   // Same four inputs the real panel feeds the board — roster, plan reach,
   // threshold ages and PMC load — so the preview exercises the empty-calendar
   // ranking, the test badges and the fatigue marks rather than only the half of

@@ -13,7 +13,7 @@ import { RosterAllocation, type BoardAthlete } from "@/components/coach/RosterAl
 import { UnassignedQueue, type QueueAthlete } from "@/components/coach/UnassignedQueue";
 import type { Candidate } from "@/lib/suggest-coach";
 import { daysBetween } from "@/lib/utils";
-import { toISO } from "@/lib/utils";
+import { todayInZone } from "@/lib/agency-clock";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export default async function RosterPage() {
 
   const locale: Locale = pickLocale((await headers()).get("accept-language"));
   const tr = translator(locale);
-  const todayISO = toISO(new Date());
+  const todayISO = todayInZone(staff.timezone);
 
   const [team, rows, sportsByTenant, waiting] = await Promise.all([
     listStaff(staff.agencyId).then((t) => t.filter((m) => m.status === "active")),

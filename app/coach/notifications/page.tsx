@@ -22,7 +22,7 @@ export default async function CoachNotificationsPage() {
   const locale: Locale = pickLocale((await headers()).get("accept-language"));
   const tr = translator(locale);
   const signals = await collectSignals(
-    { id: staff.id, agencyId: staff.agencyId, role: staff.role, isOwner: staff.isOwner },
+    { id: staff.id, agencyId: staff.agencyId, role: staff.role, isOwner: staff.isOwner, timezone: staff.timezone },
     locale,
   );
 

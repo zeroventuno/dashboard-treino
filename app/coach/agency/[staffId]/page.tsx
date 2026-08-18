@@ -15,7 +15,7 @@ import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale, type TKey } from "@/lib/i18n";
 import { CoachNav } from "@/components/coach/CoachNav";
 import { AgencyBoard } from "@/components/coach/AgencyBoard";
-import { toISO } from "@/lib/utils";
+import { todayInZone } from "@/lib/agency-clock";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,7 @@ export default async function CoachBookPage({ params }: { params: Promise<{ staf
 
   const locale: Locale = pickLocale((await headers()).get("accept-language"));
   const tr = translator(locale);
-  const todayISO = toISO(new Date());
+  const todayISO = todayInZone(staff.timezone);
 
   const book = (await getAgencyAttention(staff.agencyId)).filter((r) => (r.staff_ids ?? []).includes(staffId));
   const info: StaffInfo = {

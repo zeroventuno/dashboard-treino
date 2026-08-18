@@ -4,7 +4,7 @@ import { getRoster, getRosterLoad, getRosterPlanAhead, getRosterTestDates, resol
 import { testStatus, needsTesting } from "@/lib/testing";
 import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
-import { toISO } from "@/lib/utils";
+import { todayInZone } from "@/lib/agency-clock";
 import { CoachNav } from "@/components/coach/CoachNav";
 import { TodoList } from "@/components/coach/TodoList";
 import { collectSignals } from "@/lib/coach-signals";
@@ -30,7 +30,10 @@ export default async function CoachPanelPage({
 
   const locale: Locale = pickLocale((await headers()).get("accept-language"));
   const tr = translator(locale);
-  const todayISO = toISO(new Date());
+  // The agency's day, not the server's — which is UTC on Vercel. Everything
+  // below hangs off this one string: the load window, the threshold ages, the
+  // readiness light and the day's list.
+  const todayISO = todayInZone(staff.timezone);
   // Four independent reads rather than one wider roster function: each degrades
   // on its own if its migration hasn't run, so a missing SQL file costs a badge
   // instead of the whole panel.
@@ -89,7 +92,7 @@ export default async function CoachPanelPage({
   );
 
   const signals = await collectSignals(
-    { id: staff.id, agencyId: staff.agencyId, role: staff.role, isOwner: staff.isOwner },
+    { id: staff.id, agencyId: staff.agencyId, role: staff.role, isOwner: staff.isOwner, timezone: staff.timezone },
     locale,
   );
 

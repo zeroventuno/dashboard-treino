@@ -7,7 +7,7 @@ import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
 import { CoachNav } from "@/components/coach/CoachNav";
 import { BankView } from "@/components/coach/BankView";
-import { toISO } from "@/lib/utils";
+import { todayInZone } from "@/lib/agency-clock";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +38,7 @@ export default async function CoachBankPage() {
         <p className="mt-0.5 text-[13px] text-[var(--text-faint)]">{tr("coach.bank.sub")}</p>
       </header>
 
-      <BankView items={items} methodology={methodology} roster={roster} todayISO={toISO(new Date())} locale={locale} />
+      <BankView items={items} methodology={methodology} roster={roster} todayISO={todayInZone(staff.timezone)} locale={locale} />
     </div>
   );
 }

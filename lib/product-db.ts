@@ -16,6 +16,8 @@ import type { PerformanceIndicators, Workout, ZoneSeconds } from "./types";
 import { distribute, type BlockSession, type PlanWeek } from "./plan-block";
 import { WEEKDAYS, type Availability } from "./availability";
 import { pickMatch, type Candidate } from "./match-activity";
+import { isTimezone, resolveTimezone } from "./agency-clock";
+import { isCurrency } from "./currencies";
 import { addDays, parseDate, startOfWeek, toISO } from "./utils";
 
 const { Pool, types } = pkg;
@@ -108,6 +110,7 @@ const REQUIRED_COLUMNS: { schema: string; table: string; column: string; migrati
   { schema: "app",    table: "staff",       column: "is_owner",      migration: "add-owner-and-value.sql" },
   { schema: "app",    table: "staff",       column: "methodology",   migration: "add-staff-methodology.sql" },
   { schema: "app",    table: "agencies",    column: "currency",      migration: "add-owner-and-value.sql" },
+  { schema: "app",    table: "agencies",    column: "timezone",      migration: "add-agency-timezone.sql" },
   { schema: "app",    table: "staff",       column: "max_athletes",  migration: "add-agency-management.sql" },
   { schema: "app",    table: "staff",       column: "pay_model",     migration: "add-agency-management.sql" },
   { schema: "app",    table: "agencies",    column: "methodology",   migration: "add-agency-management.sql" },
@@ -371,6 +374,9 @@ export interface StaffIdentity {
   isOwner: boolean;
   /** Agency's billing currency, for the value figures. */
   currency: string;
+  /** Agency's IANA time zone. Every coach screen resolves "today" through this
+   * rather than the server clock (UTC on Vercel) — see lib/agency-clock. */
+  timezone: string;
 }
 
 /** professional key (trakc_…) → staff identity, or null if unknown/inactive.
@@ -380,9 +386,10 @@ export async function resolveStaffId(staffKey: string): Promise<StaffIdentity | 
   if (!hasProductDb()) return null;
   const hash = createHash("sha256").update(staffKey).digest("hex");
   const { rows } = await getPool().query<{
-    id: string; agency_id: string; role: string; name: string | null; is_owner: boolean; currency: string;
+    id: string; agency_id: string; role: string; name: string | null; is_owner: boolean;
+    currency: string; timezone: string | null;
   }>(
-    `select s.id, s.agency_id, s.role, s.name, s.is_owner, a.currency
+    `select s.id, s.agency_id, s.role, s.name, s.is_owner, a.currency, a.timezone
        from app.staff s
        join app.agencies a on a.id = s.agency_id
       where s.api_key_hash = $1 and s.status = 'active' and a.status = 'active'
@@ -391,7 +398,15 @@ export async function resolveStaffId(staffKey: string): Promise<StaffIdentity | 
   );
   const r = rows[0];
   return r
-    ? { id: r.id, agencyId: r.agency_id, role: r.role, name: r.name, isOwner: r.is_owner, currency: r.currency }
+    ? {
+        id: r.id, agencyId: r.agency_id, role: r.role, name: r.name, isOwner: r.is_owner,
+        currency: r.currency,
+        // Resolved here, once, so no caller has to remember the fallback: an
+        // agency row written before the migration, or a name this runtime
+        // doesn't know, reads as UTC — which is what the panel did before the
+        // setting existed.
+        timezone: resolveTimezone(r.timezone),
+      }
     : null;
 }
 
@@ -1773,6 +1788,41 @@ export async function saveMethodology(staffId: string, patch: Methodology): Prom
     [staffId, JSON.stringify(patch)],
   );
   return (rowCount ?? 0) > 0;
+}
+
+// ── Agency settings (owner-only) ────────────────────────────────────────────
+
+/**
+ * What the agency IS: what it bills in, and what day it is where it works.
+ *
+ * Both values are checked HERE and not only at the route. This is the last
+ * point where they are still a value rather than a row, and both fail
+ * silently-then-loudly if wrong: a currency Intl doesn't know throws mid-render
+ * and blanks the owner's screen, and a zone nobody can resolve moves every date
+ * in the panel by a day without saying so. Refuse rather than store — the same
+ * rule the rest of this file follows for money and pay models.
+ *
+ * `agencyId` comes from the session, never the request body, and is the
+ * authorization boundary on the statement.
+ */
+export async function updateAgencySettings(
+  agencyId: string,
+  patch: { currency?: string; timezone?: string },
+): Promise<{ ok: boolean; code?: "bad_currency" | "bad_timezone" | "empty" | "not_found" }> {
+  if (!hasProductDb()) return { ok: false, code: "not_found" };
+  if (patch.currency !== undefined && !isCurrency(patch.currency)) return { ok: false, code: "bad_currency" };
+  if (patch.timezone !== undefined && !isTimezone(patch.timezone)) return { ok: false, code: "bad_timezone" };
+  if (patch.currency === undefined && patch.timezone === undefined) return { ok: false, code: "empty" };
+
+  // coalesce, so sending one field never blanks the other.
+  const { rowCount } = await getPool().query(
+    `update app.agencies
+        set currency = coalesce($2, currency),
+            timezone = coalesce($3, timezone)
+      where id = $1`,
+    [agencyId, patch.currency ?? null, patch.timezone ?? null],
+  );
+  return (rowCount ?? 0) > 0 ? { ok: true } : { ok: false, code: "not_found" };
 }
 
 // ── Staff management (agency team) ──────────────────────────────────────────

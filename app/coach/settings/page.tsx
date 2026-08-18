@@ -1,7 +1,8 @@
-// Coach panel settings. For an OWNER this is the agency's admin: who owns the
-// place, what each professional programs, who looks after which athlete, and
-// what an athlete is worth per month. A non-owner professional sees the team
-// roster read-only — their own book is the /coach panel, not this.
+// Coach panel settings. For an OWNER this is the agency's admin: what the
+// agency bills in and what time zone it works in, who owns the place, what each
+// professional programs, who looks after which athlete, and what an athlete is
+// worth per month. A non-owner professional sees the team roster read-only —
+// their own book is the /coach panel, not this.
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolveStaffId, listStaff } from "@/lib/product-db";
@@ -9,6 +10,7 @@ import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale, type TKey } from "@/lib/i18n";
 import { CoachNav } from "@/components/coach/CoachNav";
 import { AddProfessional } from "@/components/coach/AddProfessional";
+import { AgencySettings } from "@/components/coach/AgencySettings";
 import { TeamAdmin } from "@/components/coach/TeamAdmin";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +41,10 @@ export default async function CoachSettingsPage() {
 
       {staff.isOwner ? (
         <div className="flex flex-col gap-5">
+          {/* First, because it is the widest scope on the page: currency is the
+              unit every money figure below is read in, and the time zone is
+              what "today" means on every other screen of the panel. */}
+          <AgencySettings currency={staff.currency} timezone={staff.timezone} locale={locale} />
           <AddProfessional locale={locale} />
           <TeamAdmin team={team} locale={locale} />
         </div>

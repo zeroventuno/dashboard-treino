@@ -9,7 +9,7 @@ import { getProductDashboardData } from "@/lib/data-product";
 import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { DashboardBlocks } from "@/components/DashboardBlocks";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
-import { toISO } from "@/lib/utils";
+import { todayInZone } from "@/lib/agency-clock";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,7 @@ export default async function CoachAthletePage({
   const trNav = translator(navLocale);
 
   const { data, tenant, locale } = await getProductDashboardData(tenantId);
-  const todayISO = toISO(new Date());
+  const todayISO = todayInZone(staff.timezone);
   const readiness = data.checkins.at(-1)?.recommendation ?? undefined;
   const title = tenant.athlete ?? tenant.raceName ?? "";
 

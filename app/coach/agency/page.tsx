@@ -14,7 +14,7 @@ import { COACH_COOKIE } from "@/app/api/coach-login/route";
 import { pickLocale, translator, type Locale } from "@/lib/i18n";
 import { CoachNav } from "@/components/coach/CoachNav";
 import { AgencyBoard } from "@/components/coach/AgencyBoard";
-import { toISO } from "@/lib/utils";
+import { todayInZone } from "@/lib/agency-clock";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +35,7 @@ export default async function CoachAgencyPage() {
   // The scoreboard is the OWNER's grain: one row per professional. A hired
   // coach comparing themselves against colleagues' revenue is a different
   // product decision, and not one to make by accident.
-  const todayISO = toISO(new Date());
+  const todayISO = todayInZone(staff.timezone);
   let board = null;
   if (staff.isOwner) {
     const team = (await listStaff(staff.agencyId)).filter((m) => m.status === "active");

@@ -13,7 +13,8 @@
 //  que não ter sino.
 // ────────────────────────────────────────────────────────────────────────────
 import { getRoster, getBank, getUnassignedAthletes } from "./product-db";
-import { daysBetween, toISO } from "./utils";
+import { daysBetween } from "./utils";
+import { todayInZone } from "./agency-clock";
 import { translator, type Locale } from "./i18n";
 
 /** 0 = hoje, 1 = esta semana, 2 = quando der. Ordena a lista inteira. */
@@ -32,6 +33,9 @@ export interface SignalStaff {
   agencyId: string;
   role: string;
   isOwner: boolean;
+  /** Fuso da assessoria. A lista fala em "há N dias" e em "hoje", e o dia
+   *  tem que ser o do profissional que lê, não o do servidor. */
+  timezone: string;
 }
 
 /**
@@ -43,7 +47,7 @@ export interface SignalStaff {
  */
 export async function collectSignals(staff: SignalStaff, locale: Locale): Promise<Signal[]> {
   const tr = translator(locale);
-  const todayISO = toISO(new Date());
+  const todayISO = todayInZone(staff.timezone);
   const out: Signal[] = [];
 
   // Aluno sem treinador vem PRIMEIRO e é severidade máxima de propósito: ele

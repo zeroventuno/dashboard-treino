@@ -7,7 +7,9 @@
 // place should be able to do it while a hired coach should not.
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { resolveStaffId, updateStaff, updateAgencyAthlete, createAthlete } from "@/lib/product-db";
+import {
+  resolveStaffId, updateStaff, updateAgencyAthlete, createAthlete, updateAgencySettings,
+} from "@/lib/product-db";
 import { COACH_COOKIE } from "@/app/api/coach-login/route";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -41,6 +43,23 @@ export async function POST(req: Request) {
     // The key travels back exactly once — it is not stored in plaintext, so a
     // reload can never show it again.
     return NextResponse.json(res, { status: res.ok ? 200 : res.code === "duplicate_email" ? 409 : 503 });
+  }
+
+  // Agency settings carry no `id` either, and must not: the agency edited is
+  // ALWAYS the session's own (`staff.agencyId`). Accepting one from the body
+  // would be handing the owner of one agency the key to another's row.
+  //
+  // Both fields are refused rather than coerced when unrecognised — a currency
+  // Intl doesn't know throws mid-render, and a zone nobody can resolve moves
+  // every date in the panel by a day while still looking like a fact. The
+  // validation itself lives with the values (lib/currencies, lib/agency-clock)
+  // so the picker and the write path can never drift apart.
+  if (body.kind === "agency") {
+    const patch: { currency?: string; timezone?: string } = {};
+    if ("currency" in body) patch.currency = String(body.currency ?? "");
+    if ("timezone" in body) patch.timezone = String(body.timezone ?? "");
+    const res = await updateAgencySettings(staff.agencyId, patch);
+    return NextResponse.json(res, { status: res.ok ? 200 : res.code === "not_found" ? 404 : 400 });
   }
 
   const target = typeof body.id === "string" && UUID.test(body.id) ? body.id : null;

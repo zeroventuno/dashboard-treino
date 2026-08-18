@@ -23,7 +23,7 @@ export async function GET() {
 
   const locale = pickLocale((await headers()).get("accept-language"));
   const signals = await collectSignals(
-    { id: staff.id, agencyId: staff.agencyId, role: staff.role, isOwner: staff.isOwner },
+    { id: staff.id, agencyId: staff.agencyId, role: staff.role, isOwner: staff.isOwner, timezone: staff.timezone },
     locale,
   );
   return NextResponse.json({
