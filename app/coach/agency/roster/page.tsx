@@ -56,7 +56,7 @@ export default async function RosterPage() {
   // isso é legítimo — o quadro mostra cada bloco como ele é, e mover de um não
   // mexe nos outros.
   const assignment: Record<string, string[]> = Object.fromEntries(
-    team.map((m) => [m.id, rows.filter((r) => r.staff_ids.includes(m.id)).map((r) => r.tenant_id)]),
+    team.map((m) => [m.id, rows.filter((r) => (r.staff_ids ?? []).includes(m.id)).map((r) => r.tenant_id)]),
   );
 
   // Candidatos e fila para o sugeridor. `revenue` é a receita ATUAL da carteira

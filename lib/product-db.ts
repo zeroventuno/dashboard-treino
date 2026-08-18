@@ -1849,7 +1849,10 @@ export interface AgencyAthlete {
   nickname: string | null;
   phone: string | null;
   email: string;
-  monthly_value: string | null;
+  /** NUMERIC in Postgres, and lib/product-db parses NUMERIC to a number, so
+   * this arrives as a NUMBER despite what a `string` annotation would suggest.
+   * Typed loosely on purpose: callers must coerce rather than assume. */
+  monthly_value: number | string | null;
   created_at: string;
   staff_ids: string[];
 }

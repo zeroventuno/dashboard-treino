@@ -35,7 +35,7 @@ export default async function CoachBookPage({ params }: { params: Promise<{ staf
   const tr = translator(locale);
   const todayISO = toISO(new Date());
 
-  const book = (await getAgencyAttention(staff.agencyId)).filter((r) => r.staff_ids.includes(staffId));
+  const book = (await getAgencyAttention(staff.agencyId)).filter((r) => (r.staff_ids ?? []).includes(staffId));
   const info: StaffInfo = {
     id: member.id, name: member.name, role: member.role, isOwner: member.is_owner,
     maxAthletes: member.max_athletes, payModel: member.pay_model, payValue: member.pay_value,

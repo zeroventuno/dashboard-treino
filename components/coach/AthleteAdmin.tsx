@@ -49,7 +49,18 @@ export function AthleteAdmin({
       Object.fromEntries(
         athletes.map((a) => [
           a.tenant_id,
-          { name: a.name ?? "", nickname: a.nickname ?? "", phone: a.phone ?? "", value: a.monthly_value ?? "" },
+          {
+            name: a.name ?? "",
+            nickname: a.nickname ?? "",
+            phone: a.phone ?? "",
+            // String(), not `?? ""`. `monthly_value` is typed `string | null`
+            // and ISN'T one: lib/product-db installs a NUMERIC type parser
+            // (types.setTypeParser(1700, …)) that hands back a number, so the
+            // annotation is a lie tsc has no way to catch. The moment an
+            // athlete had a fee, `.trim()` below threw and took the whole page
+            // down. Coerce at the boundary rather than trusting the type.
+            value: a.monthly_value == null ? "" : String(a.monthly_value),
+          },
         ]),
       ),
   );

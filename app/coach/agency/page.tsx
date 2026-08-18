@@ -30,7 +30,7 @@ export default async function CoachAgencyPage() {
 
   const all = await getAgencyAttention(staff.agencyId);
   // Micro view: the same rows, narrowed to this professional's own roster.
-  const rows = staff.isOwner ? all : all.filter((r) => r.staff_ids.includes(staff.id));
+  const rows = staff.isOwner ? all : all.filter((r) => (r.staff_ids ?? []).includes(staff.id));
 
   // The scoreboard is the OWNER's grain: one row per professional. A hired
   // coach comparing themselves against colleagues' revenue is a different
@@ -45,7 +45,7 @@ export default async function CoachAgencyPage() {
     // agency-wide athlete count in the rollup therefore is NOT a headcount —
     // the KPI card reads it from the attention rows instead.
     const books = new Map(
-      team.map((m) => [m.id, all.filter((r) => r.staff_ids.includes(m.id)).map((r) => assess(r, todayISO))]),
+      team.map((m) => [m.id, all.filter((r) => (r.staff_ids ?? []).includes(m.id)).map((r) => assess(r, todayISO))]),
     );
     const info: StaffInfo[] = team.map((m) => ({
       id: m.id, name: m.name, role: m.role, isOwner: m.is_owner,
