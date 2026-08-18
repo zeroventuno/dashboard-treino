@@ -29,8 +29,12 @@ export default async function RosterPage() {
   const tr = translator(locale);
   const todayISO = todayInZone(staff.timezone);
 
+  // Só treinadores: esta tela redistribui carga de TREINO, e um fisio ou
+  // nutricionista não programa treino — aparecer aqui como destino faria um
+  // aluno parecer "atendido" sem ninguém de fato treinando ele. As carteiras
+  // deles continuam existindo no banco, só não são mexidas por este quadro.
   const [team, rows, sportsByTenant, waiting] = await Promise.all([
-    listStaff(staff.agencyId).then((t) => t.filter((m) => m.status === "active")),
+    listStaff(staff.agencyId).then((t) => t.filter((m) => m.status === "active" && m.role === "coach")),
     getAgencyAttention(staff.agencyId),
     getAthleteSports(staff.agencyId),
     getUnassignedAthletes(staff.agencyId),

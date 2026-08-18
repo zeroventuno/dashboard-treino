@@ -847,6 +847,12 @@ export async function getAthleteSports(agencyId: string): Promise<Record<string,
  * claimed them between the page rendering and this call, nothing happens and
  * `ok:false` says so, rather than quietly adding a second professional to an
  * athlete who was already handled.
+ *
+ * `s.role = 'coach'` is the other guard: this queue is about who TRAINS the
+ * athlete, and a physio or nutritionist can't program a workout, so landing
+ * one here would leave the athlete looking assigned while nobody actually
+ * coaches them. Checked here, not just hidden from the picker, because the
+ * id comes from the browser same as everything else on this route.
  */
 export async function assignUnassignedAthlete(
   agencyId: string,
@@ -859,7 +865,7 @@ export async function assignUnassignedAthlete(
      select s.id, t.id
        from app.staff s, app.tenants t
       where s.id = $1 and t.id = $2
-        and s.agency_id = $3 and t.agency_id = $3 and s.status = 'active'
+        and s.agency_id = $3 and t.agency_id = $3 and s.status = 'active' and s.role = 'coach'
         and not exists (select 1 from app.staff_athletes x where x.tenant_id = t.id)
      on conflict do nothing`,
     [staffId, tenantId, agencyId],
@@ -886,6 +892,13 @@ export interface Reassignment {
  * than trusted from the request: the ids come from the browser, and the whole
  * point of the screen is that they are user-supplied. An athlete of another
  * agency, or a staff id from another agency, matches nothing and moves nothing.
+ *
+ * The destination is further required to be a coach: this board redistributes
+ * TRAINING load, and a physio or nutritionist landing here would read as "this
+ * athlete is coached" when nobody is programming their training. The source
+ * side has no such check — an athlete already (wrongly) parked on a non-coach
+ * still needs a way off, and that move is the fix, not a second instance of
+ * the bug.
  */
 export async function reassignAthletes(
   agencyId: string,
@@ -898,6 +911,17 @@ export async function reassignAthletes(
     await client.query("begin");
     let moved = 0;
     for (const m of moves) {
+      // Destination checked BEFORE anything is deleted: the delete has no
+      // undo once the insert below turns out to match nothing, so a move
+      // whose destination isn't a coach in this agency has to be rejected up
+      // front — otherwise it would silently drop the athlete off the source's
+      // book and land them nowhere.
+      const dest = await client.query(
+        `select 1 from app.staff where id = $1 and agency_id = $2 and status = 'active' and role = 'coach'`,
+        [m.toStaffId, agencyId],
+      );
+      if ((dest.rowCount ?? 0) === 0) continue;
+
       // Delete first: an athlete already on the destination's book would make
       // the insert a no-op, and doing it in this order means a move onto a book
       // that already holds them still cleanly LEAVES the source.
@@ -915,7 +939,7 @@ export async function reassignAthletes(
         `insert into app.staff_athletes (staff_id, tenant_id)
          select s.id, t.id from app.staff s, app.tenants t
           where s.id = $1 and t.id = $2 and s.agency_id = $3 and t.agency_id = $3
-            and s.status = 'active'
+            and s.status = 'active' and s.role = 'coach'
          on conflict do nothing`,
         [m.toStaffId, m.tenantId, agencyId],
       );
