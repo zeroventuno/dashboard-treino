@@ -31,7 +31,14 @@ export default async function CoachAthletesPage() {
   ]);
 
   const mcpUrl = (process.env.MCP_CONNECTOR_URL ?? "https://dashboard-treino-zeroventunos-projects.vercel.app/api/mcp").split("?")[0];
-  const appUrl = process.env.APP_URL ?? "https://trakdash.vercel.app/app";
+  // APP_ORIGIN first — it is the variable the rest of the app actually reads
+  // and the one that is set. This line asked for APP_URL, which nothing sets,
+  // so it always fell through to the literal: every welcome message handed to
+  // a new athlete carried the old domain even though the deployment was
+  // correctly configured. APP_URL stays as a fallback so an existing
+  // deployment that does define it keeps working.
+  const origin = process.env.APP_ORIGIN?.trim().replace(/\/+$/, "");
+  const appUrl = origin ? `${origin}/app` : (process.env.APP_URL ?? "https://mytrakr.fit/app");
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">

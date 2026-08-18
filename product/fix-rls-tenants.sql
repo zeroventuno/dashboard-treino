@@ -30,5 +30,5 @@ select
   (select count(*) from app.tenants)                                        as contas,
   has_table_privilege('app_writer', 'app.tenants', 'select')                as app_writer_le;
 
--- Depois: recarregue https://trakdash.vercel.app/api/health
+-- Depois: recarregue https://mytrakr.fit/api/health
 -- Deve responder {"db":"ok","tenants":N} com N > 0.

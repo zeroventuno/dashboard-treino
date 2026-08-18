@@ -8,7 +8,7 @@
 
 > Cole o bloco abaixo no início da conversa com o seu Claude-treinador (Claude Desktop,
 > com o MCP do Supabase conectado). Ele passa a manter o dashboard como espelho das
-> decisões do chat: https://trakdash.vercel.app
+> decisões do chat: https://mytrakr.fit
 
 ---
 

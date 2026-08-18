@@ -34,7 +34,7 @@ const DATABASE_URL = process.env.DATABASE_URL;
 const EMAIL = process.env.TENANT_EMAIL;
 const NAME = process.env.TENANT_NAME ?? "Atleta";
 const MCP_URL = process.env.MCP_URL ?? "https://dashboard-treino-zeroventunos-projects.vercel.app/api/mcp";
-const APP_URL = process.env.APP_URL ?? "https://trakdash.vercel.app/app";
+const APP_URL = process.env.APP_URL ?? "https://mytrakr.fit/app";
 
 if (!DATABASE_URL || !EMAIL) {
   console.error("Set DATABASE_URL (product pooler) and TENANT_EMAIL. Optional: TENANT_NAME.");

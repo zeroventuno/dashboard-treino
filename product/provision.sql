@@ -50,7 +50,7 @@ select
 --         URL:  https://dashboard-treino-zeroventunos-projects.vercel.app/api/mcp?key=<CHAVE>
 --       Reiniciar o app; as ferramentas do coach aparecem.
 --
---    2) Painel: https://trakdash.vercel.app/app?key=<CHAVE>
+--    2) Painel: https://mytrakr.fit/app?key=<CHAVE>
 --
 --    3) Pedir ao coach: "liste meus aparelhos e o que cada um mede", e
 --       registrar o check-in de hoje.
