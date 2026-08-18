@@ -138,6 +138,23 @@ const REQUIRED_OBJECTS: { kind: "table" | "function"; schema: string; name: stri
   { kind: "function", schema: "app", name: "provision_agency",      migration: "add-agency-provisioning.sql" },
   { kind: "table",    schema: "app", name: "agency_invites",       migration: "add-agency-invites.sql" },
   { kind: "table",    schema: "app", name: "athlete_tokens",       migration: "add-athlete-signup.sql" },
+  // Lives in `public`, not `app` — and could never be detected until the query
+  // below stopped hardcoding the schema.
+  { kind: "table",    schema: "public", name: "menstrual_cycle",   migration: "add-menstrual-cycle.sql" },
+];
+
+/**
+ * Migrations that grant a privilege and create nothing.
+ *
+ * Invisible to every check above by construction, and one of them matters
+ * legally: without `delete on app.tenants` the account-deletion button fails at
+ * the moment someone exercises a GDPR right — the worst possible time to find
+ * out, and a failure no amount of typechecking catches.
+ */
+const REQUIRED_GRANTS: { schema: string; table: string; privilege: string; migration: string }[] = [
+  { schema: "app", table: "tenants",        privilege: "DELETE", migration: "add-account-deletion.sql" },
+  { schema: "app", table: "staff",          privilege: "INSERT", migration: "add-staff-provisioning.sql" },
+  { schema: "app", table: "staff_athletes", privilege: "INSERT", migration: "add-staff-provisioning.sql" },
 ];
 
 /** Which required columns, tables and functions are missing, with their migration. */
@@ -145,7 +162,12 @@ export async function schemaCheck(): Promise<{ object: string; migration: string
   if (!hasProductDb()) return [];
   const pool = getPool();
 
-  const [cols, objs] = await Promise.all([
+  // Derived from the list, never hardcoded: `nspname = 'app'` used to be
+  // written into the query, so a required table in `public` was unfindable —
+  // the check would pass while the thing it was checking for did not exist.
+  const schemas = [...new Set(REQUIRED_OBJECTS.map((o) => o.schema))];
+
+  const [cols, objs, grants] = await Promise.all([
     pool.query<{ table_schema: string; table_name: string; column_name: string }>(
       `select table_schema, table_name, column_name
          from information_schema.columns
@@ -158,16 +180,25 @@ export async function schemaCheck(): Promise<{ object: string; migration: string
     pool.query<{ kind: string; schema: string; name: string }>(
       `select 'table' as kind, n.nspname as schema, c.relname as name
          from pg_class c join pg_namespace n on n.oid = c.relnamespace
-        where n.nspname = 'app' and c.relkind in ('r','p')
+        where n.nspname = any($1::text[]) and c.relkind in ('r','p')
        union all
        select 'function', n.nspname, p.proname
          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-        where n.nspname = 'app'`,
+        where n.nspname = any($1::text[])`,
+      [schemas],
+    ),
+    pool.query<{ table_schema: string; table_name: string; privilege_type: string }>(
+      `select table_schema, table_name, privilege_type
+         from information_schema.role_table_grants
+        where grantee = 'app_writer'`,
     ),
   ]);
 
   const presentCols = new Set(cols.rows.map((r) => `${r.table_schema}.${r.table_name}.${r.column_name}`));
   const presentObjs = new Set(objs.rows.map((r) => `${r.kind}:${r.schema}.${r.name}`));
+  const presentGrants = new Set(
+    grants.rows.map((r) => `${r.table_schema}.${r.table_name}.${r.privilege_type}`),
+  );
 
   return [
     ...REQUIRED_COLUMNS.filter((c) => !presentCols.has(`${c.schema}.${c.table}.${c.column}`)).map((c) => ({
@@ -177,6 +208,12 @@ export async function schemaCheck(): Promise<{ object: string; migration: string
     ...REQUIRED_OBJECTS.filter((o) => !presentObjs.has(`${o.kind}:${o.schema}.${o.name}`)).map((o) => ({
       object: `${o.schema}.${o.name} (${o.kind})`,
       migration: o.migration,
+    })),
+    ...REQUIRED_GRANTS.filter(
+      (g) => !presentGrants.has(`${g.schema}.${g.table}.${g.privilege}`),
+    ).map((g) => ({
+      object: `grant ${g.privilege.toLowerCase()} on ${g.schema}.${g.table}`,
+      migration: g.migration,
     })),
   ];
 }

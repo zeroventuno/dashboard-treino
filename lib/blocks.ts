@@ -8,6 +8,7 @@
 
 export type BlockId =
   | "hero"        // countdown + readiness banner
+  | "vitals"      // HRV / sleep / readiness / body battery / resting HR history
   | "fitness"     // PMC chart (CTL/ATL/TSB)
   | "calendar"    // monthly training calendar
   | "season"      // season phases + milestones timeline
@@ -34,6 +35,13 @@ export interface BlockDef {
 
 export const BLOCKS: BlockDef[] = [
   { id: "hero",        enabled: true, width: "full" },
+  // Directly under the hero, which shows today's readiness — this is the same
+  // check-in read as a trend. No `requires`: the gate is an AND and this card
+  // is a union of five series that are each gated on their own metric INSIDE
+  // the block (lib/vitals VITAL_SERIES, via the same `blockAvailable`), so an
+  // AND here would hide four working charts from an athlete missing one strap.
+  // VitalsBlock renders null when none of them survive.
+  { id: "vitals",      enabled: true, width: "full" },
   { id: "fitness",     enabled: true, width: "full" },
   { id: "calendar",    enabled: true, width: "full" },
   { id: "availability",enabled: true, width: "full" },

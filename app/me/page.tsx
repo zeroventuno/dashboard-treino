@@ -18,6 +18,8 @@ import { BodyBlock } from "@/components/blocks/BodyBlock";
 import { StrengthBlock } from "@/components/blocks/StrengthBlock";
 import { WatchPointsBlock } from "@/components/blocks/WatchPointsBlock";
 import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
+import { VitalsBlock } from "@/components/blocks/VitalsBlock";
+import { VITALS_METRICS } from "@/lib/vitals";
 
 export const revalidate = 60;
 
@@ -30,6 +32,11 @@ type BlockProps = { data: DashboardData; todayISO: string; locale: Locale };
 // id → renderer. Adding/removing a block here + in lib/blocks.ts is all it takes.
 const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
   hero: (p) => <HeroBlock data={p.data} locale={p.locale} />,
+  // This dashboard has every metric by definition, so the series here are gated
+  // on data alone.
+  vitals: (p) => (
+    <VitalsBlock data={p.data} metrics={VITALS_METRICS} todayISO={p.todayISO} locale={p.locale} />
+  ),
   fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
   calendar: (p) => <CalendarBlock data={p.data} todayISO={p.todayISO} locale={p.locale} />,
   availability: (p) => <AvailabilityBlock preferences={{}} locale={p.locale} editable={false} />,

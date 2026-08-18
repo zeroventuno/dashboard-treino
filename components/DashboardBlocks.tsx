@@ -22,6 +22,7 @@ import { BodyBlock } from "@/components/blocks/BodyBlock";
 import { StrengthBlock } from "@/components/blocks/StrengthBlock";
 import { WatchPointsBlock } from "@/components/blocks/WatchPointsBlock";
 import { LifestyleBlock } from "@/components/blocks/LifestyleBlock";
+import { VitalsBlock } from "@/components/blocks/VitalsBlock";
 
 type BlockProps = {
   data: DashboardData;
@@ -46,6 +47,11 @@ const REGISTRY: Record<BlockId, (p: BlockProps) => React.ReactNode> = {
         races: p.tenant.races,
       }}
     />
+  ),
+  // Read-only by construction: takes no `editable`, offers no writes, so the
+  // coach drill-in gets the identical card.
+  vitals: (p) => (
+    <VitalsBlock data={p.data} metrics={p.tenant.metrics} todayISO={p.todayISO} locale={p.locale} />
   ),
   fitness: (p) => <FitnessBlock data={p.data} locale={p.locale} />,
   calendar: (p) => (

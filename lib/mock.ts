@@ -219,21 +219,70 @@ function buildStrength(): StrengthSession[] {
   ];
 }
 
+/**
+ * 24 weeks of check-ins — with the holes a real athlete leaves.
+ *
+ * This used to be 13 consecutive, complete days, which was fine while the only
+ * thing reading it was a 7-day average and today's traffic light. The daily
+ * signals block (lib/vitals) trends the same rows over months, and its whole
+ * design problem is absence: a missed day must not become a zero, and must not
+ * be smoothed over as if it had been measured. Mock data that never misses a day
+ * would have let all of that ship untested.
+ *
+ * So the sparseness here is deliberate and of three different kinds, because
+ * that is how it arrives in production:
+ *   · days with NO ROW AT ALL — scattered misses plus one nine-day block, the
+ *     holiday everybody takes;
+ *   · rows that carry some fields and not others — HRV logged on a morning the
+ *     athlete never recorded sleep, and vice versa;
+ *   · a field that simply does not exist before a date — body battery starts ten
+ *     weeks back, when they got the watch that reports it.
+ * The last week is always complete, so the hero's readiness banner and the
+ * lifestyle rings still have their "today" to draw.
+ */
 function buildCheckins(): Checkin[] {
   const rnd = mulberry32(7);
   const out: Checkin[] = [];
-  for (let i = 12; i >= 0; i--) {
+  const DAYS = 168;
+  const BATTERY_FROM = 70;    // days back — nothing before this reports it
+  const BREAK_FROM = 96, BREAK_TO = 88; // the nine-day hole, in days back
+
+  for (let i = DAYS - 1; i >= 0; i--) {
     const date = toISO(addDays(TODAY, -i));
-    const hrv = Math.round(58 + rnd() * 26);
-    const sleep = +(6.6 + rnd() * 1.8).toFixed(1);
-    const readiness = Math.round(50 + rnd() * 45);
+
+    // No row at all. The last week is exempt so today always exists.
+    if (i > 6 && (i <= BREAK_FROM && i >= BREAK_TO)) continue;
+    if (i > 6 && rnd() < 0.16) continue;
+
+    // A slow season shape (a build block, then a recovery) so the rolling mean
+    // has something to say beyond noise — this is fake data, not a claim.
+    const t = (DAYS - 1 - i) / (DAYS - 1);
+    const swing = Math.sin(t * Math.PI * 1.4);
+
+    const hrv = Math.round(72 - 10 * swing + (rnd() - 0.5) * 12);
+    const restingHr = Math.round(48 + 5 * swing + (rnd() - 0.5) * 4);
+    const sleep = +(7.1 + (rnd() - 0.5) * 2.3).toFixed(1);
+    const readiness = Math.round(Math.max(34, Math.min(97, 74 - 14 * swing + (rnd() - 0.5) * 24)));
+    const battery = Math.round(Math.max(18, Math.min(99, 68 + (rnd() - 0.5) * 48)));
     const rec = readiness >= 75 ? "green" : readiness >= 58 ? "yellow" : "red";
+
+    // Fields missing from a row that does exist.
+    const complete = i <= 6;
+    const noHrv = !complete && rnd() < 0.10;
+    const noSleep = !complete && rnd() < 0.12;
+    const hasBattery = i < BATTERY_FROM && (complete || rnd() > 0.06);
+
     // hydration/protein only logged on some days — mirrors real usage (nulls skipped in averages)
     const hasNutritionLog = i <= 4;
     out.push({
-      date, hrv, sleep_hours: sleep, readiness_score: readiness,
-      body_battery: Math.round(45 + rnd() * 50), resting_hr: Math.round(46 + rnd() * 7),
-      recommendation: rec, notes: i === 0 ? "Boa noite de sono, pronto para o longão." : null,
+      date,
+      hrv: noHrv ? null : hrv,
+      sleep_hours: noSleep ? null : sleep,
+      readiness_score: readiness,
+      body_battery: hasBattery ? battery : null,
+      resting_hr: restingHr,
+      recommendation: rec,
+      notes: i === 0 ? "Boa noite de sono, pronto para o longão." : null,
       hydration_liters: hasNutritionLog ? +(1.8 + rnd() * 1.4).toFixed(1) : null,
       whey_shakes: hasNutritionLog ? Math.round(rnd() * 2) : null,
       protein_grams_estimate: hasNutritionLog ? Math.round(95 + rnd() * 45) : null,
