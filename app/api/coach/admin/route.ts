@@ -62,7 +62,11 @@ export async function POST(req: Request) {
             // A marca viaja com a mensagem: o mailer no n8n serve todos os
             // projetos da Ventuno pelo mesmo remetente autenticado, e cada um
             // manda a propria identidade em vez de existir um fluxo por projeto.
-            brand: "MY TRAKR",
+            brand: process.env.MAIL_BRAND ?? "MY TRAKR",
+            // HTML cru, colado no rodape. Fica em env para a assinatura poder
+            // mudar sem deploy — e para cada projeto Ventuno mandar a sua sem
+            // que exista um fluxo n8n por projeto.
+            signature: process.env.MAIL_SIGNATURE ?? "",
             email,
             name,
             // A magic link: logging in IS the first step, and asking someone to
