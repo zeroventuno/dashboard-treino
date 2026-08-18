@@ -231,7 +231,11 @@ export function VitalsTrends({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
+      {/* Two across on a phone, three on a tablet, all five in one row on a
+          desktop. An odd panel count leaves the last one alone in its row at
+          two columns, so it takes the full width there instead of sitting in a
+          half-empty row — reset from `sm` up, where the row is already full. */}
+      <div className="grid grid-cols-2 gap-2.5 [&>:last-child:nth-child(odd)]:col-span-2 sm:grid-cols-3 sm:[&>:last-child:nth-child(odd)]:col-span-1 xl:grid-cols-5">
         {win.series.map((s) => (
           <VitalPanel key={s.def.key} s={s} tr={tr} />
         ))}
