@@ -29,5 +29,19 @@ export default function manifest(): MetadataRoute.Manifest {
     shortcuts: [
       { name: "Hoje", url: "/app" },
     ],
+    // Lets the OS "Share" sheet list MY TRAKR as a destination for a .fit
+    // exported from another app (Garmin Connect, etc.) — Android/Chrome only
+    // today, iOS Safari doesn't implement the receiving half of Web Share yet.
+    // A share that lands here goes through the exact same route as the manual
+    // upload form (components/ImportFile.tsx), so this is additive, never the
+    // only way in.
+    share_target: {
+      action: "/api/app/import",
+      method: "POST",
+      enctype: "multipart/form-data",
+      params: {
+        files: [{ name: "file", accept: [".fit", "application/octet-stream", "application/vnd.ant.fit"] }],
+      },
+    },
   };
 }

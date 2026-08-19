@@ -12,7 +12,16 @@ import { AUTH_COOKIE, tokenFor } from "@/lib/auth";
 // up/down + an error code.
 // Paths that are public but must match EXACTLY. "/" can't go in the prefix list
 // below — every path starts with it, so it would open the whole site.
-const PUBLIC_EXACT = new Set(["/"]);
+//
+// /manifest.webmanifest belongs here for the same reason icon.png and
+// apple-icon.png never reach this function at all (excluded by the matcher's
+// file-extension pattern below): a browser fetches it unauthenticated to
+// decide whether /app is installable, before any athlete session exists to
+// present. Gated, it would 307 to an HTML login page where the browser
+// expects JSON, and PWA installability would silently fail behind the
+// password wall — worth being an exact path, not swept into the /app prefix,
+// since it's requested at the site root regardless of which dashboard it's for.
+const PUBLIC_EXACT = new Set(["/", "/manifest.webmanifest"]);
 
 const PUBLIC = [
   "/login", "/api/login", "/api/health",

@@ -26,6 +26,7 @@ import { coachBriefing, BRIEFING_VERSION } from "@/lib/coach-briefing";
 import { CONNECTOR_VERSION } from "@/lib/connector";
 import { DashboardBlocks } from "@/components/DashboardBlocks";
 import { DeviceConnect } from "@/components/DeviceConnect";
+import { ImportFile } from "@/components/ImportFile";
 import { hasProductDb, getDeviceLink } from "@/lib/product-db";
 import { hasStrava, NEW_CONNECTIONS_PAUSED } from "@/lib/strava";
 import { APP_COOKIE } from "@/app/api/app-login/route";
@@ -50,9 +51,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ProductDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ key?: string; device?: string }>;
+  searchParams: Promise<{ key?: string; device?: string; import?: string }>;
 }) {
-  const { key, device } = await searchParams;
+  const { key, device, import: importNotice } = await searchParams;
 
   // Magic link from the onboarding message: log in, then land on a clean /app
   // so the key never sticks around in the address bar or browser history.
@@ -176,6 +177,10 @@ export default async function ProductDashboardPage({
           connectPaused={NEW_CONNECTIONS_PAUSED}
         />
       )}
+
+      {/* Works regardless of Strava/device config — a plain file upload has
+          no partner to be missing. */}
+      {live && <ImportFile locale={locale} notice={importNotice} />}
 
       {/* The athlete owns this dashboard → they can drag a session to another day.
           `live` guards the sample-data fallback, where a write has nowhere to go. */}

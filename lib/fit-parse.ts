@@ -368,6 +368,54 @@ function fileIdOf(fileId: Row | null, startFit: number): string {
   return `fit:${manufacturer}:${serial}:${created}`;
 }
 
+// ── Bridging to the same shape every source lands in ───────────────────────
+//
+// `importWorkouts` (lib/product-db.ts) doesn't care where a session came from
+// — Strava, a .fit upload, eventually Garmin's own API — it takes the same
+// flat shape and does the matching. This is that shape for a parsed .fit.
+
+export interface ImportedFitWorkout {
+  external_id: string;
+  date: string;
+  discipline: string;
+  title: string;
+  actual_duration_min: number;
+  actual_distance_km: number | null;
+  actual_pace: string | null;
+  actual_power_watts: string | null;
+}
+
+/** "4:35/km", or "1:53/100m" for swimming. Same convention lib/strava.ts uses
+ * for the same fields, kept as its own copy rather than a shared import: the
+ * two sources have nothing else in common, and reaching into strava.ts for
+ * five lines of formatting would tie a file upload to a module about OAuth. */
+function paceFrom(distanceM: number, seconds: number, discipline: Discipline): string | null {
+  if (!(distanceM > 0) || !(seconds > 0)) return null;
+  const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+  if (discipline === "swim") return `${mmss((seconds / distanceM) * 100)}/100m`;
+  if (discipline === "run") return `${mmss((seconds / distanceM) * 1000)}/km`;
+  return null; // bike is read in watts and km/h, not pace
+}
+
+/**
+ * A parsed .fit as a row `importWorkouts` understands, or null when the
+ * recorded sport isn't one this product programs — refused rather than filed
+ * under the wrong discipline.
+ */
+export function toWorkout(a: FitActivity): ImportedFitWorkout | null {
+  if (!a.discipline) return null;
+  return {
+    external_id: a.externalId,
+    date: a.date,
+    discipline: a.discipline,
+    title: a.discipline,
+    actual_duration_min: Math.round((a.timerSeconds / 60) * 10) / 10,
+    actual_distance_km: a.distanceM != null ? Math.round((a.distanceM / 1000) * 100) / 100 : null,
+    actual_pace: a.distanceM != null ? paceFrom(a.distanceM, a.timerSeconds, a.discipline) : null,
+    actual_power_watts: a.discipline === "bike" && a.avgPower ? `${Math.round(a.avgPower)}W` : null,
+  };
+}
+
 /** Average the running-dynamics channels over the records that carry them.
  * Records without them (a walk break, a device that stopped reporting) are left
  * out of the average rather than counted as zero. */
