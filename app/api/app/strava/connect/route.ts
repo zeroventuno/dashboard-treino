@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 import { randomBytes } from "node:crypto";
 import { resolveTenantId } from "@/lib/data-product";
 import { APP_COOKIE } from "@/app/api/app-login/route";
-import { authorizeUrl, hasStrava } from "@/lib/strava";
+import { authorizeUrl, hasStrava, NEW_CONNECTIONS_PAUSED } from "@/lib/strava";
 
 export const STRAVA_STATE_COOKIE = "trak_strava_state";
 
@@ -40,6 +40,12 @@ export async function GET(req: Request) {
   if (!tenantId) return NextResponse.redirect(new URL("/app/login", req.url));
   if (!hasStrava()) {
     return NextResponse.redirect(new URL("/app?device=not_configured", req.url));
+  }
+  // Checked server-side, not just hidden from the button: the browser can hit
+  // this route directly, and the point of pausing new connections is that
+  // none can start, not that the happy path is a little harder to find.
+  if (NEW_CONNECTIONS_PAUSED) {
+    return NextResponse.redirect(new URL("/app?device=new_connections_paused", req.url));
   }
 
   // Started from an alias. Sending them to Strava from here would fail on the

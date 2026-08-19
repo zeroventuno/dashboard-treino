@@ -33,6 +33,7 @@ const NOTICE: Record<string, TKey> = {
   bad_state: "device.notice.badState",
   failed: "device.notice.failed",
   not_configured: "device.notice.notConfigured",
+  new_connections_paused: "device.notice.newConnectionsPaused",
 };
 
 export function DeviceConnect({
@@ -41,12 +42,16 @@ export function DeviceConnect({
   lastError,
   locale,
   notice,
+  connectPaused,
 }: {
   connected: boolean;
   lastSyncAt: string | null;
   lastError: string | null;
   locale: Locale;
   notice?: string;
+  /** New links closed — someone already connected is unaffected. See
+   * lib/strava.ts's NEW_CONNECTIONS_PAUSED for why. */
+  connectPaused?: boolean;
 }) {
   const tr = translator(locale);
   const router = useRouter();
@@ -128,7 +133,9 @@ export function DeviceConnect({
           ? lastSyncAt
             ? `${tr("device.synced")} ${new Date(lastSyncAt).toLocaleString(locale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`
             : tr("device.never")
-          : tr("device.hint")}
+          : connectPaused
+            ? tr("device.notice.newConnectionsPaused")
+            : tr("device.hint")}
       </span>
 
       {connected ? (
@@ -164,7 +171,7 @@ export function DeviceConnect({
             className="ml-1 block h-[13px] w-auto opacity-40"
           />
         </span>
-      ) : (
+      ) : connectPaused ? null : (
         // A plain link, not fetch(): the connect route is a redirect to strava.com.
         // The image carries the words "Connect with Strava" itself, so the link's
         // accessible name comes from alt text rather than a visible label that

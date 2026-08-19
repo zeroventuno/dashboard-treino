@@ -25,6 +25,22 @@ const OAUTH = "https://www.strava.com/oauth";
 export const hasStrava = () =>
   Boolean(process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET);
 
+/**
+ * NEW connections closed. Whoever already linked Strava keeps syncing —
+ * `sync`/`disconnect` don't check this — but nobody new can start, because
+ * this integration is exactly the shape Strava's API Agreement §2.3 and API
+ * Policy §5.3 restrict: the product holds the OAuth token and pulls the
+ * athlete's activities server-side, which is what puts that data in front of
+ * a coach (§2.3 — Strava data may only be shown to the athlete it belongs to)
+ * and in front of an AI through the MCP server (§5.3 — no Strava data in the
+ * "development, training, evaluation, or operation of any AI Application",
+ * naming "ingestion into a context window" explicitly).
+ *
+ * A code change on purpose, not an env var: reopening this is a decision
+ * that should require a deploy, not a Vercel setting someone forgets.
+ */
+export const NEW_CONNECTIONS_PAUSED = true;
+
 /** Read-only on purpose: the product imports sessions, it never posts to Strava. */
 const SCOPE = "read,activity:read_all";
 

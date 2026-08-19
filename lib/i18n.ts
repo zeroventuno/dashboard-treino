@@ -627,6 +627,7 @@ const pt = {
   "device.notice.badState": "O link de conexão expirou ou não confere. Tente conectar de novo.",
   "device.notice.failed": "O Strava recusou a autorização. Tente conectar de novo.",
   "device.notice.notConfigured": "A integração com o Strava ainda não está habilitada neste deploy.",
+  "device.notice.newConnectionsPaused": "Novas conexões com o Strava estão pausadas por enquanto. Quem já conectou continua sincronizando normalmente.",
 
   // common
   "common.live": "Ao vivo",
@@ -1226,6 +1227,7 @@ const en: Dict = {
   "device.notice.badState": "That connection link expired or didn't match. Try connecting again.",
   "device.notice.failed": "Strava refused the authorisation. Try connecting again.",
   "device.notice.notConfigured": "The Strava integration isn't enabled on this deploy yet.",
+  "device.notice.newConnectionsPaused": "New Strava connections are paused for now. Anyone already connected keeps syncing as usual.",
   "common.live": "Live",
   "common.sampleData": "Sample data",
 };
@@ -1820,6 +1822,7 @@ const it: Dict = {
   "device.notice.badState": "Il link di collegamento è scaduto o non corrisponde. Riprova.",
   "device.notice.failed": "Strava ha rifiutato l'autorizzazione. Riprova.",
   "device.notice.notConfigured": "L'integrazione con Strava non è ancora attiva su questo deploy.",
+  "device.notice.newConnectionsPaused": "I nuovi collegamenti con Strava sono sospesi per ora. Chi è già collegato continua a sincronizzare normalmente.",
   "common.live": "In diretta",
   "common.sampleData": "Dati di esempio",
 };
@@ -2414,6 +2417,7 @@ const es: Dict = {
   "device.notice.badState": "El enlace de conexión caducó o no coincide. Inténtalo de nuevo.",
   "device.notice.failed": "Strava rechazó la autorización. Inténtalo de nuevo.",
   "device.notice.notConfigured": "La integración con Strava aún no está habilitada en este deploy.",
+  "device.notice.newConnectionsPaused": "Las nuevas conexiones con Strava están pausadas por ahora. Quien ya se conectó sigue sincronizando con normalidad.",
   "common.live": "En vivo",
   "common.sampleData": "Datos de ejemplo",
 };
@@ -3008,6 +3012,7 @@ const fr: Dict = {
   "device.notice.badState": "Ce lien de connexion a expiré ou ne correspond pas. Réessayez.",
   "device.notice.failed": "Strava a refusé l'autorisation. Réessayez.",
   "device.notice.notConfigured": "L'intégration Strava n'est pas encore activée sur ce déploiement.",
+  "device.notice.newConnectionsPaused": "Les nouvelles connexions Strava sont en pause pour l'instant. Qui est déjà connecté continue de synchroniser normalement.",
   "common.live": "En direct",
   "common.sampleData": "Données d'exemple",
 };

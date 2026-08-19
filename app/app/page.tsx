@@ -27,7 +27,7 @@ import { CONNECTOR_VERSION } from "@/lib/connector";
 import { DashboardBlocks } from "@/components/DashboardBlocks";
 import { DeviceConnect } from "@/components/DeviceConnect";
 import { hasProductDb, getDeviceLink } from "@/lib/product-db";
-import { hasStrava } from "@/lib/strava";
+import { hasStrava, NEW_CONNECTIONS_PAUSED } from "@/lib/strava";
 import { APP_COOKIE } from "@/app/api/app-login/route";
 import { toISO } from "@/lib/utils";
 import { Tagline } from "@/components/Tagline";
@@ -173,6 +173,7 @@ export default async function ProductDashboardPage({
           lastError={link?.last_error ?? null}
           locale={locale}
           notice={device}
+          connectPaused={NEW_CONNECTIONS_PAUSED}
         />
       )}
 
