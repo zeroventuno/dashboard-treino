@@ -38,6 +38,12 @@ const PUBLIC = [
   // anyway. It carries its own secret header, compared in constant time, and
   // stays closed when that env is unset. See app/api/provision/agency.
   "/api/provision/",
+  // Vercel Web Analytics' own beacon (<Analytics /> in app/layout.tsx) posts
+  // here on every page view. Same failure shape as the manifest above: gated,
+  // the beacon 307s to the login page instead of reaching Vercel, and the
+  // whole install silently records nothing — no error, just an empty
+  // dashboard forever.
+  "/_vercel/insights/",
 ];
 
 // The owner's personal dashboard used to sit at "/". It moved to "/me" so the
