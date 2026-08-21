@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { Saira, Saira_Condensed, Archivo } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 // Display / headings / numbers — Saira (used italic).
@@ -56,7 +57,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${saira.variable} ${sairaCondensed.variable} ${archivo.variable} h-full antialiased`}>
-      <body className="min-h-full">{children}<ServiceWorker /></body>
+      <body className="min-h-full">{children}<ServiceWorker /><Analytics /></body>
     </html>
   );
 }
