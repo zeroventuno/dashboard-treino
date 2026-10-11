@@ -8,7 +8,7 @@
 import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { resolveStaffId, getAgencyAttention, listStaff } from "@/lib/product-db";
+import { resolveStaffId, getAgencyAttention, listStaff, getOutcomeOverlay } from "@/lib/product-db";
 import { assess } from "@/lib/retention";
 import { scoreCoach, type StaffInfo } from "@/lib/agency-metrics";
 import { COACH_COOKIE } from "@/app/api/coach-login/route";
@@ -36,6 +36,7 @@ export default async function CoachBookPage({ params }: { params: Promise<{ staf
   const todayISO = todayInZone(staff.timezone);
 
   const book = (await getAgencyAttention(staff.agencyId)).filter((r) => (r.staff_ids ?? []).includes(staffId));
+  const overlay = await getOutcomeOverlay(staff.agencyId);
   const info: StaffInfo = {
     id: member.id, name: member.name, role: member.role, isOwner: member.is_owner,
     maxAthletes: member.max_athletes, payModel: member.pay_model, payValue: member.pay_value,
@@ -75,6 +76,8 @@ export default async function CoachBookPage({ params }: { params: Promise<{ staf
         showMoney
         showStaffBreakdown={false}
         currency={staff.currency}
+        outcomes={overlay.byTenant}
+        outcomesEnabled={overlay.enabled}
       />
     </div>
   );

@@ -6,7 +6,7 @@
 // because what the agency charges isn't theirs to see.
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { resolveStaffId, getAgencyAttention, listStaff } from "@/lib/product-db";
+import { resolveStaffId, getAgencyAttention, listStaff, getOutcomeOverlay } from "@/lib/product-db";
 import { assess, totals } from "@/lib/retention";
 import { scoreAgency, agencyRollup, type StaffInfo } from "@/lib/agency-metrics";
 import { AgencyScoreboard } from "@/components/coach/AgencyScoreboard";
@@ -29,6 +29,10 @@ export default async function CoachAgencyPage() {
   const tr = translator(locale);
 
   const all = await getAgencyAttention(staff.agencyId);
+  // What happened after earlier alerts. Narrowed below by the rows it is looked
+  // up against, so a coach never sees an outcome for an athlete outside their
+  // own book.
+  const overlay = await getOutcomeOverlay(staff.agencyId);
   // Micro view: the same rows, narrowed to this professional's own roster.
   const rows = staff.isOwner ? all : all.filter((r) => (r.staff_ids ?? []).includes(staff.id));
 
@@ -116,6 +120,8 @@ export default async function CoachAgencyPage() {
         showMoney={staff.isOwner}
         showStaffBreakdown={staff.isOwner}
         currency={staff.currency}
+        outcomes={overlay.byTenant}
+        outcomesEnabled={overlay.enabled}
       />
     </div>
   );

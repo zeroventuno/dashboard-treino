@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { needsAttention, totals, byStaff, type AttentionRow } from "@/lib/retention";
 import { translator, type Locale } from "@/lib/i18n";
+import { sinkLeft, type LatestOutcome } from "@/lib/attention-outcome";
+import { OutcomeControl } from "@/components/coach/OutcomeControl";
 
 /** "5x → 1x" per week, the reading an owner acts on. Halves render as 2.5. */
 const perWeek = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
@@ -12,6 +14,8 @@ export function AgencyBoard({
   showMoney = false,
   showStaffBreakdown = false,
   currency = "BRL",
+  outcomes = {},
+  outcomesEnabled = false,
 }: {
   rows: AttentionRow[];
   todayISO: string;
@@ -21,10 +25,18 @@ export function AgencyBoard({
   /** Owner-only: the per-professional cards. */
   showStaffBreakdown?: boolean;
   currency?: string;
+  /** Latest recorded outcome per athlete (tenant_id → event). */
+  outcomes?: Record<string, LatestOutcome | undefined>;
+  /** False when the outcome table doesn't exist yet: the control is hidden
+   * rather than offered and failing. */
+  outcomesEnabled?: boolean;
 }) {
   const tr = translator(locale);
   const t = totals(rows, todayISO);
-  const list = needsAttention(rows, todayISO);
+  // Athletes already recorded as gone sink to the bottom: still visible (the
+  // owner needs to see who left), but not competing with the ones who can
+  // still be saved.
+  const list = sinkLeft(needsAttention(rows, todayISO), outcomes);
   const loads = byStaff(rows, todayISO);
   const money = new Intl.NumberFormat(locale, {
     style: "currency", currency: currency || "BRL", maximumFractionDigits: 0,
@@ -84,6 +96,10 @@ export function AgencyBoard({
       <section>
         <h2 className="mb-1 px-1 text-[14px] font-bold text-[var(--text)]">{tr("agency.attention")}</h2>
         <p className="mb-2.5 px-1 text-[12.5px] text-[var(--text-faint)]">{tr("agency.attentionHint")}</p>
+        {/* Owner only: a hired coach can do nothing about a missing migration. */}
+        {showMoney && !outcomesEnabled && (
+          <p className="mb-2.5 px-1 text-[11.5px] text-[var(--text-faint)]">{tr("agency.outcome.unavailable")}</p>
+        )}
 
         {list.length === 0 ? (
           <p className="rounded-[var(--radius)] border border-[var(--border-soft)] bg-[var(--surface)] px-5 py-8 text-center text-[13.5px] text-[var(--text-faint)]">
@@ -94,42 +110,57 @@ export function AgencyBoard({
             {list.map((a) => {
               const risk = a.state === "at_risk";
               const color = risk ? "var(--warn)" : "var(--bad)";
+              const latest = outcomes[a.tenant_id] ?? null;
               return (
-                <Link
+                // A container, not the link: the outcome control has buttons
+                // and a form in it, and a click there must not navigate.
+                <div
                   key={a.tenant_id}
-                  href={`/coach/a/${a.tenant_id}`}
                   className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-[12px] border bg-[var(--surface)] px-4 py-3 transition-colors hover:border-[var(--text-faint)]"
-                  style={{ borderColor: "var(--border-soft)", borderLeft: `3px solid ${color}` }}
+                  style={{
+                    borderColor: "var(--border-soft)",
+                    borderLeft: `3px solid ${color}`,
+                    opacity: latest?.outcome === "left" ? 0.6 : 1,
+                  }}
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13.5px] font-semibold text-[var(--text)]">{a.name}</p>
-                    <p className="mt-0.5 text-[11.5px] text-[var(--text-faint)]">
-                      {a.staff.length ? a.staff.join(", ") : tr("agency.noStaff")}
-                    </p>
-                  </div>
-
-                  {/* The drop, stated plainly — this is the sentence that makes
-                      an owner pick up the phone. */}
-                  <div className="text-right">
-                    <p className="tnum text-[13px] font-semibold" style={{ color }}>
-                      {a.done_prev > 0
-                        ? `${perWeek(a.weeklyBefore)}x → ${perWeek(a.weeklyNow)}x ${tr("agency.perWeek")}`
-                        : tr("agency.neverTrained")}
-                    </p>
-                    <p className="mt-0.5 text-[11.5px] text-[var(--text-faint)]">
-                      {a.daysSilent == null
-                        ? tr("agency.noSignal")
-                        : `${tr("agency.silentFor")} ${a.daysSilent}${tr("agency.days")}`}
-                    </p>
-                  </div>
-
-                  <span
-                    className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase"
-                    style={{ borderColor: color, color }}
+                  <Link
+                    href={`/coach/a/${a.tenant_id}`}
+                    className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5"
                   >
-                    {risk ? tr("agency.atRisk") : tr("agency.inactive")}
-                  </span>
-                </Link>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13.5px] font-semibold text-[var(--text)]">{a.name}</p>
+                      <p className="mt-0.5 text-[11.5px] text-[var(--text-faint)]">
+                        {a.staff.length ? a.staff.join(", ") : tr("agency.noStaff")}
+                      </p>
+                    </div>
+
+                    {/* The drop, stated plainly — this is the sentence that makes
+                        an owner pick up the phone. */}
+                    <div className="text-right">
+                      <p className="tnum text-[13px] font-semibold" style={{ color }}>
+                        {a.done_prev > 0
+                          ? `${perWeek(a.weeklyBefore)}x → ${perWeek(a.weeklyNow)}x ${tr("agency.perWeek")}`
+                          : tr("agency.neverTrained")}
+                      </p>
+                      <p className="mt-0.5 text-[11.5px] text-[var(--text-faint)]">
+                        {a.daysSilent == null
+                          ? tr("agency.noSignal")
+                          : `${tr("agency.silentFor")} ${a.daysSilent}${tr("agency.days")}`}
+                      </p>
+                    </div>
+
+                    <span
+                      className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase"
+                      style={{ borderColor: color, color }}
+                    >
+                      {risk ? tr("agency.atRisk") : tr("agency.inactive")}
+                    </span>
+                  </Link>
+
+                  {outcomesEnabled && (
+                    <OutcomeControl tenantId={a.tenant_id} latest={latest} todayISO={todayISO} locale={locale} />
+                  )}
+                </div>
               );
             })}
           </div>

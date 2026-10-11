@@ -8,7 +8,8 @@ import pkg from "pg";
 import type { PoolClient } from "pg";
 import { createHash, randomBytes } from "node:crypto";
 import { normalizeTags } from "./bank-tags";
-import type { AttentionRow } from "./retention";
+import type { AttentionRow, Assessed } from "./retention";
+import type { LatestOutcome, OutcomeInput, OutcomeKind, OutcomeReason } from "./attention-outcome";
 import { summarizeCurve, type RosterLoadSummary } from "./roster-load";
 import { extendCurve } from "./pmc-curve";
 import { withComputedStress } from "./stress";
@@ -142,6 +143,7 @@ const REQUIRED_OBJECTS: { kind: "table" | "function"; schema: string; name: stri
   { kind: "function", schema: "app", name: "provision_agency",      migration: "add-agency-provisioning.sql" },
   { kind: "table",    schema: "app", name: "agency_invites",       migration: "add-agency-invites.sql" },
   { kind: "table",    schema: "app", name: "athlete_tokens",       migration: "add-athlete-signup.sql" },
+  { kind: "table",    schema: "app", name: "attention_outcomes",   migration: "add-attention-outcomes.sql" },
   // Lives in `public`, not `app` — and could never be detected until the query
   // below stopped hardcoding the schema.
   { kind: "table",    schema: "public", name: "menstrual_cycle",   migration: "add-menstrual-cycle.sql" },
@@ -1111,6 +1113,111 @@ export async function getAgencyAttention(agencyId: string): Promise<AttentionRow
     [agencyId],
   );
   return rows;
+}
+
+// ── What happened after an alert ────────────────────────────────────────────
+// Append-only events (product/add-attention-outcomes.sql). The retention screen
+// works without them: every read here degrades to "nothing recorded" when the
+// migration hasn't been run, instead of taking the page down.
+
+let outcomesTableKnown = false;
+
+/** Has add-attention-outcomes.sql been run? Cached once true. */
+export async function attentionOutcomesReady(): Promise<boolean> {
+  if (!hasProductDb()) return false;
+  if (outcomesTableKnown) return true;
+  const { rows } = await getPool().query(
+    `select 1 from information_schema.tables
+      where table_schema = 'app' and table_name = 'attention_outcomes'`,
+  );
+  outcomesTableKnown = rows.length > 0;
+  return outcomesTableKnown;
+}
+
+/** The most recent event per athlete of an agency. */
+export async function getLatestOutcomes(agencyId: string): Promise<Map<string, LatestOutcome>> {
+  const out = new Map<string, LatestOutcome>();
+  try {
+    if (!(await attentionOutcomesReady())) return out;
+    const { rows } = await getPool().query<{
+      tenant_id: string; outcome: OutcomeKind; reason: OutcomeReason | null;
+      note: string | null; at: string; by: string | null;
+    }>(
+      // to_char for the same reason as getAgencyAttention: timestamptz comes
+      // back as a JS Date, and everything downstream wants a string.
+      `select distinct on (o.tenant_id)
+              o.tenant_id, o.outcome, o.reason, o.note,
+              to_char(o.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as at,
+              s.name as by
+         from app.attention_outcomes o
+         left join app.staff s on s.id = o.staff_id
+        where o.agency_id = $1
+        order by o.tenant_id, o.created_at desc`,
+      [agencyId],
+    );
+    for (const r of rows) {
+      out.set(r.tenant_id, { outcome: r.outcome, reason: r.reason, note: r.note, at: r.at, by: r.by });
+    }
+  } catch (e) {
+    // A secondary overlay on the screen: never worth the screen.
+    console.error("[outcomes] read failed:", e instanceof Error ? e.message : e);
+  }
+  return out;
+}
+
+/** What a retention screen needs: whether recording is possible here at all,
+ * and the latest event per athlete as a plain object (it crosses into a
+ * component, and a Map doesn't serialise). */
+export async function getOutcomeOverlay(
+  agencyId: string,
+): Promise<{ enabled: boolean; byTenant: Record<string, LatestOutcome> }> {
+  try {
+    if (!(await attentionOutcomesReady())) return { enabled: false, byTenant: {} };
+    return { enabled: true, byTenant: Object.fromEntries(await getLatestOutcomes(agencyId)) };
+  } catch (e) {
+    console.error("[outcomes] overlay failed:", e instanceof Error ? e.message : e);
+    return { enabled: false, byTenant: {} };
+  }
+}
+
+/**
+ * Record one outcome. The snapshot is what the SERVER computed from the live
+ * attention row — never taken from the request — so a label can't be forged
+ * into the dataset it exists to feed.
+ *
+ * The guard lives in the statement: the athlete must belong to THIS agency and,
+ * for a professional who is not the owner, must be on their own book (the same
+ * scope the screen shows them). An id from another agency, or an athlete that
+ * isn't theirs, matches no row and inserts nothing.
+ */
+export async function recordAttentionOutcome(args: {
+  agencyId: string;
+  staffId: string;
+  isOwner: boolean;
+  tenantId: string;
+  input: OutcomeInput;
+  snapshot: Pick<Assessed, "state" | "weeklyBefore" | "weeklyNow" | "daysSilent" | "monthly_value">;
+}): Promise<{ ok: true; id: string } | { ok: false; code: "not_found" | "unavailable" }> {
+  if (!(await attentionOutcomesReady())) return { ok: false, code: "unavailable" };
+  const { agencyId, staffId, isOwner, tenantId, input, snapshot: s } = args;
+
+  const { rows } = await getPool().query<{ id: string }>(
+    `insert into app.attention_outcomes
+        (agency_id, tenant_id, staff_id, outcome, reason, note,
+         state, weekly_before, weekly_now, days_silent, monthly_value)
+     select $1::uuid, t.id, $3::uuid, $4::text, $5::text, $6::text,
+            $7::text, $8::numeric, $9::numeric, $10::int, $11::numeric
+       from app.tenants t
+      where t.id = $2::uuid and t.agency_id = $1::uuid
+        and ($12::boolean or exists (
+              select 1 from app.staff_athletes sa where sa.tenant_id = t.id and sa.staff_id = $3::uuid))
+     returning id`,
+    [
+      agencyId, tenantId, staffId, input.outcome, input.reason, input.note,
+      s.state, s.weeklyBefore, s.weeklyNow, s.daysSilent, s.monthly_value, isOwner,
+    ],
+  );
+  return rows[0] ? { ok: true, id: rows[0].id } : { ok: false, code: "not_found" };
 }
 
 /** When each athlete on a professional's roster last had a threshold measured.
