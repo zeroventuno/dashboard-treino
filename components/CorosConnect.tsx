@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { translator, type Locale, type TKey } from "@/lib/i18n";
+import { CorosPush, type PushCandidate } from "@/components/CorosPush";
 
 /** What COROS's redirect (or our own gate) can tell us, mapped to copy. */
 const NOTICE: Record<string, TKey> = {
@@ -30,6 +31,7 @@ export function CorosConnect({
   lastError,
   locale,
   notice,
+  pushCandidates = null,
 }: {
   /** `agency`: this athlete has a coach reading their calendar — not cleared.
    * `unavailable`: the deploy hasn't had its migration yet. */
@@ -40,6 +42,9 @@ export function CorosConnect({
   lastError: string | null;
   locale: Locale;
   notice?: string;
+  /** Planned sessions that could go to the watch; null hides the section
+   * (e.g. add-device-pushes.sql not run yet). */
+  pushCandidates?: PushCandidate[] | null;
 }) {
   const tr = translator(locale);
   const router = useRouter();
@@ -210,6 +215,8 @@ export function CorosConnect({
         </p>
       )}
       {!connected && <p className="w-full text-[10.5px] text-[var(--text-faint)]">{tr("coros.regionHint")}</p>}
+
+      {connected && pushCandidates && <CorosPush candidates={pushCandidates} locale={locale} />}
 
       {/* History the recent window never reaches. Collapsed: it is an
           occasional action, and the card is already the busiest in the panel. */}

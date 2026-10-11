@@ -144,6 +144,7 @@ const REQUIRED_OBJECTS: { kind: "table" | "function"; schema: string; name: stri
   { kind: "table",    schema: "app", name: "agency_invites",       migration: "add-agency-invites.sql" },
   { kind: "table",    schema: "app", name: "athlete_tokens",       migration: "add-athlete-signup.sql" },
   { kind: "table",    schema: "app", name: "attention_outcomes",   migration: "add-attention-outcomes.sql" },
+  { kind: "table",    schema: "app", name: "device_pushes",        migration: "add-device-pushes.sql" },
   // Lives in `public`, not `app` — and could never be detected until the query
   // below stopped hardcoding the schema.
   { kind: "table",    schema: "public", name: "menstrual_cycle",   migration: "add-menstrual-cycle.sql" },
@@ -1688,6 +1689,75 @@ export async function saveDeviceLink(
        last_error    = null`,
     [tenantId, provider, t.external_id ?? null, t.access_token, t.refresh_token ?? null, t.expires_at ?? null, t.scope ?? null],
   );
+}
+
+// ── What was sent to a device (product/add-device-pushes.sql) ───────────────
+
+export interface DevicePush {
+  workout_id: string;
+  remote_id: string | null;
+  remote_date: string;
+  payload_hash: string;
+}
+
+let pushesTableKnown = false;
+
+/** Has add-device-pushes.sql been run? Cached once true. */
+export async function devicePushesReady(): Promise<boolean> {
+  if (!hasProductDb()) return false;
+  if (pushesTableKnown) return true;
+  const { rows } = await getPool().query(
+    `select 1 from information_schema.tables where table_schema = 'app' and table_name = 'device_pushes'`,
+  );
+  pushesTableKnown = rows.length > 0;
+  return pushesTableKnown;
+}
+
+export async function getDevicePushes(tenantId: string, provider: string): Promise<DevicePush[]> {
+  if (!(await devicePushesReady())) return [];
+  const { rows } = await getPool().query<DevicePush>(
+    `select workout_id, remote_id, remote_date, payload_hash
+       from app.device_pushes where tenant_id = $1 and provider = $2`,
+    [tenantId, provider],
+  );
+  return rows;
+}
+
+export async function saveDevicePush(tenantId: string, provider: string, p: DevicePush): Promise<void> {
+  await getPool().query(
+    `insert into app.device_pushes (tenant_id, provider, workout_id, remote_id, remote_date, payload_hash, pushed_at)
+     values ($1, $2, $3, $4, $5, $6, now())
+     on conflict (tenant_id, provider, workout_id) do update set
+       remote_id = excluded.remote_id, remote_date = excluded.remote_date,
+       payload_hash = excluded.payload_hash, pushed_at = now()`,
+    [tenantId, provider, p.workout_id, p.remote_id, p.remote_date, p.payload_hash],
+  );
+}
+
+/** The sessions to send, read under the athlete's own RLS scope. */
+export async function getWorkoutsByIds(tenantId: string, ids: string[]): Promise<Workout[]> {
+  if (!hasProductDb() || ids.length === 0) return [];
+  return withTenant(tenantId, async (c) => {
+    const { rows } = await c.query<Workout>(
+      `select id, to_char(date,'YYYY-MM-DD') as date, discipline, title, description, status,
+              planned_duration_min, planned_distance_km, planned_pace, planned_power_watts,
+              structure, zwo_content
+         from workouts where tenant_id = $1 and id = any($2::uuid[])`,
+      [tenantId, ids],
+    );
+    return rows;
+  });
+}
+
+export async function getFtpWatts(tenantId: string): Promise<number | null> {
+  if (!hasProductDb()) return null;
+  return withTenant(tenantId, async (c) => {
+    const { rows } = await c.query<{ ftp_watts: number | null }>(
+      "select ftp_watts from performance_indicators where tenant_id = $1 limit 1",
+      [tenantId],
+    );
+    return rows[0]?.ftp_watts ?? null;
+  });
 }
 
 export async function deleteDeviceLink(tenantId: string, provider: string): Promise<void> {

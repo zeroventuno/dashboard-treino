@@ -30,7 +30,11 @@ import { CorosConnect } from "@/components/CorosConnect";
 import { ImportFile } from "@/components/ImportFile";
 import {
   hasProductDb, getDeviceLink, getDeviceLinkMeta, getTenantAgencyId, deviceLinkMetaReady,
+  devicePushesReady, getDevicePushes,
 } from "@/lib/product-db";
+import { workoutToCourse, COROS_WINDOW_DAYS } from "@/lib/coros-workout";
+import { getWorkoutBlocks } from "@/lib/workout-structure";
+import type { PushCandidate } from "@/components/CorosPush";
 import { isCorosRegion } from "@/lib/coros";
 import { hasStrava, NEW_CONNECTIONS_PAUSED } from "@/lib/strava";
 import { APP_COOKIE } from "@/app/api/app-login/route";
@@ -140,6 +144,7 @@ export default async function ProductDashboardPage({
   let corosMode: "ready" | "agency" | "unavailable" = "unavailable";
   let corosLink: Awaited<ReturnType<typeof getDeviceLink>> = null;
   let corosRegion: "eu" | "us" | null = null;
+  let pushCandidates: PushCandidate[] | null = null;
   if (live && tenantId) {
     try {
       if (await getTenantAgencyId(tenantId)) {
@@ -149,6 +154,30 @@ export default async function ProductDashboardPage({
         corosLink = await getDeviceLink(tenantId, "coros");
         const r = corosLink ? (await getDeviceLinkMeta(tenantId, "coros"))?.region : null;
         corosRegion = isCorosRegion(r) ? r : null;
+
+        // What could go to the watch: planned run/bike sessions inside the
+        // window COROS accepts, built by the same function the send uses.
+        if (corosLink && (await devicePushesReady())) {
+          const sent = new Map((await getDevicePushes(tenantId, "coros")).map((p) => [p.workout_id, p]));
+          const ftp = data.indicators?.ftp_watts ?? null;
+          const last = new Date(Date.parse(`${todayISO}T00:00:00Z`) + COROS_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
+          pushCandidates = data.workouts
+            .filter((w) => (w.discipline === "run" || w.discipline === "bike") && w.status === "planned" && w.date >= todayISO && w.date <= last)
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .slice(0, 40)
+            .map((w) => {
+              const m = workoutToCourse(w, getWorkoutBlocks(w, ftp), todayISO);
+              const prev = sent.get(w.id);
+              const state: PushCandidate["state"] = !prev ? "new"
+                : m.ok && prev.remote_date !== m.date ? "moved"
+                : m.ok && prev.payload_hash !== m.hash ? "changed" : "sent";
+              return {
+                id: w.id, date: w.date.slice(0, 10), title: w.title, discipline: w.discipline as "run" | "bike",
+                ok: m.ok, reason: m.ok ? undefined : m.reason,
+                steps: m.ok ? m.course.sections.length : 0, textOnly: m.ok ? m.textOnly : 0, state,
+              };
+            });
+        }
       }
     } catch (e) {
       console.error("[coros] status unavailable:", e instanceof Error ? e.message : e);
@@ -176,6 +205,7 @@ export default async function ProductDashboardPage({
         lastError={corosLink?.last_error ?? null}
         locale={locale}
         notice={corosNotice}
+        pushCandidates={pushCandidates}
       />
       {/* Works regardless of any partner config — a plain file upload has none
           to be missing. */}
