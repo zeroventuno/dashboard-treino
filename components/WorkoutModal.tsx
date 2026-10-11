@@ -95,7 +95,7 @@ function SubSection({ label, text }: { label: string; text: string }) {
   return (
     <div>
       <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[var(--text-faint)]">{label}</p>
-      <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--text-muted)]">{text}</p>
+      <p className="mt-0.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--text-muted)]">{text}</p>
     </div>
   );
 }
@@ -294,15 +294,18 @@ export function WorkoutModal({
   return createPortal(
     <div className="fade fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
       <div
-        className="pop max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:rounded-[var(--radius)]"
+        // overflow-x-hidden: a bottom sheet that can be dragged sideways reads
+        // as broken — `overflow-y-auto` alone makes the other axis `auto` too,
+        // so any single wide row used to pan the whole modal off-screen.
+        className="pop max-h-[92vh] w-full max-w-lg overflow-y-auto overflow-x-hidden rounded-t-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:rounded-[var(--radius)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)]/95 p-5 backdrop-blur">
-          <div className="flex items-start gap-3">
+          <div className="flex min-w-0 items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: "var(--surface-3)", color: meta.color }}>
               <DisciplineIcon discipline={w.discipline} size={22} />
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: meta.color }}>
                 <span>{tr(meta.i18nKey)} · {tr(statusMeta(w.status).key)}</span>
                 {w.key_workout && (
@@ -312,7 +315,7 @@ export function WorkoutModal({
                   </span>
                 )}
               </p>
-              <h3 className="text-lg font-bold leading-tight text-[var(--text)]">{w.title}</h3>
+              <h3 className="break-words text-lg font-bold leading-tight text-[var(--text)]">{w.title}</h3>
             </div>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-[var(--text-faint)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text)]">
@@ -347,7 +350,7 @@ export function WorkoutModal({
           )}
           {w.description && (
             <Section label={tr("modal.description")}>
-              <pre className="whitespace-pre-wrap font-sans text-[13.5px] leading-relaxed text-[var(--text-muted)]">{w.description}</pre>
+              <pre className="whitespace-pre-wrap break-words font-sans text-[13.5px] leading-relaxed text-[var(--text-muted)]">{w.description}</pre>
             </Section>
           )}
 
@@ -368,7 +371,7 @@ export function WorkoutModal({
                 </div>
               )}
               {w.garmin_instructions && (
-                <pre className={`whitespace-pre-wrap rounded-xl border border-[var(--border)] bg-[var(--bg-soft)] p-3.5 font-mono text-[12.5px] leading-relaxed text-[var(--text-muted)] ${blocks.length > 0 ? "mt-2.5" : ""}`}>
+                <pre className={`whitespace-pre-wrap break-words rounded-xl border border-[var(--border)] bg-[var(--bg-soft)] p-3.5 font-mono text-[12.5px] leading-relaxed text-[var(--text-muted)] ${blocks.length > 0 ? "mt-2.5" : ""}`}>
                   {w.garmin_instructions}
                 </pre>
               )}
@@ -385,12 +388,12 @@ export function WorkoutModal({
 
           {w.nutrition_notes && (
             <Section label={"🥤 " + tr("modal.nutrition")}>
-              <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[var(--text-muted)]">{w.nutrition_notes}</p>
+              <p className="whitespace-pre-wrap break-words text-[13.5px] leading-relaxed text-[var(--text-muted)]">{w.nutrition_notes}</p>
             </Section>
           )}
           {w.notes && (
             <Section label={tr("modal.notes")}>
-              <p className="text-[13.5px] italic text-[var(--text-muted)]">{w.notes}</p>
+              <p className="break-words text-[13.5px] italic text-[var(--text-muted)]">{w.notes}</p>
             </Section>
           )}
           {onMove && (
@@ -497,7 +500,10 @@ export function WorkoutModal({
 
         {/* status lights — reflect the status set in the training log, not actions */}
         <div className="sticky bottom-0 border-t border-[var(--border)] bg-[var(--surface)]/95 p-4 backdrop-blur">
-          <div className="flex items-center justify-center gap-7">
+          {/* Four lights on a phone: they don't fit on one line at 375px, and
+              centred overflow clips BOTH ends (the first and last status were
+              the ones cut off). Wrapping keeps all four readable. */}
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
             {STATUS_LIGHTS.map((l) => {
               const on = w.status === l.status;
               return (

@@ -68,11 +68,26 @@ export function WorkoutBlocks({ blocks, discipline, locale = DEFAULT_LOCALE }: {
         {blocks.map((b, i) => (
           <li key={i} className="flex items-baseline gap-3 py-[7px] text-[12.5px]">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: hue }} />
-            <span className="flex-1 truncate text-[var(--text-2)]">
-              {b.label}
-              {b.note && <span className="text-[var(--text-faint)]"> · {b.note}</span>}
+            {/* Label and target share one group that WRAPS. The target used to
+                be `shrink-0` beside a truncating label, which is fine for
+                "148–162 bpm" and wrong for an effort description ("esforço
+                confortável, conversação possível"): it claimed the whole row,
+                squeezed the block's name to nothing and pushed the duration out
+                of the card. Short targets still sit inline on the right; a long
+                one drops to its own line and wraps there. */}
+            <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              {/* basis 6rem: the label reserves a readable minimum before the
+                  target may share its line, then grows into whatever is left.
+                  A short target ("5/10") fits beside it and the label
+                  truncates; a long one doesn't, and wraps to the next line. */}
+              <span className="min-w-0 flex-[1_1_6rem] truncate text-[var(--text-2)]">
+                {b.label}
+                {b.note && <span className="text-[var(--text-faint)]"> · {b.note}</span>}
+              </span>
+              {b.target && (
+                <span className="tnum ml-auto max-w-full break-words text-[var(--text-muted)]">{b.target}</span>
+              )}
             </span>
-            {b.target && <span className="tnum shrink-0 text-[var(--text-muted)]">{b.target}</span>}
             <span className="tnum w-[52px] shrink-0 text-right font-semibold text-[var(--text)]">
               {fmtBlockDuration(b.duration_min)}
             </span>
