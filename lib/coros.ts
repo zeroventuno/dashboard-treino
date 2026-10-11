@@ -407,6 +407,9 @@ function embeddedJson(text: string): unknown {
 export function describePayload(payload: unknown): { understood: boolean; note: string | null } {
   if (typeof payload === "string") {
     const text = payload.replace(/\s+/g, " ").trim();
+    // The list's own header says how many records it holds: "(0 records)" is
+    // an answer, not something unread.
+    if (declaredRecordCount(payload) === 0) return { understood: true, note: text.slice(0, 240) };
     return { understood: false, note: text ? text.slice(0, 240) : null };
   }
   if (Array.isArray(payload)) return { understood: true, note: null };
@@ -650,8 +653,102 @@ const isRec = (v: unknown): v is Rec => typeof v === "object" && v !== null && !
 
 const CONTAINER_KEYS = ["records", "list", "items", "activities", "sportrecords", "datalist", "rows", "data", "result"];
 
+// ── The formatted list querySportRecords actually returns ───────────────────
+//
+//   Sport Records — 2024-05-01 to 2024-06-30 (40 records)
+//   ========================
+//   1. Outdoor Run — 2024-06-20
+//      Location: Run Start
+//      Coordinates: 44.367001, 7.536000
+//      Time Window: startTimestamp=1718911717 | endTimestamp=1718913889
+//      Duration: 36:12
+//      …
+//
+// Observed from a real reply (the first lines — the rest is read by label, so a
+// field this code has not seen is skipped rather than failing the whole list).
+// Prose for a language model; the records are rebuilt from it here.
+
+const TITLE_LINE = /^\s*\d+[.)]\s+(.+?)\s+[—–-]\s+(\d{4}-\d{2}-\d{2})(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?\s*$/;
+const LABELLED_LINE = /^\s*([A-Za-z][A-Za-z0-9 _/.-]{0,31}?)\s*[:=]\s*(.+?)\s*$/;
+
+/** How many records the header says the reply holds, or null. */
+export function declaredRecordCount(text: string): number | null {
+  const m = /\((\d+)\s+records?\)/i.exec(text.slice(0, 400));
+  return m ? Number(m[1]) : null;
+}
+
+/** "5.2 km" / "800 m" / "3.1 mi" → kilometres, or null. */
+function kmFrom(raw: string): number | null {
+  const m = /(-?\d+(?:[.,]\d+)?)\s*(km|kilomet\w*|m|meters?|metres?|mi|miles?)?\b/i.exec(raw);
+  if (!m) return null;
+  const n = Number(m[1].replace(",", "."));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const unit = (m[2] ?? "km").toLowerCase();
+  if (unit.startsWith("mi")) return n * 1.609344;
+  if (unit === "m" || unit.startsWith("meter") || unit.startsWith("metre")) return n / 1000;
+  return n;
+}
+
+export function parseSportRecordsText(text: string): Rec[] {
+  const records: Rec[] = [];
+  let current: Rec | null = null;
+
+  for (const line of text.split(/\r?\n/)) {
+    const title = TITLE_LINE.exec(line);
+    if (title) {
+      current = { sportName: title[1].trim(), date: title[2] };
+      records.push(current);
+      continue;
+    }
+    if (!current) continue;
+
+    const kv = LABELLED_LINE.exec(line);
+    if (!kv) continue;
+    const key = kv[1].toLowerCase().replace(/[^a-z0-9]/g, "");
+    const value = kv[2];
+
+    // Deliberately NOT carried: where the athlete trained (location and
+    // coordinates). Nothing downstream needs it, and a home address is not a
+    // thing to keep because it happened to be in the reply.
+    if (key === "location" || key === "coordinates" || key === "coords") continue;
+
+    if (key === "timewindow" || key === "time") {
+      const s = /startTimestamp\s*=\s*(\d+)/i.exec(value);
+      const e = /endTimestamp\s*=\s*(\d+)/i.exec(value);
+      if (s) current.startTimestamp = Number(s[1]);
+      if (e) current.endTimestamp = Number(e[1]);
+      if (s || e) continue;
+    }
+    if (key === "duration" || key === "workouttime" || key === "totaltime" || key === "movingtime") {
+      current.duration = value;
+    } else if (key === "distance" || key === "totaldistance") {
+      const km = kmFrom(value);
+      if (km !== null) current.distanceKm = km;
+    } else if (key === "labelid" || key === "activityid") {
+      current.labelId = value;
+    } else if (key === "sporttype" || key === "sportcode") {
+      const n = Number(value);
+      if (Number.isInteger(n)) current.sportType = n;
+    } else if (key === "starttimestamp" || key === "endtimestamp") {
+      const n = Number(value);
+      if (Number.isFinite(n)) current[key === "starttimestamp" ? "startTimestamp" : "endTimestamp"] = n;
+    }
+    // Everything else (pace, heart rate, sets…) is read by nothing yet.
+  }
+
+  // Without a labelId the start instant is the identity: stable for a given
+  // activity and never reused by another.
+  for (const r of records) {
+    if (r.labelId === undefined && typeof r.startTimestamp === "number") r.id = `ts${r.startTimestamp}`;
+  }
+  return records;
+}
+
 /** The array of activity objects inside whatever envelope the tool used. */
 export function findRecords(payload: unknown, depth = 0): Rec[] {
+  // querySportRecords answers in a formatted LIST, not JSON (see
+  // parseSportRecordsText) — the reply that used to read as "no activities".
+  if (typeof payload === "string") return parseSportRecordsText(payload);
   if (Array.isArray(payload)) return payload.filter(isRec);
   if (!isRec(payload) || depth > 3) return [];
 

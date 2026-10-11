@@ -96,7 +96,12 @@ export function CorosConnect({
         }
         // A full page may have been cut short: say so rather than let a long
         // period look complete.
-        setResult(json.maybeTruncated ? `${base} ${tr("coros.range.full")}` : base);
+        let text = json.maybeTruncated ? `${base} ${tr("coros.range.full")}` : base;
+        // The reply said it held more than this app could read.
+        if (typeof json.declared === "number" && json.declared > fetched) {
+          text += ` ${tr("coros.result.partial")} (${fetched}/${json.declared})`;
+        }
+        setResult(text);
         // New sessions have to reach the calendar, not just this label.
         router.refresh();
       }

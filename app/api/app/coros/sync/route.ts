@@ -18,7 +18,8 @@ import { resolveTenantId } from "@/lib/data-product";
 import { importWorkouts, markSync } from "@/lib/product-db";
 import { APP_COOKIE } from "@/app/api/app-login/route";
 import {
-  CorosError, buildRecordQuery, dayRange, describePayload, findRecords, mapRecords, pageSizeOf, parseImportRange,
+  CorosError, buildRecordQuery, dayRange, declaredRecordCount, describePayload, findRecords, mapRecords, pageSizeOf,
+  parseImportRange,
 } from "@/lib/coros";
 import { openCorosLink } from "@/lib/coros-link";
 
@@ -114,6 +115,9 @@ export async function POST(req: Request) {
       window: period,
       // A page that came back exactly full may have been cut short.
       maybeTruncated: pageSize !== null && records.length >= pageSize,
+      // What the reply's own header said it held, when it said (the formatted
+      // list does). More than was read means some entries were not understood.
+      declared: typeof payload === "string" ? declaredRecordCount(payload) : null,
       ...result,
     });
   } catch (err) {

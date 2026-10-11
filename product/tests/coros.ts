@@ -3,8 +3,8 @@
 // Rode com:  npx tsx product/tests/coros.ts
 import {
   CorosError, CorosSession, authorizeUrl, buildRecordQuery, challengeOf, dayRange, describePayload, disciplineOf,
-  exchangeCode, findRecords, localDateOf, mapRecord, mapRecords, newPkce, pageSizeOf, parseImportRange,
-  parseRpcBody, refreshTokens, registerClient, toolPayload, type McpTool,
+  declaredRecordCount, exchangeCode, findRecords, localDateOf, mapRecord, mapRecords, newPkce, pageSizeOf,
+  parseImportRange, parseRpcBody, parseSportRecordsText, refreshTokens, registerClient, toolPayload, type McpTool,
 } from "../../lib/coros";
 
 // CommonJS under tsx (the package declares no "type"), so no top-level await.
@@ -62,6 +62,75 @@ ck("payload: texto não-JSON vira string", toolPayload({ content: [{ type: "text
   ck("payload: '[1]' / '[]' dentro de prosa continua sendo prosa",
     toolPayload({ content: [{ type: "text", text: "see [1] and [2]" }] }) === "see [1] and [2]" &&
       toolPayload({ content: [{ type: "text", text: "Found 0 records: []" }] }) === "Found 0 records: []");
+}
+
+// ── A lista formatada que o querySportRecords REALMENTE devolve ─────────────
+{
+  // First lines of a real reply (copied from the app's own "COROS answered"
+  // text); the coordinates are the athlete's.
+  const real = [
+    "Sport Records — 2024-05-01 to 2024-06-30 (40 records)",
+    "========================",
+    "1. Outdoor Run — 2024-06-20",
+    "   Location: Run Start",
+    "   Coordinates: 44.367001, 7.536000",
+    "   Time Window: startTimestamp=1718911717 | endTimestamp=1718913889",
+    "   Duration: 36:12",
+  ].join("\n");
+
+  const recs = parseSportRecordsText(real);
+  ck("lista: 1 registro lido do trecho real", recs.length === 1, String(recs.length));
+  ck("lista: esporte, data, duração e instante de início",
+    recs[0]?.sportName === "Outdoor Run" && recs[0]?.date === "2024-06-20" && recs[0]?.duration === "36:12" &&
+      recs[0]?.startTimestamp === 1718911717 && recs[0]?.endTimestamp === 1718913889, JSON.stringify(recs[0]));
+  ck("lista: onde treinou (local e coordenadas) NÃO é carregado",
+    !JSON.stringify(recs).includes("44.367") && !JSON.stringify(recs).includes("Run Start"), JSON.stringify(recs));
+  ck("lista: o cabeçalho diz quantos são", declaredRecordCount(real) === 40);
+
+  // Through the same mapper the JSON path uses.
+  const m = mapRecord(recs[0]);
+  ck("lista: vira um treino de corrida, 36 min, em 20/06/2024",
+    "item" in m && m.item.discipline === "run" && m.item.date === "2024-06-20" && m.item.actual_duration_min === 36.2,
+    JSON.stringify(m));
+  ck("lista: sem labelId, o início do treino é a identidade (estável)",
+    "item" in m && m.item.external_id === "coros:ts1718911717", JSON.stringify(m));
+}
+{
+  // Fields beyond the observed ones: read by label, in any order, and several
+  // records in one reply. (Labels other than those observed are an assumption
+  // taken from the tool's own description: labelId, sportType, distance.)
+  const text = [
+    "Sport Records — 2024-06-15 to 2024-06-25 (3 records)",
+    "========================",
+    "1. Open Water Swim — 2024-06-22",
+    "   Duration: 48:05",
+    "   Distance: 1900 m",
+    "   Time Window: startTimestamp=1719050000 | endTimestamp=1719052885",
+    "   labelId: 7788",
+    "   sportType: 301",
+    "2. Strength — 2024-06-21",
+    "   Duration: 55:00",
+    "   Time Window: startTimestamp=1718990000 | endTimestamp=1718993300",
+    "3. Outdoor Run — 2024-06-20",
+    "   Distance: 6.21 km",
+    "   Duration: 1:02:15",
+    "   Time Window: startTimestamp=1718911717 | endTimestamp=1718913889",
+  ].join("\n");
+  const batch = mapRecords(parseSportRecordsText(text));
+  ck("lista: três registros, três esportes, todos importáveis",
+    batch.items.length === 3 && batch.items.map((i) => i.discipline).join() === "swim,strength,run", batch.items.map((i) => i.discipline).join());
+  ck("lista: natação em metros vira km; labelId vira a identidade",
+    batch.items[0].actual_distance_km === 1.9 && batch.items[0].external_id === "coros:7788", JSON.stringify(batch.items[0]));
+  ck("lista: duração h:mm:ss e distância em km",
+    batch.items[2].actual_duration_min === 62.3 && batch.items[2].actual_distance_km === 6.21, JSON.stringify(batch.items[2]));
+  ck("lista: musculação sem distância fica sem distância", batch.items[1].actual_distance_km === null);
+}
+{
+  ck("lista: texto sem registros → vazio, sem quebrar", parseSportRecordsText("No records found.").length === 0);
+  ck("lista: '(0 records)' É uma resposta (entendida)", describePayload("Sport Records — 2024-01-01 to 2024-01-07 (0 records)").understood === true);
+  ck("lista: prosa sem cabeçalho continua NÃO entendida", describePayload("Something went wrong").understood === false);
+  ck("lista: findRecords aceita o texto direto", findRecords("1. Outdoor Run — 2024-06-20\n   Duration: 10:00").length === 1);
+  ck("lista: título com hora é aceito", parseSportRecordsText("1. Pool Swim — 2024-06-20 07:15\n   Duration: 30:00")[0]?.date === "2024-06-20");
 }
 
 // ── describePayload: "vazio" só vale para resposta ESTRUTURADA ──────────────
