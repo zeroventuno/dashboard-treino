@@ -18,7 +18,7 @@ import { resolveTenantId } from "@/lib/data-product";
 import { importWorkouts, markSync } from "@/lib/product-db";
 import { APP_COOKIE } from "@/app/api/app-login/route";
 import {
-  CorosError, buildRecordQuery, dayRange, findRecords, mapRecords, pageSizeOf, parseImportRange,
+  CorosError, buildRecordQuery, dayRange, describePayload, findRecords, mapRecords, pageSizeOf, parseImportRange,
 } from "@/lib/coros";
 import { openCorosLink } from "@/lib/coros-link";
 
@@ -76,6 +76,9 @@ export async function POST(req: Request) {
 
     const records = findRecords(payload);
     const mapped = mapRecords(records);
+    // Only meaningful when nothing was found: was that an answer, or a reply
+    // this code could not read?
+    const seen = records.length === 0 ? describePayload(payload) : { understood: true, note: null };
 
     // Records arrived but none could be read: a shape this code doesn't know.
     // Said by NAME — the athlete's values stay out of the message.
@@ -93,7 +96,9 @@ export async function POST(req: Request) {
 
     // A chosen window is history, not "the last sync": stamping it would move
     // the next plain sync's start to now and skip the first-connect reach-back.
-    if (!range) await markSync(tenantId, "coros", null);
+    // Nor is a reply nobody understood a sync: stamping it would skip the
+    // first-connect reach-back for a connection that has read nothing yet.
+    if (!range && seen.understood) await markSync(tenantId, "coros", null);
 
     return NextResponse.json({
       ok: true,
@@ -102,6 +107,10 @@ export async function POST(req: Request) {
       // Which sports were there instead, when nothing was importable: codes or
       // short names, never a value about the athlete.
       otherSports: mapped.otherSports,
+      // Only when there were no records: what the reply looked like — field
+      // NAMES for a structured one, the opening words for prose.
+      unrecognized: !seen.understood,
+      note: seen.note,
       window: period,
       // A page that came back exactly full may have been cut short.
       maybeTruncated: pageSize !== null && records.length >= pageSize,

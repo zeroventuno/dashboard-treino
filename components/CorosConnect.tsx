@@ -89,6 +89,11 @@ export function CorosConnect({
           // An explicit period that came back empty: say which one was asked.
           base = `${tr("coros.result.emptyIn")} ${win.from} → ${win.to}`;
         } else base = tr("device.none");
+        // Nothing found: show what COROS actually said, so "empty" can be told
+        // from "answered in a form this app could not read".
+        if (!n && typeof json.note === "string" && json.note) {
+          base += ` — ${tr("coros.result.said")}: ${json.note}`;
+        }
         // A full page may have been cut short: say so rather than let a long
         // period look complete.
         setResult(json.maybeTruncated ? `${base} ${tr("coros.range.full")}` : base);

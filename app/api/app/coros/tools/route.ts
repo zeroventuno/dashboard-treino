@@ -33,7 +33,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, code: opened.refusal.code }, { status: opened.refusal.status, headers: NO_STORE });
   }
 
-  const match = (new URL(req.url).searchParams.get("match") ?? "").trim().toLowerCase().slice(0, 40);
+  const params = new URL(req.url).searchParams;
+  const match = (params.get("match") ?? "").trim().toLowerCase().slice(0, 40);
+  // A browser's JSON viewer collapses nested objects into "{…}", which is a
+  // schema you cannot copy. `raw=1` answers as plain pretty-printed text.
+  const raw = params.get("raw") === "1";
 
   try {
     const tools = await opened.link.use((s) => s.listTools());
@@ -42,7 +46,13 @@ export async function GET(req: Request) {
         ? { name: t.name, description: t.description ?? null, inputSchema: t.inputSchema ?? null }
         : { name: t.name, description: (t.description ?? "").slice(0, 160) },
     );
-    return NextResponse.json({ ok: true, region: opened.link.region, count: tools.length, tools: shown }, { headers: NO_STORE });
+    const body = { ok: true, region: opened.link.region, count: tools.length, tools: shown };
+    if (raw) {
+      return new Response(JSON.stringify(body, null, 2), {
+        headers: { "Content-Type": "text/plain; charset=utf-8", ...NO_STORE },
+      });
+    }
+    return NextResponse.json(body, { headers: NO_STORE });
   } catch (err) {
     const reconnect = err instanceof CorosError && err.kind === "unauthorized";
     // The message is ours (kind + HTTP status), never a token or a body.

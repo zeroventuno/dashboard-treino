@@ -2,7 +2,7 @@
 // query building, and tolerant record reading.
 // Rode com:  npx tsx product/tests/coros.ts
 import {
-  CorosError, CorosSession, authorizeUrl, buildRecordQuery, challengeOf, dayRange, disciplineOf,
+  CorosError, CorosSession, authorizeUrl, buildRecordQuery, challengeOf, dayRange, describePayload, disciplineOf,
   exchangeCode, findRecords, localDateOf, mapRecord, mapRecords, newPkce, pageSizeOf, parseImportRange,
   parseRpcBody, refreshTokens, registerClient, toolPayload, type McpTool,
 } from "../../lib/coros";
@@ -51,6 +51,30 @@ ck("rpc: corpo vazio não quebra", Object.keys(parseRpcBody("  ", "application/j
 ck("payload: structuredContent tem prioridade", (toolPayload({ structuredContent: { x: 1 }, content: [{ type: "text", text: "{\"x\":2}" }] }) as { x: number }).x === 1);
 ck("payload: JSON dentro do texto", (toolPayload({ content: [{ type: "text", text: "{\"x\":2}" }] }) as { x: number }).x === 2);
 ck("payload: texto não-JSON vira string", toolPayload({ content: [{ type: "text", text: "sem dados" }] }) === "sem dados");
+{
+  // A sentence wrapped around a JSON document is still the document.
+  const wrapped = toolPayload({ content: [{ type: "text", text: 'Found 2 records:\n[{"labelId":"a","sportType":100},{"labelId":"b","sportType":301}]\nDone.' }] });
+  ck("payload: JSON embutido em frase é lido", Array.isArray(wrapped) && wrapped.length === 2, JSON.stringify(wrapped));
+  const obj = toolPayload({ content: [{ type: "text", text: 'Result: {"data":{"list":[{"id":1}]}}' }] }) as { data?: { list?: unknown[] } };
+  ck("payload: objeto embutido em frase é lido", obj?.data?.list?.length === 1, JSON.stringify(obj));
+  ck("payload: colchetes que não são JSON não viram dado", toolPayload({ content: [{ type: "text", text: "see [1] and {x" }] }) === "see [1] and {x");
+  // Valid JSON that is not a result must not read as "a structured reply".
+  ck("payload: '[1]' / '[]' dentro de prosa continua sendo prosa",
+    toolPayload({ content: [{ type: "text", text: "see [1] and [2]" }] }) === "see [1] and [2]" &&
+      toolPayload({ content: [{ type: "text", text: "Found 0 records: []" }] }) === "Found 0 records: []");
+}
+
+// ── describePayload: "vazio" só vale para resposta ESTRUTURADA ──────────────
+{
+  const prose = describePayload("No workout records found between 20240615 and 20240625.");
+  ck("describe: prosa NÃO é 'entendida' (e traz o começo do texto)", !prose.understood && prose.note?.startsWith("No workout records") === true, JSON.stringify(prose));
+  ck("describe: prosa longa é cortada", (describePayload("x ".repeat(400)).note ?? "").length <= 240);
+  const empty = describePayload({ records: [], total: 0 });
+  ck("describe: objeto vazio é entendido; só os NOMES dos campos", empty.understood && empty.note === "{ records, total }", JSON.stringify(empty));
+  ck("describe: array vazio é entendido", describePayload([]).understood === true);
+  ck("describe: null/undefined não é entendido", describePayload(null).understood === false && describePayload(undefined).understood === false);
+  ck("describe: texto vazio → sem nota", describePayload("   ").note === null);
+}
 
 // ── buildRecordQuery: só o que o schema nomeia ──────────────────────────────
 const tool = (properties: NonNullable<McpTool["inputSchema"]>["properties"], required: string[] = []): McpTool =>
@@ -58,7 +82,8 @@ const tool = (properties: NonNullable<McpTool["inputSchema"]>["properties"], req
 const range = { from: "2026-09-01", to: "2026-10-11" };
 {
   const q = buildRecordQuery(tool({ startDate: { type: "string" }, endDate: { type: "string" } }), range);
-  ck("query: startDate/endDate em ISO", q.startDate === "2026-09-01" && q.endDate === "2026-10-11");
+  // No format hint → yyyyMMdd, the form the official connector sent.
+  ck("query: string sem dica de formato vira yyyyMMdd", q.startDate === "20260901" && q.endDate === "20261011", JSON.stringify(q));
 }
 {
   const q = buildRecordQuery(
@@ -73,7 +98,10 @@ const range = { from: "2026-09-01", to: "2026-10-11" };
 }
 {
   const q = buildRecordQuery(tool({ from: { type: "string" }, to: { type: "string" }, limit: { type: "integer", maximum: 50 } }), range);
-  ck("query: limit respeita o máximo do schema", q.limit === 50 && q.from === "2026-09-01" && q.to === "2026-10-11");
+  ck("query: limit respeita o máximo do schema", q.limit === 50 && q.from === "20260901" && q.to === "20261011", JSON.stringify(q));
+  const small = buildRecordQuery(tool({ from: { type: "string" }, to: { type: "string" }, limit: { type: "integer", maximum: 20 } }), range);
+  const big = buildRecordQuery(tool({ from: { type: "string" }, to: { type: "string" }, limit: { type: "integer", maximum: 500 } }), range);
+  ck("query: maximum menor vale; maior que 50 é limitado a 50", small.limit === 20 && big.limit === 50, JSON.stringify([small.limit, big.limit]));
 }
 {
   const q = buildRecordQuery(tool({ total: { type: "integer" }, todayOnly: { type: "boolean" } }), range);
@@ -103,11 +131,75 @@ ck(
     range,
   );
   ck(
-    "query: filtros obrigatórios mas anuláveis vão como null (não como 0/\"\"/[])",
-    q.sportTypeCodes === null && q.minDistanceKm === null && q.minDurationMinutes === null &&
-      q.maxAveragePace === null && q.locationKeyword === null && q.startDate === "2026-09-01",
+    "query: filtros anuláveis vão como null (não 0/\"\"/[]); sportTypeCodes vai como todos os esportes",
+    // sportTypeCodes is the one that is never null: it gets "every sport".
+    JSON.stringify(q.sportTypeCodes) === "[65535]" && q.minDistanceKm === null && q.minDurationMinutes === null &&
+      q.maxAveragePace === null && q.locationKeyword === null && q.startDate === "20260901",
     JSON.stringify(q),
   );
+}
+{
+  // THE CALL THAT WORKED. The official connector, asked for 15–25 June 2024,
+  // sent exactly {"startDate":"20240615","endDate":"20240625","sportTypeCodes":[65535],"limit":50} and got the
+  // athlete's runs, strength and open-water swims. Given the schema COROS
+  // serves, this app must build the SAME arguments — not a plausible cousin.
+  const real = tool(
+    {
+      startDate: { type: "string", description: "Start date" },
+      endDate: { type: "string", description: "End date" },
+      sportTypeCodes: { type: "array", description: "Optional COROS numeric sport type codes. Pass only numbers chosen from" },
+      minDistanceKm: { type: "number", description: "Optional minimum distance in kilometers" },
+      maxDistanceKm: { type: "number", description: "Optional maximum distance in kilometers" },
+      minDurationMinutes: { type: "integer", description: "Optional minimum duration in minutes" },
+      maxDurationMinutes: { type: "integer", description: "Optional maximum duration in minutes" },
+      maxAveragePace: { type: "string", description: "Optional maximum average pace such as 5:30" },
+      locationKeyword: { type: "string", description: "Optional location keyword such as Shenzhen or park name" },
+      limit: { type: "integer", description: "Maximum number of records" },
+    },
+    ["startDate", "endDate", "sportTypeCodes", "minDistanceKm", "maxDistanceKm", "minDurationMinutes", "maxDurationMinutes", "maxAveragePace", "locationKeyword"],
+  );
+  const q = buildRecordQuery(real, { from: "2024-06-15", to: "2024-06-25" });
+  ck(
+    "query: reproduz EXATAMENTE a chamada que o conector oficial fez e funcionou",
+    JSON.stringify(q) === JSON.stringify({ startDate: "20240615", endDate: "20240625", sportTypeCodes: [65535], limit: 50 }),
+    JSON.stringify(q),
+  );
+}
+{
+  // The schema exactly as the live server returned it (probe output, region
+  // "us"): all ten arguments "required", descriptions verbatim.
+  const live = tool(
+    {
+      startDate: { type: "string", description: "Start date in yyyyMMdd format, defaults to 7 days ago" },
+      endDate: { type: "string", description: "End date in yyyyMMdd format, defaults to today" },
+      sportTypeCodes: {
+        type: "array",
+        description: "Optional COROS numeric sport type codes. Pass only numbers chosen from the full dubbo sport type list in the tool description; do not pass sport names or free text. Examples only: [100,101,102,103] for running, [200,201,202,203,204,205,299] for cycling, [300,301] for swimming, [65535] or null for all sports.",
+      },
+      minDistanceKm: { type: "number", description: "Optional minimum distance in kilometers" },
+      maxDistanceKm: { type: "number", description: "Optional maximum distance in kilometers" },
+      minDurationMinutes: { type: "integer", description: "Optional minimum duration in minutes" },
+      maxDurationMinutes: { type: "integer", description: "Optional maximum duration in minutes" },
+      maxAveragePace: { type: "string", description: "Optional maximum average pace such as 5:30" },
+      locationKeyword: { type: "string", description: "Optional location keyword such as Shenzhen or park name" },
+      limit: { type: "integer", description: "Maximum number of records to return, default 20" },
+    },
+    ["startDate", "endDate", "sportTypeCodes", "minDistanceKm", "maxDistanceKm", "minDurationMinutes", "maxDurationMinutes", "maxAveragePace", "locationKeyword", "limit"],
+  );
+  const q = buildRecordQuery(live, { from: "2024-06-15", to: "2024-06-25" });
+  ck(
+    "query: com o schema REAL do servidor, sai a mesma chamada do conector oficial",
+    JSON.stringify(q) === JSON.stringify({ startDate: "20240615", endDate: "20240625", sportTypeCodes: [65535], limit: 50 }),
+    JSON.stringify(q),
+  );
+}
+{
+  // An explicitly hyphenated format is honoured, not read as compact.
+  const q = buildRecordQuery(
+    tool({ startDate: { type: "string", description: "Start date, format yyyy-MM-dd" }, endDate: { type: "string", description: "End date, format yyyy-MM-dd" } }),
+    range,
+  );
+  ck("query: 'yyyy-MM-dd' no schema continua sendo ISO", q.startDate === "2026-09-01" && q.endDate === "2026-10-11", JSON.stringify(q));
 }
 {
   // The schema COROS actually served (copied from the live error message):
@@ -128,9 +220,10 @@ ck(
   );
   const q = buildRecordQuery(live, range);
   ck(
-    "query: filtros 'required' mas descritos como Optional são OMITIDOS (não zerados)",
+    "query: filtros 'required' descritos como Optional são OMITIDOS (não zerados); só o esporte vai como 'todos'",
     // A string-typed yyyyMMdd stays a string.
-    Object.keys(q).sort().join(",") === "endDate,startDate" && q.startDate === "20260901" && q.endDate === "20261011",
+    Object.keys(q).sort().join(",") === "endDate,sportTypeCodes,startDate" &&
+      q.startDate === "20260901" && q.endDate === "20261011" && JSON.stringify(q.sportTypeCodes) === "[65535]",
     JSON.stringify(q),
   );
 }
@@ -176,13 +269,13 @@ ck(
   let msg = "";
   try {
     buildRecordQuery(
-      tool({ sportTypeCodes: { type: "array", description: "COROS sport codes, e.g. 100 for run" }, kind: { type: "string", enum: ["a", "b"] } }, ["sportTypeCodes", "kind"]),
+      tool({ zoneCodes: { type: "array", description: "COROS zone codes, e.g. 100 for run" }, kind: { type: "string", enum: ["a", "b"] } }, ["zoneCodes", "kind"]),
       range,
     );
   } catch (e) { msg = (e as Error).message; }
   ck(
     "query: obrigatório não-anulável é descrito por nome, tipo e texto do schema",
-    msg.includes("sportTypeCodes (array; COROS sport codes") && msg.includes("kind (string; one of a/b)"),
+    msg.includes("zoneCodes (array; COROS zone codes") && msg.includes("kind (string; one of a/b)"),
     msg,
   );
 }

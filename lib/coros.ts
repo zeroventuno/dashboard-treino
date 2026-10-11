@@ -368,7 +368,54 @@ export function toolPayload(r: { content?: { type?: string; text?: string }[]; s
   for (const t of texts) {
     try { return JSON.parse(t); } catch { /* try the next block */ }
   }
+  // A sentence around a JSON document ("Found 3 records: [ … ]") is still a
+  // JSON document: read the span from the first bracket to the last matching
+  // one before giving up and handing back prose.
+  for (const t of texts) {
+    const embedded = embeddedJson(t);
+    if (embedded !== undefined) return embedded;
+  }
   return texts.join("\n");
+}
+
+function embeddedJson(text: string): unknown {
+  const open = text.search(/[[{]/);
+  if (open < 0) return undefined;
+  const closer = text[open] === "[" ? "]" : "}";
+  const close = text.lastIndexOf(closer);
+  if (close <= open) return undefined;
+  try {
+    const v: unknown = JSON.parse(text.slice(open, close + 1));
+    // Only something that can be a result: a non-empty list OF OBJECTS, or an
+    // object with fields. "see [1] and [2]" is valid JSON and is prose — taking
+    // it for data would turn an unreadable reply into a confident "no records".
+    if (Array.isArray(v)) return v.length > 0 && v.every((x) => typeof x === "object" && x !== null && !Array.isArray(x)) ? v : undefined;
+    return typeof v === "object" && v !== null && Object.keys(v).length > 0 ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * What a tool result was, for saying so when it held no records.
+ *
+ * "No records" is only an answer when the reply was STRUCTURED. A reply of
+ * prose this code cannot read is not "nothing happened" — it is "I could not
+ * read it". Reporting that as an empty window is how a connection that works
+ * looks broken, and it would stamp a sync that never understood anything.
+ */
+export function describePayload(payload: unknown): { understood: boolean; note: string | null } {
+  if (typeof payload === "string") {
+    const text = payload.replace(/\s+/g, " ").trim();
+    return { understood: false, note: text ? text.slice(0, 240) : null };
+  }
+  if (Array.isArray(payload)) return { understood: true, note: null };
+  if (isRec(payload)) {
+    // Names only, never values.
+    const keys = Object.keys(payload).slice(0, 10);
+    return { understood: true, note: keys.length ? `{ ${keys.join(", ")} }` : null };
+  }
+  return { understood: false, note: null };
 }
 
 // ── Reading the schema COROS actually serves ───────────────────────────────
@@ -380,6 +427,21 @@ const FROM_WORDS = new Set(["start", "from", "begin", "since", "after"]);
 const TO_WORDS = new Set(["end", "to", "until", "before"]);
 const DATEISH = new Set(["date", "day", "time", "timestamp", "at", "datetime"]);
 const LIMIT_WORDS = new Set(["limit", "size", "count", "top", "pagesize"]);
+
+/**
+ * COROS's "every sport" value for sportTypeCodes. Taken from a real call the
+ * official connector made for this tool, which returned the athlete's June 2024
+ * runs, strength and open-water swims: {"sportTypeCodes":[65535], …}.
+ *
+ * Leaving the argument OUT is not equivalent — the same window came back empty
+ * from this app while it was omitted.
+ */
+const ALL_SPORTS = 65535;
+const isSportCodesName = (tokens: string[]): boolean =>
+  tokens.includes("sport") && (tokens.includes("codes") || tokens.includes("types"));
+
+/** Page size when the schema gives no maximum — the one the official call used. */
+const DEFAULT_PAGE_SIZE = 50;
 const LIMIT_NOUNS = new Set(["results", "items", "records", "rows", "activities", "workouts", "per", "page"]);
 
 /** A page-size argument. "max" alone is NOT enough: `maxAveragePace` and
@@ -407,6 +469,9 @@ function formatBound(
   const desc = (def.description ?? "").toLowerCase();
   const compact = iso.replace(/-/g, "");
 
+  // An explicitly hyphenated format is checked FIRST: the test below strips
+  // hyphens, and would read "yyyy-MM-dd" as the compact form.
+  if (/yyyy-mm-dd/.test(desc)) return iso;
   if (/yyyymmdd/.test(desc.replace(/[-_\s]/g, ""))) {
     return type === "integer" || type === "number" ? Number(compact) : compact;
   }
@@ -418,7 +483,10 @@ function formatBound(
     return /milli/.test(desc) ? base : Math.floor(base / 1000);
   }
   if (type === "integer" || type === "number") return Number(compact);
-  return iso;
+  // A string with no format hint. COROS spells its days yyyyMMdd — the call the
+  // official connector made for this very tool was {"startDate":"20240615",
+  // "endDate":"20240625"} — so that is the default, not ISO.
+  return compact;
 }
 
 const variantsOf = (def: McpProp): McpProp[] => [...(def.anyOf ?? []), ...(def.oneOf ?? [])];
@@ -502,8 +570,9 @@ export function buildRecordQuery(
 
     if (dateish && isFrom && !isTo) args[name] = formatBound(range.from, "from", bound);
     else if (dateish && isTo && !isFrom) args[name] = formatBound(range.to, "to", bound);
+    else if (type === "array" && isSportCodesName(t)) args[name] = [ALL_SPORTS];
     else if ((type === "integer" || type === "number") && isLimitName(t)) {
-      args[name] = Math.min(def.maximum ?? 100, 100);
+      args[name] = Math.min(def.maximum ?? DEFAULT_PAGE_SIZE, DEFAULT_PAGE_SIZE);
     } else if ((type === "integer" || type === "number") && t.includes("page") && required.has(name)) {
       args[name] = def.default ?? 1;
     }
