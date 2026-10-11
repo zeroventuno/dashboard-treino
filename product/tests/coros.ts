@@ -3,8 +3,8 @@
 // Rode com:  npx tsx product/tests/coros.ts
 import {
   CorosError, CorosSession, authorizeUrl, buildRecordQuery, challengeOf, dayRange, disciplineOf,
-  exchangeCode, findRecords, localDateOf, mapRecord, mapRecords, newPkce, parseRpcBody,
-  refreshTokens, registerClient, toolPayload, type McpTool,
+  exchangeCode, findRecords, localDateOf, mapRecord, mapRecords, newPkce, pageSizeOf, parseImportRange,
+  parseRpcBody, refreshTokens, registerClient, toolPayload, type McpTool,
 } from "../../lib/coros";
 
 // CommonJS under tsx (the package declares no "type"), so no top-level await.
@@ -133,6 +133,30 @@ ck(
     msg.includes("sportTypeCodes (array; COROS sport codes") && msg.includes("kind (string; one of a/b)"),
     msg,
   );
+}
+
+// ── pageSizeOf ──────────────────────────────────────────────────────────────
+ck("pageSize: acha o limite que o schema pediu", pageSizeOf({ startDate: "2026-09-01", limit: 50 }) === 50);
+ck("pageSize: maxAveragePace não é tamanho de página", pageSizeOf({ maxAveragePace: 100, minDistanceKm: null }) === null);
+ck("pageSize: sem argumento de página → null", pageSizeOf({ startDate: "2026-09-01" }) === null);
+
+// ── parseImportRange: a janela que o atleta escolhe ─────────────────────────
+{
+  const now = new Date("2026-10-11T12:00:00Z");
+  const reason = (a: unknown, b: unknown) => { const r = parseImportRange(a, b, now); return r.ok ? "ok" : r.reason; };
+
+  ck("range: o treino de 20/06/2024 cabe numa janela curta", reason("2024-06-15", "2024-06-25") === "ok");
+  ck("range: um dia só é válido", reason("2024-06-20", "2024-06-20") === "ok");
+  ck("range: 92 dias exatos passam, 93 não", reason("2024-06-01", "2024-08-31") === "ok" && reason("2024-06-01", "2024-09-01") === "span");
+  ck("range: dois anos de uma vez é recusado", reason("2024-06-20", "2026-10-11") === "span");
+  ck("range: ordem invertida", reason("2024-06-25", "2024-06-15") === "order");
+  ck("range: data impossível (31/02) não passa", reason("2026-02-31", "2026-03-05") === "format");
+  ck("range: formato errado / vazio / tipo errado", reason("20/06/2024", "2024-06-25") === "format" && reason("", "") === "format" && reason(undefined, "2024-06-25") === "format" && reason(20240620, 20240625) === "format");
+  ck("range: futuro é recusado", reason("2026-10-10", "2026-10-20") === "future");
+  ck("range: hoje e amanhã (fuso à frente do UTC) passam", reason("2026-10-10", "2026-10-11") === "ok" && reason("2026-10-10", "2026-10-12") === "ok");
+  ck("range: mais de 5 anos para trás é recusado", reason("2021-01-01", "2021-01-10") === "too_old" && reason("2021-10-12", "2021-10-20") === "ok");
+  const r = parseImportRange("2024-06-15", "2024-06-25", now);
+  ck("range: devolve as datas como vieram", r.ok && r.from === "2024-06-15" && r.to === "2024-06-25");
 }
 
 // ── findRecords ─────────────────────────────────────────────────────────────

@@ -47,21 +47,37 @@ export function CorosConnect({
   const [result, setResult] = useState<string | null>(null);
   const [region, setRegion] = useState<Region>(linkedRegion ?? "eu");
 
-  async function sync() {
+  // The "import a period" window. `today` is filled after mount: the athlete's
+  // own calendar day can't be known on the server, and rendering it there would
+  // mismatch on hydration around midnight.
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [today, setToday] = useState("");
+  useEffect(() => setToday(new Date().toLocaleDateString("sv")), []);
+
+  async function sync(range?: { from: string; to: string }) {
     setBusy(true);
     setResult(null);
     try {
-      const res = await fetch("/api/app/coros/sync", { method: "POST" });
+      const res = await fetch("/api/app/coros/sync", {
+        method: "POST",
+        ...(range ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(range) } : {}),
+      });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.ok) {
         setResult(
           json.code === "needs_reconnect"
             ? tr("coros.reconnect")
-            : `${tr("device.failed")} ${json.error ?? res.status}`,
+            : json.code === "bad_range"
+              ? tr("coros.range.invalid")
+              : `${tr("device.failed")} ${json.error ?? res.status}`,
         );
       } else {
         const n = (json.matched ?? 0) + (json.created ?? 0) + (json.updated ?? 0);
-        setResult(n ? `${n} ${tr("device.done")}` : tr("device.none"));
+        const base = n ? `${n} ${tr("device.done")}` : tr("device.none");
+        // A full page may have been cut short: say so rather than let a long
+        // period look complete.
+        setResult(json.maybeTruncated ? `${base} ${tr("coros.range.full")}` : base);
         // New sessions have to reach the calendar, not just this label.
         router.refresh();
       }
@@ -123,7 +139,7 @@ export function CorosConnect({
       {connected ? (
         <span className="flex items-center gap-2">
           <button
-            onClick={sync}
+            onClick={() => void sync()}
             disabled={busy}
             className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-[5px] text-[11.5px] font-semibold text-[var(--text)] disabled:opacity-50"
           >
@@ -170,6 +186,46 @@ export function CorosConnect({
         </p>
       )}
       {!connected && <p className="w-full text-[10.5px] text-[var(--text-faint)]">{tr("coros.regionHint")}</p>}
+
+      {/* History the recent window never reaches. Collapsed: it is an
+          occasional action, and the card is already the busiest in the panel. */}
+      {connected && (
+        <details className="w-full">
+          <summary className="cursor-pointer text-[11.5px] font-semibold text-[var(--text-muted)]">
+            {tr("coros.range.title")}
+          </summary>
+          <p className="mt-1.5 text-[10.5px] text-[var(--text-faint)]">{tr("coros.range.hint")}</p>
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-[10.5px] text-[var(--text-faint)]">
+              {tr("coros.range.from")}
+              <input
+                type="date"
+                value={from}
+                max={today || undefined}
+                onChange={(e) => setFrom(e.target.value)}
+                className="rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[12px] text-[var(--text)]"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-[10.5px] text-[var(--text-faint)]">
+              {tr("coros.range.to")}
+              <input
+                type="date"
+                value={to}
+                max={today || undefined}
+                onChange={(e) => setTo(e.target.value)}
+                className="rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[12px] text-[var(--text)]"
+              />
+            </label>
+            <button
+              onClick={() => void sync({ from, to })}
+              disabled={busy || !from || !to}
+              className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-[5px] text-[11.5px] font-semibold text-[var(--text)] disabled:opacity-50"
+            >
+              {busy ? tr("device.syncing") : tr("coros.range.go")}
+            </button>
+          </div>
+        </details>
+      )}
     </div>
   );
 }

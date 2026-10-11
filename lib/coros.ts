@@ -508,6 +508,51 @@ export function buildRecordQuery(
   return args;
 }
 
+/** The page size `buildRecordQuery` put in the arguments, or null when the
+ * schema has no page-size argument. A result that fills it may be cut short. */
+export function pageSizeOf(args: Record<string, unknown>): number | null {
+  for (const [name, v] of Object.entries(args)) {
+    if (typeof v === "number" && isLimitName(tokensOf(name))) return v;
+  }
+  return null;
+}
+
+// ── An athlete-chosen window (the "import a period" button) ─────────────────
+
+/** Widest window one request may ask for. Three months keeps a single call
+ * inside any per-query range COROS may enforce and inside a function's time
+ * budget; older history is just several imports. */
+export const MAX_IMPORT_DAYS = 92;
+/** How far back a window may start. */
+export const MAX_LOOKBACK_YEARS = 5;
+
+export type ImportRangeResult =
+  | { ok: true; from: string; to: string }
+  | { ok: false; reason: "format" | "order" | "future" | "span" | "too_old" };
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+/** A real calendar day, not just something shaped like one (2026-02-31). */
+function parseDay(v: unknown): number | null {
+  if (typeof v !== "string" || !DAY_RE.test(v)) return null;
+  const ms = Date.parse(`${v}T00:00:00Z`);
+  return Number.isNaN(ms) || new Date(ms).toISOString().slice(0, 10) !== v ? null : ms;
+}
+
+export function parseImportRange(from: unknown, to: unknown, now = new Date()): ImportRangeResult {
+  const a = parseDay(from);
+  const b = parseDay(to);
+  if (a === null || b === null) return { ok: false, reason: "format" };
+  if (a > b) return { ok: false, reason: "order" };
+  // One day of slack: an athlete east of UTC can legitimately be "today" a few
+  // hours before the server's date turns over.
+  if (b > Date.parse(`${isoDay(now)}T00:00:00Z`) + 86_400_000) return { ok: false, reason: "future" };
+  if ((b - a) / 86_400_000 + 1 > MAX_IMPORT_DAYS) return { ok: false, reason: "span" };
+  const oldest = new Date(now);
+  oldest.setUTCFullYear(oldest.getUTCFullYear() - MAX_LOOKBACK_YEARS);
+  if (a < Date.parse(`${isoDay(oldest)}T00:00:00Z`)) return { ok: false, reason: "too_old" };
+  return { ok: true, from: from as string, to: to as string };
+}
+
 // ── Reading the records ─────────────────────────────────────────────────────
 
 type Rec = Record<string, unknown>;
