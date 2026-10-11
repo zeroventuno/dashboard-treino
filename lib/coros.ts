@@ -702,7 +702,18 @@ export interface ImportedCorosWorkout {
 
 export type SkipReason = "no_id" | "no_date" | "other_sport" | "no_duration";
 
-export function mapRecord(rec: Rec): { item: ImportedCorosWorkout } | { skip: SkipReason } {
+/** The sport of a record as COROS labelled it — a numeric code, or a short
+ * name — for saying WHICH sports were left out. A code or a sport name, never
+ * a value about the athlete. */
+function sportLabelOf(rec: Rec): number | string | null {
+  const ix = indexOf(rec);
+  const v = pick(ix, ["sporttype", "sport", "sportcode", "mode", "activitytype", "type", "sportname"]);
+  const n = num(v);
+  if (n !== null) return n;
+  return typeof v === "string" && v.trim() ? v.trim().slice(0, 24) : null;
+}
+
+export function mapRecord(rec: Rec): { item: ImportedCorosWorkout } | { skip: SkipReason; sport?: number | string | null } {
   const ix = indexOf(rec);
 
   const id = pick(ix, ["labelid", "activityid", "id", "workoutid", "sportid", "recordid"]);
@@ -712,7 +723,7 @@ export function mapRecord(rec: Rec): { item: ImportedCorosWorkout } | { skip: Sk
   if (!date) return { skip: "no_date" };
 
   const discipline = disciplineOf(rec);
-  if (!discipline) return { skip: "other_sport" };
+  if (!discipline) return { skip: "other_sport", sport: sportLabelOf(rec) };
 
   const secs = seconds(pick(ix, ["workouttime", "movingtime", "totaltime", "duration", "timertime", "elapsedtime"]));
   if (secs === null || secs <= 0) return { skip: "no_duration" };
@@ -738,6 +749,9 @@ export function mapRecord(rec: Rec): { item: ImportedCorosWorkout } | { skip: Sk
 export interface MappedBatch {
   items: ImportedCorosWorkout[];
   skipped: Record<SkipReason, number>;
+  /** Distinct sport codes/names among the records left out as "other sport",
+   * so "nothing imported" can say what was there instead. At most 8. */
+  otherSports: (number | string)[];
   /** KEYS of the first record — never values — so a mismatch is debuggable
    * from the dashboard without putting an athlete's data in a log. */
   sampleKeys: string[];
@@ -746,10 +760,16 @@ export interface MappedBatch {
 export function mapRecords(records: Rec[]): MappedBatch {
   const skipped: Record<SkipReason, number> = { no_id: 0, no_date: 0, other_sport: 0, no_duration: 0 };
   const items: ImportedCorosWorkout[] = [];
+  const otherSports: (number | string)[] = [];
   for (const r of records) {
     const m = mapRecord(r);
     if ("item" in m) items.push(m.item);
-    else skipped[m.skip]++;
+    else {
+      skipped[m.skip]++;
+      if (m.skip === "other_sport" && m.sport != null && !otherSports.includes(m.sport) && otherSports.length < 8) {
+        otherSports.push(m.sport);
+      }
+    }
   }
-  return { items, skipped, sampleKeys: records[0] ? Object.keys(records[0]).slice(0, 30) : [] };
+  return { items, skipped, otherSports, sampleKeys: records[0] ? Object.keys(records[0]).slice(0, 30) : [] };
 }

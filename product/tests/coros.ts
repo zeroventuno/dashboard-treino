@@ -267,6 +267,21 @@ ck("esporte: nome textual", disciplineOf({ sportName: "Open Water Swim" }) === "
   ]);
   ck("lote: 1 importado, 1 outro esporte, 1 sem id", b.items.length === 1 && b.skipped.other_sport === 1 && b.skipped.no_id === 1);
   ck("lote: sampleKeys são CHAVES, nunca valores", b.sampleKeys.join() === "id,sportType,startTime,workoutTime");
+  ck("lote: diz QUAL esporte ficou de fora", b.otherSports.join() === "104", b.otherSports.join());
+}
+{
+  // "Nothing imported" has to be able to say what was there instead.
+  const hike = (n: number) => ({ id: n, sportType: 104, startTime: EPOCH_2026_10_10_1030Z, workoutTime: 600 });
+  const b = mapRecords([
+    hike(1), hike(2), hike(3),                                                          // same code three times
+    { id: 4, sportType: 105, startTime: EPOCH_2026_10_10_1030Z, workoutTime: 600 },
+    { id: 5, sportName: "Yoga", startTime: EPOCH_2026_10_10_1030Z, workoutTime: 600 },
+  ]);
+  ck("lote: esportes de fora sem repetição, códigos e nomes", b.otherSports.join() === "104,105,Yoga", b.otherSports.join());
+  ck("lote: tudo de outro esporte → nada importado, e isso é distinguível", b.items.length === 0 && b.skipped.other_sport === 5);
+  const many = mapRecords(Array.from({ length: 20 }, (_, i) => ({ id: i, sportType: 500 + i, startTime: EPOCH_2026_10_10_1030Z, workoutTime: 600 })));
+  ck("lote: no máximo 8 esportes citados", many.otherSports.length === 8, String(many.otherSports.length));
+  ck("lote: lista vazia quando tudo foi importado", mapRecords([{ id: 1, sportType: 100, startTime: EPOCH_2026_10_10_1030Z, workoutTime: 600 }]).otherSports.length === 0);
 }
 ck("dayRange: janela fechada em dias", (() => { const r = dayRange(45, new Date("2026-10-11T12:00:00Z")); return r.from === "2026-08-27" && r.to === "2026-10-11"; })());
 

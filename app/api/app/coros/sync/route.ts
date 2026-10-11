@@ -99,6 +99,9 @@ export async function POST(req: Request) {
       ok: true,
       fetched: records.length,
       skipped: mapped.skipped,
+      // Which sports were there instead, when nothing was importable: codes or
+      // short names, never a value about the athlete.
+      otherSports: mapped.otherSports,
       window: period,
       // A page that came back exactly full may have been cut short.
       maybeTruncated: pageSize !== null && records.length >= pageSize,

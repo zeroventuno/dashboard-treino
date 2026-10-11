@@ -74,7 +74,21 @@ export function CorosConnect({
         );
       } else {
         const n = (json.matched ?? 0) + (json.created ?? 0) + (json.updated ?? 0);
-        const base = n ? `${n} ${tr("device.done")}` : tr("device.none");
+        const fetched = Number(json.fetched ?? 0);
+        const sports: (number | string)[] = Array.isArray(json.otherSports) ? json.otherSports : [];
+        const win = json.window as { from?: string; to?: string } | undefined;
+        // "Nothing new" used to cover three different situations. They are now
+        // told apart, because only one of them means "COROS has nothing":
+        let base: string;
+        if (n) base = `${n} ${tr("device.done")}`;
+        else if (fetched > 0) {
+          // COROS answered, with activities this product does not import.
+          base = `${tr("coros.result.returned")} ${fetched} ${tr("coros.result.notImportable")}` +
+            (sports.length ? ` (${tr("coros.result.codes")}: ${sports.join(", ")})` : "");
+        } else if (range && win?.from && win?.to) {
+          // An explicit period that came back empty: say which one was asked.
+          base = `${tr("coros.result.emptyIn")} ${win.from} → ${win.to}`;
+        } else base = tr("device.none");
         // A full page may have been cut short: say so rather than let a long
         // period look complete.
         setResult(json.maybeTruncated ? `${base} ${tr("coros.range.full")}` : base);
