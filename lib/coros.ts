@@ -442,6 +442,23 @@ function isNullable(def: McpProp): boolean {
   return variantsOf(def).some(isNullable);
 }
 
+/**
+ * The schema calls it required, its own description calls it optional.
+ *
+ * COROS's records tool lists every filter in `required` (the shape a server
+ * gets when parameters are enumerated without being marked optional) while each
+ * description starts "Optional …". Real clients — Claude and ChatGPT, which
+ * COROS documents as working — leave them out, so omitting is what the server
+ * is built to receive. Nothing is invented: an argument is left out, not filled
+ * with a sentinel that might mean something.
+ */
+function isDescribedOptional(def: McpProp): boolean {
+  // STARTS with "Optional" — which is how COROS words every one of them. A
+  // mention anywhere in the text is not enough: "this is not optional" contains
+  // the word and means the opposite.
+  return /^\s*[[(]?\s*optional\b/i.test(def.description ?? "");
+}
+
 /** An argument described by NAME and schema metadata — never by a value. */
 function describeProp(name: string, def?: McpProp): string {
   if (!def) return name;
@@ -454,14 +471,17 @@ function describeProp(name: string, def?: McpProp): string {
 /**
  * The arguments for the records tool, built ONLY from what its schema names.
  *
- * A required argument this code has no honest value for is sent as `null` when
- * the schema allows null (filters such as a minimum distance are "required"
- * only so a strict client lists them), or as its declared default. Anything
- * else throws a `schema` error describing each argument by name, type and the
- * schema's own words — never by a value — so the first real connection shows
- * exactly what the live schema wanted. A made-up sentinel (0, "", []) is NOT
- * sent: for "max pace" it would silently filter every activity out and read as
- * "no workouts".
+ * A required argument this code has no honest value for is, in order:
+ *   1. sent as its declared default;
+ *   2. sent as `null` when the schema allows null;
+ *   3. left out when its own description says "Optional" (COROS lists every
+ *      filter as required and describes each as optional — see
+ *      isDescribedOptional).
+ * Anything else throws a `schema` error describing each argument by name, type
+ * and the schema's own words — never by a value — so the first real connection
+ * shows exactly what the live schema wanted. A made-up sentinel (0, "", []) is
+ * NOT sent: for "max pace" it would silently filter every activity out and read
+ * as "no workouts".
  */
 export function buildRecordQuery(
   tool: McpTool,
@@ -497,6 +517,7 @@ export function buildRecordQuery(
     const def = props[name];
     if (def?.default !== undefined) args[name] = def.default;
     else if (def && isNullable(def)) args[name] = null;
+    else if (def && isDescribedOptional(def)) continue;
     else missing.push(describeProp(name, def));
   }
   if (missing.length) {

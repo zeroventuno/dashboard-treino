@@ -110,6 +110,58 @@ ck(
   );
 }
 {
+  // The schema COROS actually served (copied from the live error message):
+  // every filter in `required`, non-nullable, and described "Optional …".
+  const live = tool(
+    {
+      startDate: { type: "string", description: "Start date, format yyyyMMdd" },
+      endDate: { type: "string", description: "End date, format yyyyMMdd" },
+      sportTypeCodes: { type: "array", description: "Optional COROS numeric sport type codes. Pass only numbers chosen from" },
+      minDistanceKm: { type: "number", description: "Optional minimum distance in kilometers" },
+      maxDistanceKm: { type: "number", description: "Optional maximum distance in kilometers" },
+      minDurationMinutes: { type: "integer", description: "Optional minimum duration in minutes" },
+      maxDurationMinutes: { type: "integer", description: "Optional maximum duration in minutes" },
+      maxAveragePace: { type: "string", description: "Optional maximum average pace such as 5:30" },
+      locationKeyword: { type: "string", description: "Optional location keyword such as Shenzhen or park name" },
+    },
+    ["startDate", "endDate", "sportTypeCodes", "minDistanceKm", "maxDistanceKm", "minDurationMinutes", "maxDurationMinutes", "maxAveragePace", "locationKeyword"],
+  );
+  const q = buildRecordQuery(live, range);
+  ck(
+    "query: filtros 'required' mas descritos como Optional são OMITIDOS (não zerados)",
+    // A string-typed yyyyMMdd stays a string.
+    Object.keys(q).sort().join(",") === "endDate,startDate" && q.startDate === "20260901" && q.endDate === "20261011",
+    JSON.stringify(q),
+  );
+}
+{
+  // Omission is only for what the schema itself calls optional.
+  let msg = "";
+  try {
+    buildRecordQuery(
+      tool({
+        startDate: { type: "string" },
+        minDistanceKm: { type: "number", description: "Optional minimum distance in kilometers" },
+        userRegionCode: { type: "string", description: "Region of the account" },
+      }, ["startDate", "minDistanceKm", "userRegionCode"]),
+      range,
+    );
+  } catch (e) { msg = (e as Error).message; }
+  ck(
+    "query: só o NÃO-opcional continua sendo erro (e só ele é citado)",
+    msg.includes("userRegionCode") && !msg.includes("minDistanceKm"),
+    msg,
+  );
+}
+{
+  // `optionally` / "not optional" must not read as permission to omit.
+  let msg = "";
+  try {
+    buildRecordQuery(tool({ zone: { type: "string", description: "Required zone; this is not optional" } }, ["zone"]), range);
+  } catch (e) { msg = (e as Error).message; }
+  ck("query: 'not optional' no texto NÃO autoriza omitir", msg.includes("zone"), msg);
+}
+{
   // `max…` as a FILTER must never be filled with a page size.
   const q = buildRecordQuery(tool({ maxAveragePace: { type: "number" }, maxDistanceKm: { type: "number" } }), range);
   ck("query: maxAveragePace/maxDistanceKm não viram limite de página", Object.keys(q).length === 0, JSON.stringify(q));
