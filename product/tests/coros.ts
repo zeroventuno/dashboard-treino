@@ -88,6 +88,52 @@ ck(
   try { buildRecordQuery(tool({ zzz: { type: "string" } }, ["zzz"]), range); } catch (e) { msg = (e as Error).message; }
   ck("query: o erro cita o NOME do argumento, não valores", msg.includes("zzz") && msg.includes("querySportRecords"), msg);
 }
+{
+  // The shape COROS actually served: filters listed as required.
+  const q = buildRecordQuery(
+    tool({
+      startDate: { type: "string" },
+      endDate: { type: "string" },
+      sportTypeCodes: { type: ["array", "null"] },
+      minDistanceKm: { type: ["number", "null"] },
+      minDurationMinutes: { anyOf: [{ type: "number" }, { type: "null" }] },
+      maxAveragePace: { anyOf: [{ type: "number" }, { type: "null" }] },
+      locationKeyword: { type: ["string", "null"] },
+    }, ["startDate", "endDate", "sportTypeCodes", "minDistanceKm", "minDurationMinutes", "maxAveragePace", "locationKeyword"]),
+    range,
+  );
+  ck(
+    "query: filtros obrigatórios mas anuláveis vão como null (não como 0/\"\"/[])",
+    q.sportTypeCodes === null && q.minDistanceKm === null && q.minDurationMinutes === null &&
+      q.maxAveragePace === null && q.locationKeyword === null && q.startDate === "2026-09-01",
+    JSON.stringify(q),
+  );
+}
+{
+  // `max…` as a FILTER must never be filled with a page size.
+  const q = buildRecordQuery(tool({ maxAveragePace: { type: "number" }, maxDistanceKm: { type: "number" } }), range);
+  ck("query: maxAveragePace/maxDistanceKm não viram limite de página", Object.keys(q).length === 0, JSON.stringify(q));
+  const r = buildRecordQuery(tool({ maxResults: { type: "integer", maximum: 30 } }), range);
+  ck("query: maxResults continua sendo limite", r.maxResults === 30, JSON.stringify(r));
+}
+{
+  const q = buildRecordQuery(tool({ startDate: { type: "string" }, order: { type: "string", default: "desc" } }, ["order"]), range);
+  ck("query: obrigatório com default envia o default", q.order === "desc", JSON.stringify(q));
+}
+{
+  let msg = "";
+  try {
+    buildRecordQuery(
+      tool({ sportTypeCodes: { type: "array", description: "COROS sport codes, e.g. 100 for run" }, kind: { type: "string", enum: ["a", "b"] } }, ["sportTypeCodes", "kind"]),
+      range,
+    );
+  } catch (e) { msg = (e as Error).message; }
+  ck(
+    "query: obrigatório não-anulável é descrito por nome, tipo e texto do schema",
+    msg.includes("sportTypeCodes (array; COROS sport codes") && msg.includes("kind (string; one of a/b)"),
+    msg,
+  );
+}
 
 // ── findRecords ─────────────────────────────────────────────────────────────
 const rec = { id: 1, a: 1 };

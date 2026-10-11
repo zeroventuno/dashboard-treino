@@ -125,7 +125,10 @@ export async function POST() {
     // Stored, not just logged: a sync that keeps failing has to be visible on
     // the dashboard, or sessions quietly stop arriving and the athlete assumes
     // the feature works.
-    const message = err instanceof Error ? err.message.slice(0, 280) : "unknown";
+    // A schema error carries the live argument list — the whole point of
+    // showing it — so it gets room; everything else stays short.
+    const cap = err instanceof CorosError && err.kind === "schema" ? 700 : 280;
+    const message = err instanceof Error ? err.message.slice(0, cap) : "unknown";
     console.error("[coros] sync failed:", message);
     await markSync(tenantId, "coros", message);
     const reconnect = err instanceof CorosError && err.kind === "unauthorized";

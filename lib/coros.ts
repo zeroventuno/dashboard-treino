@@ -289,11 +289,26 @@ async function rpc(
   return body.result;
 }
 
+/** One argument of a tool, as JSON Schema spells it. `anyOf`/`oneOf`/`nullable`
+ * are here because "optional" is often written as "required, but may be null"
+ * — the shape strict-mode clients (ChatGPT apps) force on a server. */
+export interface McpProp {
+  type?: string | string[];
+  description?: string;
+  format?: string;
+  maximum?: number;
+  default?: unknown;
+  enum?: unknown[];
+  nullable?: boolean;
+  anyOf?: McpProp[];
+  oneOf?: McpProp[];
+}
+
 export interface McpTool {
   name: string;
   description?: string;
   inputSchema?: {
-    properties?: Record<string, { type?: string | string[]; description?: string; format?: string; maximum?: number; default?: unknown }>;
+    properties?: Record<string, McpProp>;
     required?: string[];
   };
 }
@@ -364,7 +379,17 @@ const tokensOf = (name: string): string[] =>
 const FROM_WORDS = new Set(["start", "from", "begin", "since", "after"]);
 const TO_WORDS = new Set(["end", "to", "until", "before"]);
 const DATEISH = new Set(["date", "day", "time", "timestamp", "at", "datetime"]);
-const LIMIT_WORDS = new Set(["limit", "size", "count", "top", "max", "pagesize"]);
+const LIMIT_WORDS = new Set(["limit", "size", "count", "top", "pagesize"]);
+const LIMIT_NOUNS = new Set(["results", "items", "records", "rows", "activities", "workouts", "per", "page"]);
+
+/** A page-size argument. "max" alone is NOT enough: `maxAveragePace` and
+ * `maxDistanceKm` are filters, and filling them with a page size would exclude
+ * every activity and read as "no workouts" — so "max" only counts when what
+ * follows is a count noun (maxResults, maxItems). */
+function isLimitName(tokens: string[]): boolean {
+  if (tokens.some((w) => LIMIT_WORDS.has(w))) return true;
+  return tokens[0] === "max" && tokens.length > 1 && tokens.slice(1).every((w) => LIMIT_NOUNS.has(w));
+}
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -396,12 +421,47 @@ function formatBound(
   return iso;
 }
 
+const variantsOf = (def: McpProp): McpProp[] => [...(def.anyOf ?? []), ...(def.oneOf ?? [])];
+
+/** The first non-null JSON type, looking through `anyOf`/`oneOf`. */
+function typeOf(def: McpProp): string | undefined {
+  const own = (Array.isArray(def.type) ? def.type : def.type ? [def.type] : []).find((t) => t !== "null");
+  if (own) return own;
+  for (const v of variantsOf(def)) {
+    const t = typeOf(v);
+    if (t) return t;
+  }
+  return undefined;
+}
+
+/** Whether `null` is an accepted value — the way a "required" argument that is
+ * semantically a filter says "no filter". */
+function isNullable(def: McpProp): boolean {
+  if (def.nullable === true || def.type === "null") return true;
+  if (Array.isArray(def.type) && def.type.includes("null")) return true;
+  return variantsOf(def).some(isNullable);
+}
+
+/** An argument described by NAME and schema metadata — never by a value. */
+function describeProp(name: string, def?: McpProp): string {
+  if (!def) return name;
+  const bits = [`${typeOf(def) ?? "?"}${isNullable(def) ? "|null" : ""}`];
+  if (def.enum?.length) bits.push(`one of ${def.enum.slice(0, 6).map(String).join("/")}`);
+  if (def.description) bits.push(def.description.replace(/\s+/g, " ").trim().slice(0, 70));
+  return `${name} (${bits.join("; ")})`;
+}
+
 /**
  * The arguments for the records tool, built ONLY from what its schema names.
  *
- * Throws a `schema` error — listing property NAMES — when a required argument
- * is one this code has no honest way to fill. That message is the diagnostic:
- * it tells whoever connects first exactly what the real schema wanted.
+ * A required argument this code has no honest value for is sent as `null` when
+ * the schema allows null (filters such as a minimum distance are "required"
+ * only so a strict client lists them), or as its declared default. Anything
+ * else throws a `schema` error describing each argument by name, type and the
+ * schema's own words — never by a value — so the first real connection shows
+ * exactly what the live schema wanted. A made-up sentinel (0, "", []) is NOT
+ * sent: for "max pace" it would silently filter every activity out and read as
+ * "no workouts".
  */
 export function buildRecordQuery(
   tool: McpTool,
@@ -413,24 +473,35 @@ export function buildRecordQuery(
 
   for (const [name, def] of Object.entries(props)) {
     const t = tokensOf(name);
-    const type = Array.isArray(def.type) ? def.type[0] : def.type;
+    const type = typeOf(def);
     const dateish = t.some((w) => DATEISH.has(w)) || t.length === 1;
     const isFrom = t.some((w) => FROM_WORDS.has(w));
     const isTo = t.some((w) => TO_WORDS.has(w));
 
-    if (dateish && isFrom && !isTo) args[name] = formatBound(range.from, "from", def);
-    else if (dateish && isTo && !isFrom) args[name] = formatBound(range.to, "to", def);
-    else if ((type === "integer" || type === "number") && t.some((w) => LIMIT_WORDS.has(w))) {
+    const bound = { ...def, type };
+
+    if (dateish && isFrom && !isTo) args[name] = formatBound(range.from, "from", bound);
+    else if (dateish && isTo && !isFrom) args[name] = formatBound(range.to, "to", bound);
+    else if ((type === "integer" || type === "number") && isLimitName(t)) {
       args[name] = Math.min(def.maximum ?? 100, 100);
     } else if ((type === "integer" || type === "number") && t.includes("page") && required.has(name)) {
       args[name] = def.default ?? 1;
     }
   }
 
-  const missing = [...required].filter((n) => !(n in args) && props[n]?.default === undefined);
+  // Required but not ours to set: a declared default, else null when the schema
+  // allows it. Otherwise it is named, with what the schema says about it.
+  const missing: string[] = [];
+  for (const name of required) {
+    if (name in args) continue;
+    const def = props[name];
+    if (def?.default !== undefined) args[name] = def.default;
+    else if (def && isNullable(def)) args[name] = null;
+    else missing.push(describeProp(name, def));
+  }
   if (missing.length) {
     throw new CorosError(
-      `${tool.name} requires argument(s) this app can't fill: ${missing.join(", ")}`,
+      `${tool.name} requires argument(s) this app can't fill: ${missing.join("; ")}`,
       "schema",
     );
   }
