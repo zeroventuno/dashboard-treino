@@ -1599,6 +1599,64 @@ export async function markSync(tenantId: string, provider: string, error: string
   );
 }
 
+/** The agency an athlete belongs to, or null for a self-serve (B2C) account.
+ * Some device integrations are only cleared for an athlete's OWN eyes, and
+ * "does a coach see this?" is exactly what this answers. */
+export async function getTenantAgencyId(tenantId: string): Promise<string | null> {
+  if (!hasProductDb()) return null;
+  const { rows } = await getPool().query<{ agency_id: string | null }>(
+    "select agency_id from app.tenants where id = $1",
+    [tenantId],
+  );
+  return rows[0]?.agency_id ?? null;
+}
+
+// ── Provider-specific link facts (add-device-link-meta.sql) ─────────────────
+//
+// Deliberately NOT folded into getDeviceLink/saveDeviceLink: those are on the
+// path of every dashboard render for anyone with Strava connected, and a
+// `select meta` against a database that hasn't run the migration yet would take
+// the whole /app page down. These are reached only from the COROS paths, and
+// they ask first.
+
+let metaColumnKnown = false;
+
+/** Has add-device-link-meta.sql been run? Cached once true. */
+export async function deviceLinkMetaReady(): Promise<boolean> {
+  if (!hasProductDb()) return false;
+  if (metaColumnKnown) return true;
+  const { rows } = await getPool().query(
+    `select 1 from information_schema.columns
+      where table_schema = 'app' and table_name = 'device_links' and column_name = 'meta'`,
+  );
+  metaColumnKnown = rows.length > 0;
+  return metaColumnKnown;
+}
+
+export async function getDeviceLinkMeta(
+  tenantId: string,
+  provider: string,
+): Promise<Record<string, unknown> | null> {
+  if (!(await deviceLinkMetaReady())) return null;
+  const { rows } = await getPool().query<{ meta: Record<string, unknown> | null }>(
+    "select meta from app.device_links where tenant_id = $1 and provider = $2",
+    [tenantId, provider],
+  );
+  return rows[0]?.meta ?? null;
+}
+
+export async function saveDeviceLinkMeta(
+  tenantId: string,
+  provider: string,
+  meta: Record<string, unknown>,
+): Promise<void> {
+  if (!hasProductDb()) return;
+  await getPool().query(
+    "update app.device_links set meta = $3::jsonb where tenant_id = $1 and provider = $2",
+    [tenantId, provider, JSON.stringify(meta)],
+  );
+}
+
 /**
  * Write imported sessions into the athlete's calendar.
  *

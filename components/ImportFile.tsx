@@ -17,7 +17,7 @@ export function ImportFile({ locale, notice }: { locale: Locale; notice?: string
   const noticeKey = notice ? NOTICE[notice] : undefined;
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border border-[var(--border-soft)] bg-[var(--surface)] px-3.5 py-2.5">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border border-[var(--border-soft)] bg-[var(--surface)] px-3.5 py-2.5">
       <span className="shrink-0 text-[12.5px] font-semibold text-[var(--text)]">{tr("import.title")}</span>
       <span className="min-w-0 flex-1 text-[11.5px] text-[var(--text-faint)]">{tr("import.hint")}</span>
 

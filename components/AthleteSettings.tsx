@@ -34,13 +34,28 @@ export function AthleteSettings({
   preferences,
   locale,
   editable,
+  integrations,
+  defaultOpen = false,
+  attention = false,
 }: {
   preferences: Availability;
   locale: Locale;
   editable: boolean;
+  /** Where data comes IN from — watch connectors and the file upload. They sat
+   * on top of the dashboard until it got crowded; the athlete sets these up
+   * once and then they mostly stay out of the way, which is what a gear is for.
+   * Passed as nodes so the server page can resolve their status. */
+  integrations?: React.ReactNode;
+  /** Open on arrival. A connector's round trip (COROS, Strava, a file import)
+   * lands back on the dashboard with its result in the URL — and that result
+   * now lives in here, so the panel has to be open for it to be seen. */
+  defaultOpen?: boolean;
+  /** A connected source has been failing. Without a signal outside the panel
+   * a broken sync is just sessions quietly not arriving. */
+  attention?: boolean;
 }) {
   const tr = translator(locale);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [done, setDone] = useState(() => isConfigured(preferences));
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -93,6 +108,14 @@ export function AthleteSettings({
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--bad)]" />
           </span>
         )}
+        {/* Quieter than the first-run badge on purpose: nothing is unanswered,
+            something that was working has stopped. */}
+        {!badge && attention && (
+          <span
+            className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[var(--warn)]"
+            title={tr("settings.devicesAttention")}
+          />
+        )}
       </button>
 
       {open && mounted &&
@@ -129,6 +152,16 @@ export function AthleteSettings({
                   variant="bare"
                 />
               </div>
+
+              {editable && integrations && (
+                <section className="border-t border-[var(--border)] px-5 py-4">
+                  <h3 className="text-[13px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+                    {tr("settings.devices")}
+                  </h3>
+                  <p className="mt-0.5 text-[12px] text-[var(--text-faint)]">{tr("settings.devicesSub")}</p>
+                  <div className="mt-3 flex flex-col gap-3">{integrations}</div>
+                </section>
+              )}
 
               {/* Seus dados: exportar e apagar. Fica dentro das configurações
                   do próprio atleta porque é dele que se trata — e só para quem

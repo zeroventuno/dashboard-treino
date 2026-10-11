@@ -100,7 +100,7 @@ export function DeviceConnect({
 
   return (
     <div
-      className={`mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 ${
+      className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${
         quiet ? "px-1 py-0.5" : "rounded-[14px] border bg-[var(--surface)] px-3.5 py-2.5"
       }`}
       style={

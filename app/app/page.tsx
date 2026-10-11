@@ -26,8 +26,12 @@ import { coachBriefing, BRIEFING_VERSION } from "@/lib/coach-briefing";
 import { CONNECTOR_VERSION } from "@/lib/connector";
 import { DashboardBlocks } from "@/components/DashboardBlocks";
 import { DeviceConnect } from "@/components/DeviceConnect";
+import { CorosConnect } from "@/components/CorosConnect";
 import { ImportFile } from "@/components/ImportFile";
-import { hasProductDb, getDeviceLink } from "@/lib/product-db";
+import {
+  hasProductDb, getDeviceLink, getDeviceLinkMeta, getTenantAgencyId, deviceLinkMetaReady,
+} from "@/lib/product-db";
+import { isCorosRegion } from "@/lib/coros";
 import { hasStrava, NEW_CONNECTIONS_PAUSED } from "@/lib/strava";
 import { APP_COOKIE } from "@/app/api/app-login/route";
 import { toISO } from "@/lib/utils";
@@ -51,9 +55,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ProductDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ key?: string; device?: string; import?: string }>;
+  searchParams: Promise<{ key?: string; device?: string; import?: string; coros?: string }>;
 }) {
-  const { key, device, import: importNotice } = await searchParams;
+  const { key, device, import: importNotice, coros: corosNotice } = await searchParams;
 
   // Magic link from the onboarding message: log in, then land on a clean /app
   // so the key never sticks around in the address bar or browser history.
@@ -126,6 +130,59 @@ export default async function ProductDashboardPage({
   const link = live && hasStrava() && tenantId ? await getDeviceLink(tenantId, "strava") : null;
   const showDevice = live && hasStrava();
 
+  // COROS. Three states, because "no button" would leave an athlete wondering:
+  //   agency      — a coach reads this calendar; COROS's terms address each
+  //                 user's OWN data, not a coach panel, so it stays off until
+  //                 COROS answers that in writing;
+  //   unavailable — add-device-link-meta.sql hasn't been run on this database;
+  //   ready       — go.
+  // Wrapped: a failure here must never take the dashboard down with it.
+  let corosMode: "ready" | "agency" | "unavailable" = "unavailable";
+  let corosLink: Awaited<ReturnType<typeof getDeviceLink>> = null;
+  let corosRegion: "eu" | "us" | null = null;
+  if (live && tenantId) {
+    try {
+      if (await getTenantAgencyId(tenantId)) {
+        corosMode = "agency";
+      } else if (await deviceLinkMetaReady()) {
+        corosMode = "ready";
+        corosLink = await getDeviceLink(tenantId, "coros");
+        const r = corosLink ? (await getDeviceLinkMeta(tenantId, "coros"))?.region : null;
+        corosRegion = isCorosRegion(r) ? r : null;
+      }
+    } catch (e) {
+      console.error("[coros] status unavailable:", e instanceof Error ? e.message : e);
+    }
+  }
+
+  // Where data comes in lives behind the gear, not on top of the dashboard.
+  const integrations = live ? (
+    <>
+      {showDevice && (
+        <DeviceConnect
+          connected={!!link}
+          lastSyncAt={link?.last_sync_at ?? null}
+          lastError={link?.last_error ?? null}
+          locale={locale}
+          notice={device}
+          connectPaused={NEW_CONNECTIONS_PAUSED}
+        />
+      )}
+      <CorosConnect
+        mode={corosMode}
+        connected={!!corosLink}
+        region={corosRegion}
+        lastSyncAt={corosLink?.last_sync_at ?? null}
+        lastError={corosLink?.last_error ?? null}
+        locale={locale}
+        notice={corosNotice}
+      />
+      {/* Works regardless of any partner config — a plain file upload has none
+          to be missing. */}
+      <ImportFile locale={locale} notice={importNotice} />
+    </>
+  ) : null;
+
   return (
     <div data-readiness={readiness} className="mx-auto w-full max-w-[1180px] px-4 pb-16 sm:px-6">
       <nav className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between gap-3 border-b border-[var(--border-soft)] bg-[rgba(38,43,52,0.82)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
@@ -136,7 +193,16 @@ export default async function ProductDashboardPage({
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? "var(--good)" : "var(--warn)" }} />
             {live ? tr("common.live") : tenantId ? tr("app.noData") : tr("common.sampleData")}
           </span>
-          <AthleteSettings preferences={tenant.preferences ?? {}} locale={locale} editable={live} />
+          <AthleteSettings
+            preferences={tenant.preferences ?? {}}
+            locale={locale}
+            editable={live}
+            integrations={integrations}
+            // The redirect from a connector / an import carries its result in
+            // the URL, and the result is shown inside the panel.
+            defaultOpen={Boolean(device || importNotice || corosNotice)}
+            attention={Boolean(link?.last_error || corosLink?.last_error)}
+          />
           <AppNotifications briefing={coachBriefing(locale)} briefingVersion={BRIEFING_VERSION} connectorVersion={CONNECTOR_VERSION} locale={locale} />
           <LogoutButton locale={locale} />
         </div>
@@ -166,21 +232,6 @@ export default async function ProductDashboardPage({
           )}
         </div>
       )}
-
-      {showDevice && (
-        <DeviceConnect
-          connected={!!link}
-          lastSyncAt={link?.last_sync_at ?? null}
-          lastError={link?.last_error ?? null}
-          locale={locale}
-          notice={device}
-          connectPaused={NEW_CONNECTIONS_PAUSED}
-        />
-      )}
-
-      {/* Works regardless of Strava/device config — a plain file upload has
-          no partner to be missing. */}
-      {live && <ImportFile locale={locale} notice={importNotice} />}
 
       {/* The athlete owns this dashboard → they can drag a session to another day.
           `live` guards the sample-data fallback, where a write has nowhere to go. */}

@@ -389,7 +389,7 @@ export interface ImportedFitWorkout {
  * for the same fields, kept as its own copy rather than a shared import: the
  * two sources have nothing else in common, and reaching into strava.ts for
  * five lines of formatting would tie a file upload to a module about OAuth. */
-function paceFrom(distanceM: number, seconds: number, discipline: Discipline): string | null {
+export function paceFrom(distanceM: number, seconds: number, discipline: Discipline): string | null {
   if (!(distanceM > 0) || !(seconds > 0)) return null;
   const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
   if (discipline === "swim") return `${mmss((seconds / distanceM) * 100)}/100m`;
