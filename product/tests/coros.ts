@@ -3,7 +3,7 @@
 // Rode com:  npx tsx product/tests/coros.ts
 import {
   CorosError, CorosSession, authorizeUrl, buildRecordQuery, challengeOf, dayRange, describePayload, disciplineOf,
-  declaredRecordCount, exchangeCode, findRecords, localDateOf, mapRecord, mapRecords, newPkce, pageSizeOf,
+  declaredRecordCount, durationText, exchangeCode, findRecords, shapeOf, localDateOf, mapRecord, mapRecords, newPkce, pageSizeOf,
   parseImportRange, parseRpcBody, parseSportRecordsText, refreshTokens, registerClient, toolPayload, type McpTool,
 } from "../../lib/coros";
 
@@ -124,6 +124,18 @@ ck("payload: texto não-JSON vira string", toolPayload({ content: [{ type: "text
   ck("lista: duração h:mm:ss e distância em km",
     batch.items[2].actual_duration_min === 62.3 && batch.items[2].actual_distance_km === 6.21, JSON.stringify(batch.items[2]));
   ck("lista: musculação sem distância fica sem distância", batch.items[1].actual_distance_km === null);
+}
+{
+  // Several fields on one line, and the duration formats a list may use.
+  const text = "1. Outdoor Run — 2024-06-20\n   Duration: 36:12 | Distance: 6.21 km | labelId: 99\n   Time Window: startTimestamp=1718911717 | endTimestamp=1718913889";
+  const r = parseSportRecordsText(text)[0];
+  ck("lista: campos separados por | na mesma linha", r?.duration === "36:12" && r?.distanceKm === 6.21 && r?.labelId === "99" && r?.endTimestamp === 1718913889, JSON.stringify(r));
+  const d = (s: string) => durationText(s);
+  ck("duração: 36:12 / 1:02:15 / 00:36:12.4", d("36:12") === 2172 && d("1:02:15") === 3735 && d("00:36:12.4") === 2172);
+  ck("duração: 1h 2m 15s / 36 min 12 s / 36m12s / 45min", d("1h 2m 15s") === 3735 && d("36 min 12 s") === 2172 && d("36m12s") === 2172 && d("45min") === 2700);
+  ck("duração: primeiro relógio vence; número puro = segundos", d("36:12 (moving 35:40)") === 2172 && d("2172") === 2172);
+  ck("duração: texto sem tempo → null", d("n/a") === null);
+  ck("shape: dígitos mascarados", shapeOf("1h 02m") === "9h 99m");
 }
 {
   ck("lista: texto sem registros → vazio, sem quebrar", parseSportRecordsText("No records found.").length === 0);

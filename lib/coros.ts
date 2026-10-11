@@ -702,7 +702,9 @@ export function parseSportRecordsText(text: string): Rec[] {
     }
     if (!current) continue;
 
-    const kv = LABELLED_LINE.exec(line);
+    // One line may carry several fields: "Duration: 36:12 | Distance: 6.2 km".
+    for (const segment of line.split(/\s+\|\s+/)) {
+    const kv = LABELLED_LINE.exec(segment);
     if (!kv) continue;
     const key = kv[1].toLowerCase().replace(/[^a-z0-9]/g, "");
     const value = kv[2];
@@ -734,6 +736,7 @@ export function parseSportRecordsText(text: string): Rec[] {
       if (Number.isFinite(n)) current[key === "starttimestamp" ? "startTimestamp" : "endTimestamp"] = n;
     }
     // Everything else (pace, heart rate, sets…) is read by nothing yet.
+    }
   }
 
   // Without a labelId the start instant is the identity: stable for a given
@@ -785,12 +788,38 @@ const num = (v: unknown): number | null => {
 };
 
 function seconds(v: unknown): number | null {
-  if (typeof v === "string") {
-    const m = v.trim().match(/^(\d+):(\d{2})(?::(\d{2}))?$/);
-    if (m) return m[3] !== undefined ? +m[1] * 3600 + +m[2] * 60 + +m[3] : +m[1] * 60 + +m[2];
-  }
+  if (typeof v === "string") return durationText(v);
   return num(v);
 }
+
+/**
+ * A duration as COROS's text list writes it. Seen: "36:12". Also read:
+ * "1:02:15", "00:36:12.4", "36:12 (moving 35:40)" (first clock wins),
+ * "1h 2m 15s", "36 min 12 s", "36m12s", a bare "2172" (seconds).
+ */
+export function durationText(raw: string): number | null {
+  const s = raw.trim();
+  const clock = /(\d+):(\d{2})(?::(\d{2}))?(?:[.,]\d+)?/.exec(s);
+  if (clock) {
+    return clock[3] !== undefined
+      ? +clock[1] * 3600 + +clock[2] * 60 + +clock[3]
+      : +clock[1] * 60 + +clock[2];
+  }
+  // (?![a-z]) rather than \b: in "36m12s" a digit follows the unit.
+  const h = /(\d+(?:[.,]\d+)?)\s*(?:hours?|hrs|hr|h)(?![a-z])/i.exec(s);
+  const m = /(\d+(?:[.,]\d+)?)\s*(?:minutes?|mins|min|m)(?![a-z])/i.exec(s);
+  const sec = /(\d+(?:[.,]\d+)?)\s*(?:seconds?|secs|sec|s)(?![a-z])/i.exec(s);
+  if (h || m || sec) {
+    const n = (x: RegExpExecArray | null) => (x ? Number(x[1].replace(",", ".")) : 0);
+    const total = Math.round(n(h) * 3600 + n(m) * 60 + n(sec));
+    return total > 0 ? total : null;
+  }
+  return /^\d+(?:\.\d+)?$/.test(s) ? Number(s) : null;
+}
+
+/** The SHAPE of a value — every digit a 9 — so an unreadable format can be
+ * shown without showing the athlete's numbers. */
+export const shapeOf = (v: unknown): string => String(v).replace(/\d/g, "9").slice(0, 24);
 
 /** The athlete's local calendar day, or null. Local fields win; an epoch plus
  * a time-zone offset is the fallback; a bare epoch is read as UTC. */
@@ -918,6 +947,8 @@ export interface MappedBatch {
   /** Distinct sport codes/names among the records left out as "other sport",
    * so "nothing imported" can say what was there instead. At most 8. */
   otherSports: (number | string)[];
+  /** Digit-masked formats of durations this code could not read. */
+  durationShapes: string[];
   /** KEYS of the first record — never values — so a mismatch is debuggable
    * from the dashboard without putting an athlete's data in a log. */
   sampleKeys: string[];
@@ -937,5 +968,15 @@ export function mapRecords(records: Rec[]): MappedBatch {
       }
     }
   }
-  return { items, skipped, otherSports, sampleKeys: records[0] ? Object.keys(records[0]).slice(0, 30) : [] };
+  // Formats (digits masked) of durations that could not be read.
+  const durationShapes = [
+    ...new Set(
+      records
+        .filter((r) => "skip" in mapRecord(r) && (mapRecord(r) as { skip: SkipReason }).skip === "no_duration")
+        .map((r) => r.duration ?? r.workoutTime ?? r.totalTime)
+        .filter((v) => v !== undefined)
+        .map(shapeOf),
+    ),
+  ].slice(0, 4);
+  return { items, skipped, otherSports, durationShapes, sampleKeys: records[0] ? Object.keys(records[0]).slice(0, 30) : [] };
 }

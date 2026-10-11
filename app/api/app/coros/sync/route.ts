@@ -88,7 +88,8 @@ export async function POST(req: Request) {
       throw new CorosError(
         `COROS returned ${records.length} record(s) this app could not read ` +
           `(no id: ${mapped.skipped.no_id}, no date: ${mapped.skipped.no_date}, no duration: ${mapped.skipped.no_duration}); ` +
-          `fields: ${mapped.sampleKeys.join(", ")}`,
+          `fields: ${mapped.sampleKeys.join(", ")}` +
+          (mapped.durationShapes.length ? `; duration format: ${mapped.durationShapes.map((s) => `"${s}"`).join(", ")}` : ""),
         "schema",
       );
     }
