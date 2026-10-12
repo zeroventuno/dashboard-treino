@@ -1765,6 +1765,17 @@ export async function deleteDeviceLink(tenantId: string, provider: string): Prom
   await getPool().query("delete from app.device_links where tenant_id = $1 and provider = $2", [tenantId, provider]);
 }
 
+/** A call that worked clears the stored failure, whether or not it counts as
+ * "a sync" (an import of a chosen period doesn't move last_sync_at). Leaving
+ * it would keep the settings gear flagged after the problem was gone. */
+export async function clearSyncError(tenantId: string, provider: string): Promise<void> {
+  if (!hasProductDb()) return;
+  await getPool().query(
+    "update app.device_links set last_error = null where tenant_id = $1 and provider = $2 and last_error is not null",
+    [tenantId, provider],
+  );
+}
+
 export async function markSync(tenantId: string, provider: string, error: string | null): Promise<void> {
   if (!hasProductDb()) return;
   await getPool().query(

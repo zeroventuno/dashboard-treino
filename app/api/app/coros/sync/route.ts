@@ -15,7 +15,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { resolveTenantId } from "@/lib/data-product";
-import { importWorkouts, markSync } from "@/lib/product-db";
+import { clearSyncError, importWorkouts, markSync } from "@/lib/product-db";
 import { APP_COOKIE } from "@/app/api/app-login/route";
 import {
   CorosError, buildRecordQuery, dayRange, declaredRecordCount, describePayload, findRecords, mapRecords, pageSizeOf,
@@ -101,6 +101,9 @@ export async function POST(req: Request) {
     // Nor is a reply nobody understood a sync: stamping it would skip the
     // first-connect reach-back for a connection that has read nothing yet.
     if (!range && seen.understood) await markSync(tenantId, "coros", null);
+    // The call worked: whatever failed before is no longer the state of this
+    // connection — even when this reply doesn't count as a sync.
+    else await clearSyncError(tenantId, "coros");
 
     return NextResponse.json({
       ok: true,
